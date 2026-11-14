@@ -20,6 +20,7 @@
     <nav class="modes" aria-label="Choose what to listen to">
       <button type="button" class="mode-btn" data-mode="track" aria-pressed="true">Play</button>
       <button type="button" class="mode-btn" data-mode="song" aria-pressed="false">My Earth song</button>
+      <button type="button" class="mode-btn" data-mode="ask" aria-pressed="false">Ask the Earth</button>
       <button type="button" class="mode-btn" data-mode="image" aria-pressed="false">Use any NASA map</button>
     </nav>
   </header>
@@ -104,6 +105,13 @@
       <section id="songBox" class="song" hidden aria-labelledby="songTitle">
         <h3 id="songTitle">My Earth song</h3>
         <p>Pick years and places that mean something to you. Each one becomes part of a song.</p>
+        <div class="story">
+          <label for="storyText"><strong>Tell your story</strong>, in any language</label>
+          <textarea id="storyText" rows="3" placeholder="My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching in 2006."></textarea>
+          <div class="row"><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
+          <p class="small" id="storyNote">AI reads your story and finds the years and places. The music itself comes only from NASA data.</p>
+        </div>
+        <p class="small">Or set the moments yourself:</p>
         <ol class="howto">
           <li>Change the <strong>year</strong> and <strong>place</strong> in each box (or keep our example).</li>
           <li>Press <strong>Play my Earth song</strong>.</li>
@@ -122,6 +130,26 @@
         </details>
       </section>
       <datalist id="placeList"></datalist>
+
+      <section id="askBox" class="ask" hidden aria-labelledby="askTitle">
+        <h3 id="askTitle">Ask the Earth</h3>
+        <p class="small">Ask in your own words, in any language. Earth Jukebox finds the NASA data and plays the answer.</p>
+        <form id="askForm" class="ask-form">
+          <label for="askText" class="sr-only">Your question</label>
+          <input id="askText" type="text" autocomplete="off" placeholder="Is Sibu warmer now than in 1960?">
+          <button type="button" id="micBtn" class="ghost" aria-label="Ask by speaking" hidden>Speak</button>
+          <button type="submit" class="primary">Ask</button>
+        </form>
+        <div class="ask-examples" id="askExamples">
+          <button type="button" class="chip">Is Sibu warmer now than in 1960?</button>
+          <button type="button" class="chip">Compare the Arctic and Sibu in 2025</button>
+          <button type="button" class="chip">Has Kuching got hotter since 1900?</button>
+          <button type="button" class="chip">Does Sibu get a lot of lightning?</button>
+          <button type="button" class="chip">How warm is the sea near Borneo?</button>
+        </div>
+        <div id="askAnswer" class="ask-answer" aria-live="polite"></div>
+        <p class="small" id="askAiNote">AI only reads your question. Every number comes from NASA data.</p>
+      </section>
 
       <section id="guide" class="guide" aria-labelledby="guideTitle">
         <p id="guideStep" class="guide-step">Step 1 of 3</p>

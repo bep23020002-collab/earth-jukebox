@@ -1,0 +1,8 @@
+# AI-assisted (Anthropic Claude). Cloudflare Worker that keeps the Anthropic API key off the public website.
+name = "earth-jukebox-ai"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ALLOWED_ORIGINS = "https://bep23020002-collab.github.io,http://localhost:5173"

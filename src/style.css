@@ -135,6 +135,20 @@ kbd { font: inherit; font-size: .78em; border: 1px solid var(--line); border-bot
 .more h3 { font-size: .95rem; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
 .howto { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
 
+/* AI: story and questions */
+.story { display: grid; gap: 8px; }
+.story textarea, .ask-form input { width: 100%; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; }
+.ask { display: grid; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.ask h3 { font-size: 1.25rem; }
+.ask-form { display: flex; gap: 8px; }
+.ask-form input { flex: 1; min-width: 0; }
+.ask-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: .9rem; text-align: left; }
+.chip:hover { border-color: var(--muted); }
+.ask-answer { font-size: 1.1rem; font-weight: 600; min-height: 1.5em; }
+.ask-answer.err { color: var(--warm); font-weight: 400; font-size: 1rem; }
+#micBtn[aria-pressed="true"] { border-color: var(--warm); color: var(--warm); }
+
 /* my Earth song */
 .song { display: grid; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .song h3 { font-size: 1.25rem; }

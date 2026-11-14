@@ -9,6 +9,7 @@ import { ImageSource, describeSpot } from './image-source.js';
 import { Globe } from './globe.js';
 import { composeSong, scheduleSong, BPM, BEATS_PER_MOMENT } from './song.js';
 import { KINDS } from './tracks.js';
+import { aiReady, aiSong, aiAsk, storyWithoutAI } from './ai.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
@@ -451,15 +452,16 @@ function setMode(mode) {
   stopSong();
   state.mode = mode;
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
-  const img = isImage(), song = mode === 'song';
-  $('#byo').hidden = !img; $('#songBox').hidden = !song;
+  const img = isImage(), song = mode === 'song', ask = mode === 'ask', other = song || ask;
+  $('#byo').hidden = !img; $('#songBox').hidden = !song; $('#askBox').hidden = !ask;
   $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img;
-  $('.timeline').hidden = img || song || !guide.done || state.track.years.length < 2;
-  $('#trackPicker').hidden = img || song;
-  $('#guide').hidden = img || song; $('#moreBox').hidden = img || song;
-  if (!img && !song) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
-  $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : song ? 'My Earth song' : state.track.title;
-  $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : song ? 'Years and places that matter to you, played as music' : state.track.subtitle;
+  $('.timeline').hidden = img || other || !guide.done || state.track.years.length < 2;
+  $('#trackPicker').hidden = img || other;
+  $('#guide').hidden = img || other; $('#moreBox').hidden = img || other;
+  if (!img && !other) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
+  if (ask) $('#nowBox').hidden = !state.asked;
+  $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : song ? 'My Earth song' : ask ? 'Ask the Earth' : state.track.title;
+  $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : song ? 'Years and places that matter to you, played as music' : ask ? 'Your question, answered with NASA data and played as sound' : state.track.subtitle;
   $('#trackEic').textContent = img || song ? '' : `From NASA's Earth Information Center: ${state.track.eic || 'EIC content'}`;
   if (song) renderMoments();
   $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
@@ -469,7 +471,8 @@ function setMode(mode) {
   if (!img) globe.request();
   draw(); drawLegend();
   if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
-  else { updateReadout({ play: false }); $('#desc').textContent = song || guide.done ? describe() : ''; }
+  else { updateReadout({ play: false }); $('#desc').textContent = ask ? '' : song || guide.done ? describe() : ''; }
+  if (ask) setTimeout(() => $('#askText').focus(), 50);
 }
 function clearReadout() { ['#rPlace', '#rValue', '#rDetail'].forEach(s => { $(s).textContent = '—'; }); $('#desc').textContent = ''; }
 function updateSteps() {
@@ -507,6 +510,112 @@ function makeItSing() {
   $('#desc').textContent = describe();
   $('#map').focus();
   draw(); speak(msg).then(() => sweep());
+}
+
+// ---------- AI: a story becomes an Earth song ----------
+async function storyToSong() {
+  const text = $('#storyText').value.trim();
+  if (!text) { $('#storyNote').textContent = 'Write a sentence or two first.'; return; }
+  const btn = $('#storyBtn'); btn.disabled = true; $('#storyNote').textContent = 'Reading your story…';
+  let moments = [], note = '', usedAI = false;
+  try {
+    if (aiReady()) {
+      const r = await aiSong(text); usedAI = true; note = r.note || '';
+      moments = (r.moments || []).filter(m => Number.isFinite(m.lat) && Number.isFinite(m.lon) && Math.abs(m.lat) <= 90 && Math.abs(m.lon) <= 180)
+        .map(m => ({ year: Math.min(2025, Math.max(1880, Math.round(m.year))), name: String(m.place).slice(0, 40), lat: m.lat, lon: m.lon, label: String(m.label || '').slice(0, 60) }))
+        .slice(0, 6);
+    } else moments = storyWithoutAI(text);
+  } catch (e) { moments = storyWithoutAI(text); note = `${e.message} I read your story without AI instead.`; }
+  btn.disabled = false;
+  if (!moments.length) { $('#storyNote').textContent = note || 'I could not find a year and a place. Try: "I was born in Sibu in 2006."'; return; }
+  state.moments = moments; state.picking = null; renderMoments();
+  $('#storyNote').textContent = `${usedAI ? 'AI found' : 'Found'} ${moments.length} moment${moments.length > 1 ? 's' : ''}. Check them below. ${note}`.trim();
+  if (state.songPlaying) stopSong();
+  playSong();
+}
+
+// ---------- AI: Ask the Earth ----------
+// The AI only turns the question into a plan (which data, places, years). Earth Jukebox looks up
+// the values in NASA's data, plays them, and writes the answer from those values.
+const nearestYear = (T, y) => T.years.reduce((best, v) => (Math.abs(v - y) < Math.abs(best - y) ? v : best), T.years[0]);
+function askTrack(id) {
+  if (!state.tracks[id] || state.track.id === id) return;
+  useTrack(id); preloadAll(); drawLegend();
+  $('#trackEic').textContent = `From NASA's Earth Information Center: ${state.track.eic || 'EIC content'}`;
+}
+async function playAt(p, yi) {
+  state.yi = yi; state.lat = p.lat; state.lon = p.lon;
+  globe.centerOn(p.lat, p.lon, 450); draw(); await sleep(500);
+  const v = boxMean(yi, p.lat, p.lon, 3) ?? trackValue(yi, p.lat, p.lon);
+  if (v == null) sound.noData(); else playValue(tOf(v));
+  globe.ripple(p.lat, p.lon); showValue(v, p.name);
+  return v;
+}
+async function askEarth(question) {
+  const q = question.trim(); if (!q || state.asking) return;
+  const out = $('#askAnswer'); out.classList.remove('err');
+  const fail = msg => { out.classList.add('err'); out.textContent = msg; announce(msg); };
+  if (!aiReady()) { fail('Ask the Earth needs the AI helper, which is not switched on yet. Try Play or My Earth song.'); return; }
+  state.asking = true; out.textContent = 'Reading your question…';
+  let plan;
+  try { plan = await aiAsk(q); } catch (e) { state.asking = false; fail(e.message); return; }
+  await sound.start();
+  try {
+    if (plan.kind === 'unsupported' || !state.tracks[plan.track]) {
+      out.textContent = plan.reason || 'I can answer questions about temperature since 1880, ocean temperature, and lightning seen from space.';
+      speak(out.textContent); return;
+    }
+    const places = (plan.places || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180)
+      .slice(0, 2).map(p => ({ name: String(p.name).slice(0, 40), lat: p.lat, lon: p.lon }));
+    if (!places.length) { fail('Which place do you mean? Try naming a town, a country or an ocean.'); return; }
+    askTrack(plan.track); state.asked = true; $('#nowBox').hidden = false;
+    const T = state.track, k = kind(), last = T.years[T.years.length - 1];
+    const notes = [], years = [];
+    for (const y of plan.years || []) {
+      const c = nearestYear(T, y); years.push(c);
+      if (c !== y) notes.push(`NASA's ${k.label.toLowerCase()} data covers ${T.years[0]}${T.years.length > 1 ? `–${last}` : ''}, so I used ${c} instead of ${y}.`);
+    }
+    const words = v => (v == null ? 'no data' : `${k.words(v).toLowerCase()} (${T.kind === 'lightning' ? `seen in ${Math.round(v * 100)}% of 10-day periods` : fmt(v)})`);
+    const yi = y => yearIndexOf(y, T);
+    let text;
+    if (plan.kind === 'trend' && T.years.length > 1) {
+      state.lat = places[0].lat; state.lon = places[0].lon; globe.centerOn(places[0].lat, places[0].lon); draw();
+      out.textContent = `Playing ${places[0].name} from ${T.years[0]} to ${last}…`;
+      await playHistory();
+      text = $('#desc').textContent;
+    } else if (plan.kind === 'compare_years' && new Set(years).size >= 2) {
+      const y1 = Math.min(...years), y2 = Math.max(...years);
+      const a = await playAt(places[0], yi(y1)); await sleep(900);
+      const b = await playAt(places[0], yi(y2));
+      text = `${places[0].name}: ${y1} was ${words(a)}; ${y2} was ${words(b)}.`
+        + (a != null && b != null && T.kind === 'temperature' ? ` That is about ${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'}.` : '');
+    } else if (plan.kind === 'compare_places' && places.length >= 2) {
+      const y = years[years.length - 1] ?? last;
+      const a = await playAt(places[0], yi(y)); await sleep(900);
+      const b = await playAt(places[1], yi(y));
+      text = `${T.years.length > 1 ? `In ${y}, ` : ''}${places[0].name} was ${words(a)} and ${places[1].name} was ${words(b)}.`;
+    } else {
+      const y = years[years.length - 1] ?? last;
+      const a = await playAt(places[0], yi(y));
+      text = `${places[0].name}${T.years.length > 1 ? ` in ${y}` : ''}: ${words(a)}.`;
+    }
+    if (T.kind === 'temperature' && plan.kind !== 'trend') text += ' "Normal" means the 1951–1980 average.';
+    if (notes.length) text += ' ' + notes.join(' ');
+    out.textContent = text; $('#desc').textContent = ''; speak(text);
+  } finally { state.asking = false; }
+}
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+  const b = $('#micBtn'); b.hidden = false; let rec = null;
+  b.addEventListener('click', () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+    b.setAttribute('aria-pressed', 'true'); b.textContent = 'Listening…';
+    rec.onresult = e => { const t = e.results[0][0].transcript; $('#askText').value = t; askEarth(t); };
+    rec.onend = () => { rec = null; b.setAttribute('aria-pressed', 'false'); b.textContent = 'Speak'; };
+    rec.onerror = () => {};
+    rec.start();
+  });
 }
 
 // ---------- input ----------
@@ -794,6 +903,10 @@ async function init() {
   $('#moments').addEventListener('click', onMomentsClick);
   $('#addMoment').addEventListener('click', () => { state.moments.push({ year: 2025, name: '', label: '' }); renderMoments(); $('#moments li:last-child .m-place').focus(); });
   $('#playSong').addEventListener('click', playSong);
+  $('#storyBtn').addEventListener('click', () => { sound.start(); storyToSong(); });
+  $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
+  $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
+  setupMic();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));
