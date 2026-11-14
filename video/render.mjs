@@ -4,7 +4,7 @@
 // Usage: node render.mjs [out.mp4]   |   node render.mjs --samples [seconds…]   (writes PNG frames to out/)
 // Options: --ssb out/ssb.json   put the SSB Sibu tester clip where the family-story section is (see SSB below)
 //          --wm quiet|pill      AI-assistance watermark style (default quiet)
-//          --look night|concrete|orange   colours around the device (default night, with twinkling stars)
+//          --look concreteplus|concrete|studio|night|orange   colours around the device (default concreteplus: the website's light look, orange big numbers)
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -28,10 +28,12 @@ const K = {
 // stage look: the colours around the device and of the full-screen scenes (the device and NASA's maps never change)
 const LOOKS = {
   concrete: { bg: '#D3CFC7', fill: '#E4E1DC', ink: '#191919', dim: '#5C5C5C', num: '#191919', plate: '#EFEDE8', line: '#C6C1B8', line2: '#B3AEA4', led: '#E96A26' },
-  night: { bg: '#0B0B0D', fill: '#0B0B0D', ink: '#F4F1EB', dim: '#A6A39C', num: '#FF7A2F', plate: '#1A1A18', line: '#2C2B28', line2: '#4A4843', led: '#FF6B1A', stars: true },
+  night: { bg: '#0B0B0D', fill: '#0B0B0D', ink: '#F4F1EB', dim: '#A6A39C', num: '#FF7A2F', plate: '#1A1A18', line: '#2C2B28', line2: '#4A4843', led: '#FF6B1A', stars: true, wmDark: true },
+  studio: { bg: '#121110', fill: '#121110', grad: ['#3A3833', '#0C0B0A'], ink: '#F4F1EB', dim: '#A6A39C', num: '#FF7A2F', plate: '#1E1D1B', line: '#34322E', line2: '#55524C', led: '#FF6B1A', shadow: true, wmDark: true },
+  concreteplus: { bg: '#C9C4BB', fill: '#E4E1DC', ink: '#191919', dim: '#5C5C5C', num: '#E2601C', plate: '#EFEDE8', line: '#C6C1B8', line2: '#B3AEA4', led: '#E96A26', shadow: true },
   orange: { bg: '#E96A26', fill: '#E96A26', ink: '#141414', dim: '#3F1C08', num: '#FFFFFF', plate: '#F8F7F3', line: '#C9561C', line2: '#A9470F', led: '#141414' },
 };
-const ST = LOOKS[argOf('--look') || 'night'] || LOOKS.night;
+const ST = LOOKS[argOf('--look') || 'concreteplus'] || LOOKS.concreteplus;
 
 // ---------- NASA data ----------
 const loadTrack = id => { const t = JSON.parse(fs.readFileSync(A + id + '/track.json')); t.cube = fs.readFileSync(A + id + '/cube.bin'); return t; };
@@ -120,6 +122,12 @@ function text(s, x, y, size, color = K.ink, { weight = 400, align = 'left', font
 const measure = (s, size, weight = 400, font = SANS) => { g.save(); g.font = `${weight} ${size}px ${font}`; const w = g.measureText(s).width; g.restore(); return w; };
 function led(x, y, r = 7, color = K.orange) { g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
 function grille(x, y, w, h, step = 13, r = 2.6, color = K.line2) { g.fillStyle = color; for (let yy = y + step / 2; yy < y + h; yy += step) for (let xx = x + step / 2; xx < x + w; xx += step) { g.beginPath(); g.arc(xx, yy, r, 0, Math.PI * 2); g.fill(); } }
+// the stage: flat colour, or a soft studio light behind the device (like a product photo)
+function fillStage(scene = false) {
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  if (ST.grad) { const gr = g.createRadialGradient(W / 2, H * 0.56, 60, W / 2, H * 0.56, W * 0.72); gr.addColorStop(0, ST.grad[0]); gr.addColorStop(1, ST.grad[1]); g.fillStyle = gr; } else g.fillStyle = scene ? ST.fill : ST.bg;
+  g.fillRect(0, 0, W, H); g.restore();
+}
 // twinkling stars for the night look (decorative, drawn in screen space so the device moves in front of a still sky)
 const STARS = (() => { let q = 11; const r = () => (q = (q * 16807) % 2147483647) / 2147483647; return Array.from({ length: 440 }, (_, i) => ({ x: r() * W, y: r() * H, rad: i < 22 ? 1.6 + r() * 0.9 : 0.55 + r() ** 3 * 1.5, a: i < 22 ? 0.9 : 0.22 + r() * 0.55, ph: r() * 6.283, sp: 0.5 + r() * 1.6, big: i < 22 })); })();
 function stars(t, alpha) {
@@ -511,7 +519,7 @@ function impactOverlay(t) {
 }
 function validityScene(t, a) {
   g.save(); g.globalAlpha = a;
-  g.fillStyle = ST.fill; g.fillRect(0, 0, W, H); stars(t, a);
+  fillStage(true); stars(t, a);
   const f = t0 => out3((t - t0) / 0.35);
   led(122, 150, 9, ST.led); text('Checked against NASA’s own numbers', 144, 150, 30, ST.dim, { font: MONO });
   const V = T_VALID;
@@ -546,7 +554,7 @@ const clipImg = { i: -1, img: null };
 async function clipFrame(i) { if (clipImg.i !== i) { clipImg.img = await loadImage(path.join(SSB.dir, `${String(i + 1).padStart(4, '0')}.jpg`)); clipImg.i = i; } return clipImg.img; }
 async function clipScene(t, a) {
   g.save(); g.globalAlpha = a;
-  g.fillStyle = ST.bg; g.fillRect(0, 0, W, H); stars(t, a);
+  fillStage(); stars(t, a);
   headlineText(SSB.headline || 'Tested by blind and low-vision adults in Sibu.', 1);
   const img = await clipFrame(Math.max(0, Math.min(SSB.frames - 1, Math.floor((t - T_CLIP) * FPS))));
   const ar = img.width / img.height, MX = 110, MY = 178, MW = 1180, MH = 800;
@@ -581,7 +589,7 @@ async function clipScene(t, a) {
 const FUTURE = 'Next: every NASA Earth map, for everyone who can’t see it.';
 function endScene(t, a) {
   g.save(); g.globalAlpha = a;
-  g.fillStyle = ST.fill; g.fillRect(0, 0, W, H); stars(t, a);
+  fillStage(true); stars(t, a);
   const w = measure('Earth Jukebox', 150, 500);
   led(W / 2 - w / 2 - 40, 300, 16, ST.led); text('Earth Jukebox', W / 2 + 10, 300, 150, ST.ink, { weight: 500, align: 'center' });
   text('Hear our changing planet.', W / 2, 415, 56, ST.dim, { align: 'center' });
@@ -598,15 +606,16 @@ function endScene(t, a) {
 async function drawFrame(t) {
   g.setTransform(1, 0, 0, 1, 0, 0);
   const inHook = t < 3.0;
-  g.fillStyle = inHook ? K.screen : ST.bg; g.fillRect(0, 0, W, H);
+  if (inHook) { g.fillStyle = K.screen; g.fillRect(0, 0, W, H); } else fillStage();
   if (!inHook && t < 3.8) { g.save(); g.globalAlpha = 1 - ease((t - 3.0) / 0.8); g.fillStyle = K.screen; g.fillRect(0, 0, W, H); g.restore(); }
   if (!inHook) stars(t, 1);
   const devA = 1 - ease((t - (DEV_END - 0.05)) / 0.35);
   if (devA > 0) {
     cam = camAt(t); applyCam();
+    if (ST.shadow) { g.save(); g.globalAlpha = devA * (1 - ease((3.0 - t) / 0.3)); g.shadowColor = ST.wmDark ? 'rgba(0,0,0,0.7)' : 'rgba(40,30,20,0.35)'; g.shadowBlur = 90 * cam.s; g.shadowOffsetY = 36 * cam.s; rrect(30, 20, 1860, 1040, 40); g.fillStyle = K.body; g.fill(); g.restore(); }
     g.save(); g.globalAlpha = devA; await drawDevice(t); g.restore();
     g.setTransform(1, 0, 0, 1, 0, 0);
-    if (t > 5.9 && t < DEV_END + 0.3) { g.save(); g.globalAlpha = devA * ease((t - 5.9) / 0.4); g.fillStyle = ST.bg; g.fillRect(0, 0, W, 142); rrect(0, 0, W, 142, 0); g.clip(); stars(t, 1); g.restore(); headline(t); }
+    if (t > 5.9 && t < DEV_END + 0.3) { g.save(); g.globalAlpha = devA * ease((t - 5.9) / 0.4); rrect(0, 0, W, 142, 0); g.clip(); fillStage(); stars(t, 1); g.restore(); headline(t); }
   }
   hookOverlay(t); impactOverlay(t);
   if (SSB) { const ca = ease((t - (T_CLIP - 0.05)) / 0.35) * (1 - ease((t - (T_VALID - 0.05)) / 0.35)); if (ca > 0) await clipScene(t, ca); }
@@ -616,7 +625,7 @@ async function drawFrame(t) {
   if (ea > 0) endScene(t, ea);
   // watermarks: AI-assistance notice (Space Apps rule: visible watermark on SI-generated images and video)
   if (WM === 'quiet') { // smaller, one corner only, still readable on dark and light frames
-    const s = 'Made with AI assistance', w = measure(s, 18, 500) + 22; box(24, H - 42, w, 28, 6, 'rgba(228,225,220,0.82)'); text(s, 35, H - 28, 18, '#333333', { weight: 500 });
+    const s = 'Made with AI assistance', w = measure(s, 18, 500) + 22, dk = ST.wmDark; box(24, H - 42, w, 28, 6, dk ? 'rgba(18,18,17,0.72)' : 'rgba(228,225,220,0.82)', dk ? 'rgba(230,227,221,0.3)' : null, 1.5); text(s, 35, H - 28, 18, dk ? '#D9D6CF' : '#333333', { weight: 500 });
   } else {
     const wm = (s, x, align) => { const w = measure(s, 22, 500) + 28, x0 = align === 'right' ? x - w : x; box(x0, H - 46, w, 36, 8, 'rgba(228,225,220,0.88)'); text(s, x0 + 14, H - 28, 22, K.ink, { weight: 500 }); };
     wm('Made with AI assistance', 30, 'left'); wm('Earth Jukebox', W - 30, 'right');
