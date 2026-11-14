@@ -404,25 +404,31 @@ async function playHistory() {
   const place = placeName(state.lat, state.lon), years = state.track.years;
   await speak(`${place}, ${years[0]} to ${years[years.length - 1]}.`);
   score.line(`${shortPlace(place)}, every year`, years.length, String(years[0]), String(years[years.length - 1]));
+  const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
   for (let i = 0; i < years.length && state.playing; i++) {
     state.yi = i; draw();
     const v = boxMean(i, state.lat, state.lon, 6);
-    if (v == null) sound.noData(); else sound.note(tOf(v), { dur: 0.16, gain: 0.45 });
+    if (v == null) sound.noData();
+    else if (inst === 'drum') sound.drum(tOf(v)); // each track keeps its own instrument: more lightning, more drum hits
+    else if (inst === 'harp') sound.harp(tOf(v));
+    else sound.note(tOf(v), { dur: short ? 0.4 : 0.16, gain: 0.45 });
     score.put(i, stepOf(v));
-    if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); announce(String(years[i])); }
+    if (short) announce(`${years[i]}. ${feeling(v)}.`);
+    else if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); announce(String(years[i])); }
     showValue(v);
-    await sleep(140);
+    await sleep(short ? 650 : 140);
   }
   const finished = state.playing;
   state.playing = false; setPlayingUI(false);
   if (!finished) return;
   const avg = (a, b) => { let s = 0, n = 0; for (let i = a; i <= b; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
-  const L = years.length, first = avg(0, 9), last = avg(L - 10, L - 1);
+  // compare the start with the end: the first and last 10 years of a long series, the first and last year of a short one
+  const L = years.length, n = short ? 1 : 10, first = avg(0, n - 1), last = avg(L - n, L - 1);
   const msg = first != null && last != null
     ? (state.track.kind === 'temperature'
       ? `Near ${place}: the 1880s were ${feeling(first).toLowerCase()}. Today it is ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
-      : `Near ${place}: ${feeling(first).toLowerCase()} at the start, ${feeling(last).toLowerCase()} at the end.`)
-    : `NASA has no measurements near ${place} in the early years, so we can't compare then and now. Try another place.`;
+      : `Near ${place}: ${feeling(first).toLowerCase()} in ${years[0]}, ${feeling(last).toLowerCase()} in ${years[L - 1]}.`)
+    : `NASA has no measurements near ${place} ${short ? 'in these years' : 'in the early years'}, so we can't compare then and now. Try another place.`;
   $('#desc').textContent = msg; speak(msg);
   if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
