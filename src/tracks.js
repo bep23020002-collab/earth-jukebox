@@ -23,6 +23,15 @@ export const KINDS = {
     noData: 'Land, or no ocean data here',
     noDataWord: 'Land',
   },
+  combo: {
+    label: 'All three',
+    instrument: 'combo',             // marimba (temperature) + harp (nearest sea) + drums (lightning), all at once
+    hint: 'Each place plays three sounds at once: how warm it was (marimba), how warm the nearest sea is (harp), and how often lightning strikes there (drums).',
+    legend: ['Colder than normal', 'Normal', 'Hotter than normal'],
+    words: v => KINDS.temperature.words(v),
+    detail: (v, f) => `${f} compared with normal`,
+    noData: 'NASA has no temperature measurement here',
+  },
   lightning: {
     label: 'Lightning',
     instrument: 'drum',              // more lightning, more drum hits

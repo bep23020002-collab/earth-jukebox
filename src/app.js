@@ -60,7 +60,8 @@ function decode(code, T = state.track) {
 }
 // The year bar moves month by month. state.month: null = the whole year (NASA's yearly map, as published),
 // 1-12 = that month (temperature: NASA GISTEMP monthly numbers; lightning: NASA's 10-day frames dated in that month).
-const hasMonths = (T = state.track) => !!T && (T.id === 'temperature' || T.id === 'lightning');
+const dataId = (T = state.track) => T?.dataId || T?.id; // "All three" reads the temperature data
+const hasMonths = (T = state.track) => !!T && (dataId(T) === 'temperature' || dataId(T) === 'lightning');
 const monthOn = (T = state.track) => state.mode === 'track' && state.month != null && hasMonths(T);
 let lightningByCell = null, lightningMeta = null;
 async function loadLightningMonths() {
@@ -69,18 +70,19 @@ async function loadLightningMonths() {
 }
 async function ensureMonthData(T = state.track) { // load what the current month needs (one year file, or the lightning months)
   if (!monthOn(T)) return;
-  if (T.id === 'temperature') { await loadMeta(); await loadYear(T.years[state.yi]); } else await loadLightningMonths();
+  if (dataId(T) === 'temperature') { await loadMeta(); await loadYear(T.years[state.yi]); }
+  if (dataId(T) === 'lightning' || T.kind === 'combo') await loadLightningMonths();
 }
 function monthCovered(yi = state.yi, T = state.track) { // does NASA's data cover this month of this year?
   if (!monthOn(T)) return true;
   const y = T.years[yi];
-  if (T.id === 'temperature') return hasMonth(y, state.month);
+  if (dataId(T) === 'temperature') return hasMonth(y, state.month);
   return !!lightningMeta && (lightningMeta.months[y] || []).includes(state.month);
 }
 function cellValue(yi, idx, T = state.track) {
   if (monthOn(T)) {
     const y = T.years[yi];
-    if (T.id === 'temperature') return yearLoaded(y) ? monthCell(y, state.month, idx) : null;
+    if (dataId(T) === 'temperature') return yearLoaded(y) ? monthCell(y, state.month, idx) : null;
     if (!lightningByCell) return null;
     const N = lightningMeta.monthsPerCell, k = (y - lightningMeta.firstYear) * 12 + (state.month - lightningMeta.firstMonth);
     if (k < 0 || k >= N) return null;
@@ -132,7 +134,7 @@ const tOf = v => { const s = scale(); return (v - s.min) / (s.max - s.min); };
 const stepOf = v => (v == null ? null : noteIndex(tOf(v)));
 const shortPlace = name => String(name || '').replace(/^near (the )?/, '').split(',')[0];
 function scoreAxis() {
-  const k = isImage() ? null : state.mode === 'song' ? 'temperature' : state.track?.kind;
+  const k = isImage() ? null : state.mode === 'song' || state.track?.kind === 'combo' ? 'temperature' : state.track?.kind;
   return k === 'temperature' ? { high: 'hotter', mid: 'normal', low: 'colder' } : k === 'ocean' ? { high: 'warm', low: 'cold' }
     : k === 'lightning' ? { high: 'more', low: 'less' } : { high: 'high', low: 'low' };
 }
@@ -185,7 +187,8 @@ function describe() {
   if (state.track.kind === 'lightning') return `In ${when()}${kind().partYears?.[year()] ? ` (${kind().partYears[year()]})` : ''}, NASA saw the most lightning in ${top.name}. Near ${near}: ${feeling(here).toLowerCase()}.`;
   const overall = st.mean < -0.3 ? 'most of the world was colder than normal' : st.mean < 0.3 ? 'the world as a whole was about normal'
     : st.mean < 1 ? 'most of the world was warmer than normal' : 'most of the world was much warmer than normal';
-  return `In ${when()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.`;
+  const extra = state.track.kind === 'combo' ? ` ${comboDetail(here, { lat: state.lat, lon: state.lon }).split(' · ').slice(1).map(x => x[0].toUpperCase() + x.slice(1)).join('. ')}.` : '';
+  return `In ${when()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.${extra}`;
 }
 
 // ---------- speech ----------
@@ -216,7 +219,7 @@ function frameImage(yi, T = state.track) {
   const y = T.years[yi], key = `${T.id}/${y}`;
   if (!state.images.has(key)) {
     const img = new Image(); img.decoding = 'async';
-    img.src = `assets/${T.id}/frames/${y}.jpg`;
+    img.src = `assets/${T.frameDir || T.id}/frames/${y}.jpg`;
     img.onload = () => { if (!isImage() && `${state.track.id}/${year()}` === key) draw(); };
     state.images.set(key, img);
   }
@@ -269,10 +272,10 @@ let coastMask = null, monthCanvas = null;
 function monthTexture(img) {
   const T = state.track;
   if (!img.complete || !img.naturalWidth) return null;
-  if (T.id === 'temperature' ? !yearLoaded(year()) : !lightningByCell) return null;
+  if (dataId(T) === 'temperature' ? !yearLoaded(year()) : !lightningByCell) return null;
   monthCanvas ||= Object.assign(document.createElement('canvas'), { width: 720, height: 360 });
   const g = monthCanvas.getContext('2d', { willReadFrequently: true });
-  if (T.kind === 'temperature') {
+  if (dataId(T) === 'temperature') {
     if (!coastMask) { g.drawImage(img, 0, 0, 720, 360); const d = g.getImageData(0, 0, 720, 360).data; coastMask = new Uint8Array(720 * 360); for (let i = 0; i < coastMask.length; i++) coastMask[i] = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) < 70 ? 1 : 0; }
     const stops = T.stops, col = v => {
       if (v == null) return [128, 128, 128];
@@ -314,7 +317,7 @@ function updateReadout({ play = true, speakIt = false } = {}) {
   if (isImage() && !src.legend) return null;
   const v = currentValue(), place = currentPlace();
   showValue(v, place);
-  if (play) { if (v == null) sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true }); score.live(stepOf(v), shortPlace(place)); }
+  if (play) { if (v == null && state.track.kind !== 'combo') sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true, at: { lat: state.lat, lon: state.lon }, v }); score.live(stepOf(v), shortPlace(place)); }
   const inWhen = isImage() ? '' : ` in ${when()}`;
   if (speakIt) speak(`${place}${inWhen}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
   return v;
@@ -330,9 +333,15 @@ function toneFor(v) {
   }
   return 'rgb(196,71,31)';
 }
-function showValue(v, place) {
+function comboDetail(v, at) { // "+0.9 °C vs normal · sea 30 °C · lots of lightning"
+  const sea = seaNear(at.lat, at.lon), lt = lightningAt(at.lat, at.lon);
+  return [v == null ? 'no temperature data' : `${fmt(v)} vs normal`, sea == null ? 'no sea nearby' : `sea ${Math.round(sea)} °C`,
+    lt == null ? 'lightning not seen from the ISS' : KINDS.lightning.words(lt).toLowerCase()].join(' · ');
+}
+function showValue(v, place, at = null) {
   $('#nowBox').style.setProperty('--tone', toneFor(v));
   if (place) $('#rPlace').textContent = place;
+  if (!isImage() && state.track?.kind === 'combo') { $('#rValue').textContent = feeling(v); $('#rDetail').textContent = comboDetail(v, at || { lat: state.lat, lon: state.lon }); return; }
   if (v == null && !monthCovered()) { $('#rValue').textContent = 'No data for this month'; $('#rDetail').textContent = `NASA's data does not cover ${when()}`; return; }
   $('#rValue').textContent = feeling(v);
   $('#rDetail').textContent = v == null ? (isImage() ? 'Not a color on the color bar' : kind().noData) : isImage() ? fmt(v) : kind().detail(v, fmt(v));
@@ -348,8 +357,24 @@ function feeling(v, k = isImage() ? null : kind()) {
   return k.words(v);
 }
 // Each track has its own instrument (see tracks.js).
-function playValue(t, { pan = 0, soft = false } = {}) {
+// "All three": the nearest sea (searching wider until there is water) and lightning (that year if the ISS saw it, else its 2017-2023 average)
+function seaNear(lat, lon) { const O = state.tracks.ocean; if (!O) return null; for (const r of [4, 8, 14]) { const v = boxMean(0, lat, lon, r, O); if (v != null) return v; } return null; }
+const seaT = v => { const O = state.tracks.ocean; return (v - O.min) / (O.max - O.min); };
+function lightningAt(lat, lon, y = year()) {
+  const L = state.tracks.lightning; if (!L) return null;
+  const yi = L.years.indexOf(y); if (yi >= 0) return boxMean(yi, lat, lon, 4, L);
+  let sum = 0, n = 0; L.years.forEach((_, i) => { const v = boxMean(i, lat, lon, 4, L); if (v != null) { sum += v; n++; } });
+  return n ? sum / n : null;
+}
+function playCombo(lat, lon, v, { pan = 0, soft = false } = {}) {
+  if (v == null) sound.noData({ pan }); else if (soft) sound.note(tOf(v), { pan }); else sound.tap(tOf(v), { pan });
+  const at = sound.now, sea = seaNear(lat, lon), lt = lightningAt(lat, lon);
+  if (sea != null) sound.harp(seaT(sea), { pan, when: at + 0.12, gain: 0.4 });
+  if (lt != null) sound.drum(lt, { pan, when: at + 0.24, gain: 0.5 });
+}
+function playValue(t, { pan = 0, soft = false, at = null, v = null } = {}) {
   const inst = isImage() ? 'mallet' : kind().instrument;
+  if (inst === 'combo' && at) { playCombo(at.lat, at.lon, v, { pan, soft }); return; }
   if (inst === 'harp') sound.harp(t, { pan });
   else if (inst === 'drum') sound.drum(t, { pan });
   else if (soft) sound.note(t, { pan }); else sound.tap(t, { pan });
@@ -366,7 +391,7 @@ function tapAt(lat, lon, { record = true } = {}) {
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
-  if (v == null) sound.noData({ pan }); else playValue(tOf(v), { pan });
+  if (v == null && state.track.kind !== 'combo') sound.noData({ pan }); else playValue(tOf(v), { pan, at: { lat, lon }, v });
   const label = shortPlace(placeName(lat, lon));
   if (state.replaying) score.add(stepOf(v), label); else score.live(stepOf(v), label, { tap: true });
   globe.ripple(lat, lon);
@@ -513,7 +538,13 @@ async function monthSeriesAt(id, lat, lon, r = 6) {
   return out;
 }
 async function playMonths(series, place) {
-  const T = state.track, cfg = MONTH_SERIES[T.id], inst = kind().instrument, n = series.length, step = cfg.stepMs / 1000;
+  const T = state.track, cfg = MONTH_SERIES[dataId(T)], inst = kind().instrument, n = series.length, step = cfg.stepMs / 1000;
+  // "All three": the sea on the harp every January, and lightning on the drums for the months the ISS saw (Mar 2017 to Aug 2023)
+  let sea = null, lmap = null;
+  if (inst === 'combo') {
+    sea = seaNear(state.lat, state.lon);
+    try { lmap = new Map((await monthSeriesAt('lightning', state.lat, state.lon, 6)).map(q => [`${q.year}-${q.month}`, q.v])); } catch { lmap = null; }
+  }
   const lab = p => `${MON[p.month - 1]} ${p.year}`;
   const slow = cfg.stepMs > 100; // lightning: slow enough to show each month's own map
   if (slow) await loadLightningMonths();
@@ -527,6 +558,10 @@ async function playMonths(series, place) {
       if (p.v != null) {
         if (inst === 'drum') sound.drum(tOf(p.v), { when }); // more lightning, more drum hits
         else sound.note(tOf(p.v), { when, dur: Math.max(0.07, step * 2), gain: 0.3, layers: false });
+      }
+      if (inst === 'combo') {
+        if (p.month === 1 && sea != null) sound.harp(seaT(sea), { when, gain: 0.22 });
+        const lv = lmap?.get(`${p.year}-${p.month}`); if (lv != null && lv >= 0.15) sound.kick({ when, gain: 0.15 + 0.3 * lv });
       }
       if (p.month === 1 && p.year % 50 === 0) sound.tick({ when });
       scheduled++;
@@ -577,13 +612,18 @@ async function flyISS() {
   $('#nowBox').hidden = false; $('#globeHint').hidden = true;
   await speak(over ? `One orbit with the Space Station, passing over ${place}.` : `The Space Station never flies over ${place}. This orbit passes as close as it can.`);
   score.line('One orbit with the Space Station', pts.length, '−46 min', '+46 min');
-  let best = null;
+  let best = null, bestSea = null, bestLt = null;
   for (let k = 0; k < pts.length && state.playing; k++) {
     const p = pts[k], v = trackValue(state.yi, p.lat, p.lon);
-    if (v != null) { playValue(tOf(v), { pan: 0 }); if (!best || v > best.v) best = { ...p, v }; }
+    if (kd === 'combo') { // all three: also remember the warmest sea and the most lightning under the orbit
+      const o = boxMean(0, p.lat, p.lon, 2, state.tracks.ocean), l = lightningAt(p.lat, p.lon);
+      if (o != null && (!bestSea || o > bestSea.v)) bestSea = { ...p, v: o };
+      if (l != null && (!bestLt || l > bestLt.v)) bestLt = { ...p, v: l };
+    }
+    if (v != null || kd === 'combo') playValue(tOf(v), { pan: 0, at: p, v }); if (v != null && (!best || v > best.v)) best = { ...p, v };
     globe.setMarker(p.lat, p.lon); globe.centerOn(p.lat, p.lon, ISS.stepMs);
     if (k % 12 === 0) globe.ripple(p.lat, p.lon);
-    showValue(v, placeName(p.lat, p.lon)); score.put(k, stepOf(v));
+    showValue(v, placeName(p.lat, p.lon), p); score.put(k, stepOf(v));
     await sleep(ISS.stepMs);
   }
   const finished = state.playing;
@@ -591,7 +631,8 @@ async function flyISS() {
   globe.setMarker(state.lat, state.lon); globe.centerOn(state.lat, state.lon, 600); draw(); updateReadout({ play: false });
   if (!finished) return;
   const top = best ? `${kd === 'lightning' ? 'The most lightning' : kd === 'ocean' ? 'The warmest water' : 'The warmest place'} under it was ${placeName(best.lat, best.lon)} (${fmt(best.v)}).` : 'NASA has no data along this orbit.';
-  const msg = `That was one orbit of the Space Station: about 93 minutes, played in 15 seconds${over ? `, right over ${place}` : ''}. ${top}`;
+  const more = kd === 'combo' ? [bestSea && `The warmest sea was ${placeName(bestSea.lat, bestSea.lon)} (${Math.round(bestSea.v)} °C).`, bestLt && `The most lightning was ${placeName(bestLt.lat, bestLt.lon)}.`].filter(Boolean).join(' ') : '';
+  const msg = `That was one orbit of the Space Station: about 93 minutes, played in 15 seconds${over ? `, right over ${place}` : ''}. ${top}${more ? ' ' + more : ''}`;
   $('#desc').textContent = msg; speak(msg);
 }
 
@@ -603,8 +644,8 @@ async function playHistory() {
   await speak(`${place}, ${when(0)} to ${when(years.length - 1)}.`);
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
   let series = null;
-  if (MONTH_SERIES[state.track.id] && state.playing) {
-    try { series = (await monthSeriesAt(state.track.id, state.lat, state.lon, 6))?.filter(p => p.year >= years[0] && p.year <= years[years.length - 1]); } catch { series = null; }
+  if (MONTH_SERIES[dataId()] && state.playing) {
+    try { series = (await monthSeriesAt(dataId(), state.lat, state.lon, 6))?.filter(p => p.year >= years[0] && p.year <= years[years.length - 1]); } catch { series = null; }
   }
   if (series?.length && state.playing) await playMonths(series, place);
   else score.line(`${shortPlace(place)}, every year`, years.length, when(0), when(years.length - 1));
@@ -1188,8 +1229,16 @@ async function init() {
   await loadTrack('temperature');
   useTrack('temperature');
   // Other EIC tracks listed in assets/tracks.json are loaded in the background.
-  fetch('assets/tracks.json').then(r => (r.ok ? r.json() : [])).catch(() => []).then(ids => ids.filter(id => id !== 'temperature')
-    .forEach(id => loadTrack(id).then(t => { if (t) $(`[data-track="${id}"]`).hidden = false; })));
+  fetch('assets/tracks.json').then(r => (r.ok ? r.json() : [])).catch(() => []).then(ids => Promise.all(ids.filter(id => id !== 'temperature')
+    .map(id => loadTrack(id).then(t => { if (t) $(`[data-track="${id}"]`).hidden = false; return t; }))))
+    .then(() => { // "All three": the temperature track, played together with the sea and lightning
+      const T = state.tracks.temperature; if (!T || !state.tracks.ocean || !state.tracks.lightning) return;
+      state.tracks.combo = { ...T, id: 'combo', dataId: 'temperature', frameDir: 'temperature', kind: 'combo', title: 'All three together',
+        subtitle: 'Temperature on the marimba, the nearest sea on the harp, lightning on the drums',
+        eic: 'Climate Vital Signs, Sea Surface Currents and Temperature, and ISS Lightning',
+        credit: 'NASA Scientific Visualization Studio: temperature SVS 5603 (GISTEMP v4), sea surface SVS 3912 (ECCO2), lightning SVS 5011 (ISS LIS)' };
+      $('[data-track="combo"]').hidden = false;
+    });
   buildJumps();
   const shared = readSongLink();
   state.moments = shared || DEFAULT_MOMENTS.map(m => ({ ...m }));

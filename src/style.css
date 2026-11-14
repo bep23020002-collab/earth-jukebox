@@ -79,7 +79,7 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .eic:empty { display: none; }
 
 /* track keys: one per NASA visualization */
-.track-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; max-width: 640px; }
+.track-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; max-width: 760px; }
 .track-picker button { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "num img" "name name" "inst inst"; align-items: start; text-align: left;
   min-height: 84px; padding: 10px 12px; border: 0; border-radius: var(--r-key); background: var(--key); cursor: pointer; box-shadow: var(--press);
   transition: background-color .1s linear, transform .08s linear; }
@@ -295,6 +295,7 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   .tagline { display: none; }
   .modes { width: 100%; }
   .mode-btn { flex: 1 1 auto; justify-content: center; padding: 8px 10px; }
+  .track-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .track-picker button { grid-template-columns: 1fr; grid-template-areas: "num" "name" "inst"; min-height: 76px; padding: 9px 10px; }
   .track-picker img { display: none; }
   .track-picker .tt-name { font-size: .92rem; margin-top: 6px; }
