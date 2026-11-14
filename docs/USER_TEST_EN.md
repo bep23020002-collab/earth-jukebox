@@ -84,6 +84,8 @@ If they agreed to the video, this is the first moment to note the time.
 > "On a scale from 1 to 5, how easy was it to use? 1 is very hard, 5 is very easy."
 > "Was anything confusing, or is there anything you would change?"
 > "Would you show this to a friend? Why or why not?"
+> "Before today, how did you usually find out about the weather or climate change? Have you ever explored a map like this on your own?"
+> "What would you most like to hear next with this?"
 > "Could you describe this website in one sentence?"
 
 If they agreed to the video:
