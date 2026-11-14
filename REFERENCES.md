@@ -7,6 +7,8 @@
 
 - GISTEMP v4 monthly temperature anomalies, NASA GISS, gistemp1200_GHCNv4_ERSSTv5.nc (2° grid, 1200 km smoothing, January 1880 to October 2026), https://data.giss.nasa.gov/gistemp/ . The analysis behind SVS 5603; used for moments and questions that name a month (scripts/build-monthly.mjs, assets/temperature/monthly/).
 
+- Lightning by month: the same SVS 5011 movie frames, grouped by the month in their date label (scripts/build-lightning-monthly.mjs, assets/lightning/monthly/).
+
 ## Background image
 - "The atmospheric glow blankets Earth beneath a sparkling field of stars", photographed from the International Space Station on 7 Oct 2024 over the Pacific Ocean. NASA image iss072e030147, NASA Image and Video Library, https://images.nasa.gov/details/iss072e030147. We use a cropped strip showing only the airglow and stars (no spacecraft hardware or insignia).
 

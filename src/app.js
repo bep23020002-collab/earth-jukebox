@@ -22,7 +22,7 @@ const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
   voice: false, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
-  texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {},
+  texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {}, month: null,
 };
 
 // ---------- track data ----------
@@ -39,7 +39,8 @@ async function loadTrack(id) {
 const temp = () => state.tracks.temperature;
 function useTrack(id) {
   const track = state.tracks[id]; if (!track) return;
-  Object.assign(state, { track, cube: track.cube, yi: track.years.length - 1, texYear: null });
+  Object.assign(state, { track, cube: track.cube, yi: track.years.length - 1, texYear: null, month: null });
+  if ($('#monthSel')) { $('#monthSel').value = ''; $('#monthPick').hidden = !MONTHLY[id]; }
   const yr = $('#year'); yr.max = track.years.length - 1; yr.value = state.yi;
   setPlayingUI(false);
   document.querySelectorAll('[data-track]').forEach(b => b.setAttribute('aria-pressed', b.dataset.track === id));
@@ -57,7 +58,39 @@ function decode(code, T = state.track) {
   const { min, max } = T;
   return min + (code - 1) / 254 * (max - min);
 }
-function trackValue(yi, lat, lon, T = state.track) { const { width: W, height: H } = grid(T); return decode(T.cube[yi * W * H + cellIndex(lat, lon, T)], T); }
+// "Pick a month" in Play: the same place and year, but one calendar month (temperature: NASA GISTEMP monthly;
+// lightning: NASA's 10-day windows dated in that month). Files hold that month for every year: assets/<track>/monthly/mMM.bin
+const MONTHLY = {
+  temperature: { dir: 'assets/temperature/monthly', decode: (c, meta) => meta.encoding.offset + (c - 1) * meta.encoding.step },
+  lightning: { dir: 'assets/lightning/monthly', decode: c => (c - 1) / 254 },
+};
+const monthCubes = new Map();
+async function loadMonthCube(id, m) {
+  const info = MONTHLY[id]; if (!info) return null;
+  info.meta ||= await fetch(`${info.dir}/meta.json`).then(r => r.json());
+  const key = `${id}/${m}`;
+  if (!monthCubes.has(key)) monthCubes.set(key, new Uint8Array(await (await fetch(`${info.dir}/m${String(m).padStart(2, '0')}.bin`)).arrayBuffer()));
+  return monthCubes.get(key);
+}
+const monthMode = (T = state.track) => state.mode === 'track' && state.month != null && !!MONTHLY[T?.id];
+function cellValue(yi, idx, T = state.track) { // one grid cell: this year, or this month of this year in month mode
+  if (monthMode(T)) {
+    const mc = monthCubes.get(`${T.id}/${state.month}`), info = MONTHLY[T.id]; if (!mc || !info.meta) return null;
+    const row = T.years[yi] - info.meta.firstYear; if (row < 0 || (row + 1) * 16200 > mc.length) return null;
+    const c = mc[row * 16200 + idx]; return c ? info.decode(c, info.meta) : null;
+  }
+  const { width: W, height: H } = grid(T); return decode(T.cube[yi * W * H + idx], T);
+}
+function trackValue(yi, lat, lon, T = state.track) { return cellValue(yi, cellIndex(lat, lon, T), T); }
+// does NASA's data cover this month of this year? (lightning: March 2017 to August 2023; temperature: up to NASA's latest month)
+function monthCovered(yi = state.yi, T = state.track) {
+  if (!monthMode(T)) return true;
+  const info = MONTHLY[T.id], y = T.years[yi]; if (!info.meta) return false;
+  if (T.id === 'lightning') return (info.meta.months[y] || []).includes(state.month);
+  return y >= info.meta.firstYear && (y < info.meta.lastYear || state.month <= info.meta.lastMonth);
+}
+// "2006", or "Mar 2006" in month mode
+const when = (yi = state.yi, T = state.track) => (monthMode(T) ? `${MON[state.month - 1]} ${T.years[yi]}` : String(T.years[yi]));
 function boxMean(yi, lat, lon, r = 6, T = state.track) { // area-weighted average around a point
   const d = grid(T).cellDegrees;
   let s = 0, w = 0;
@@ -77,7 +110,7 @@ function yearStats(yi) {
     const lat = 90 - (cy + 0.5) * d, k = Math.cos(lat * Math.PI / 180);
     for (let cx = 0; cx < W; cx++) {
       all += k;
-      const v = decode(state.cube[yi * W * H + cy * W + cx]);
+      const v = cellValue(yi, cy * W + cx);
       if (v == null) continue;
       s += v * k; w += k;
       const b = bands.find(b => lat >= b.lo && lat < b.hi) || bands[0]; b.s += v * k; b.w += k;
@@ -119,6 +152,7 @@ function fmt(v) {
   const signed = min < 0 && max > 0;
   const s = `${signed ? (v >= 0 ? '+' : '−') : (v < 0 ? '−' : '')}${nice(Math.abs(v))} ${unit}`.trim();
   const span = max - min;
+  if (monthMode() && state.track.kind === 'temperature') return s; // NASA's monthly numbers are exact, not read from capped colors
   if (v >= max - span * 0.008) return `${s} or more`;
   if (v <= min + span * 0.008) return `${s} or less`;
   return s;
@@ -138,15 +172,17 @@ function describe() {
     if (st.mean == null) return 'None of the colors match the color bar. Try marking the bar again, a little closer to its middle.';
     return `The highest values are at the ${describeSpot(st.hiAt.u, st.hiAt.v)} (${fmt(st.hi)}). The lowest are at the ${describeSpot(st.loAt.u, st.loAt.v)} (${fmt(st.lo)}).`;
   }
+  if (!monthCovered()) return `NASA's data does not cover ${when()}. Pick another year.`;
   const st = yearStats(state.yi);
+  if (!st.bands.length) return `NASA has no data for ${when()}.`;
   const top = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
-  const here = boxMean(state.yi, state.lat, state.lon, 4), name = placeName(state.lat, state.lon);
+  const here = currentValue() ?? boxMean(state.yi, state.lat, state.lon, 4), name = placeName(state.lat, state.lon); // same value as the "now hearing" card
   const near = name.replace(/^near /, ''); // placeName says "near X" when far from X; the sentences below add their own "Near"
   if (state.track.kind === 'ocean') return `The warmest water is in ${top.name}. The coldest is near the poles. Near ${near}: ${feeling(here).toLowerCase()}.`;
-  if (state.track.kind === 'lightning') return `In ${year()}${kind().partYears?.[year()] ? ` (${kind().partYears[year()]})` : ''}, NASA saw the most lightning in ${top.name}. Near ${near}: ${feeling(here).toLowerCase()}.`;
+  if (state.track.kind === 'lightning') return `In ${when()}${!monthMode() && kind().partYears?.[year()] ? ` (${kind().partYears[year()]})` : ''}, NASA saw the most lightning in ${top.name}. Near ${near}: ${feeling(here).toLowerCase()}.`;
   const overall = st.mean < -0.3 ? 'most of the world was colder than normal' : st.mean < 0.3 ? 'the world as a whole was about normal'
     : st.mean < 1 ? 'most of the world was warmer than normal' : 'most of the world was much warmer than normal';
-  return `In ${year()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.`;
+  return `In ${when()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.`;
 }
 
 // ---------- speech ----------
@@ -211,14 +247,44 @@ function draw() {
   }
   // track mode: wrap this year's NASA frame onto the globe (or the nearest year already loaded)
   const img = frameImage(state.yi);
-  const texKey = `${state.track.id}/${year()}`;
-  if (img.complete && img.naturalWidth) { if (state.texYear !== texKey) { globe.setTexture(img); state.texYear = texKey; } }
+  const texKey = `${state.track.id}/${year()}${monthMode() ? `/m${state.month}` : ''}`;
+  if (monthMode()) { if (state.texYear !== texKey) { const tex = monthTexture(img); if (tex) { globe.setTexture(tex); state.texYear = texKey; } } }
+  else if (img.complete && img.naturalWidth) { if (state.texYear !== texKey) { globe.setTexture(img); state.texYear = texKey; } }
   else if (state.texYear == null || !state.texYear.startsWith(state.track.id)) {
     for (let d = 1; d < 15; d++) { const alt = state.images.get(`${state.track.id}/${state.track.years[state.yi - d]}`); if (alt?.complete && alt.naturalWidth) { globe.setTexture(alt); break; } }
   }
   globe.setMarker(state.lat, state.lon);
-  $('#yearBig').textContent = year(); $('#yearOut').textContent = year();
-  $('#year').value = state.yi; $('#year').setAttribute('aria-valuetext', String(year()));
+  $('#yearBig').textContent = when(); $('#yearOut').textContent = when();
+  $('#year').value = state.yi; $('#year').setAttribute('aria-valuetext', when());
+}
+
+// A map of one month, drawn from NASA's monthly numbers with the same colors as the yearly map (temperature),
+// or that month's lightning laid brightly over the dimmed yearly picture. Coastlines come from NASA's own frames.
+let coastMask = null, monthCanvas = null;
+function monthTexture(img) {
+  if (!img.complete || !img.naturalWidth || !monthCubes.has(`${state.track.id}/${state.month}`)) return null;
+  monthCanvas ||= Object.assign(document.createElement('canvas'), { width: 720, height: 360 });
+  const g = monthCanvas.getContext('2d', { willReadFrequently: true }), T = state.track;
+  if (T.kind === 'temperature') {
+    if (!coastMask) { g.drawImage(img, 0, 0, 720, 360); const d = g.getImageData(0, 0, 720, 360).data; coastMask = new Uint8Array(720 * 360); for (let i = 0; i < coastMask.length; i++) coastMask[i] = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) < 70 ? 1 : 0; }
+    const stops = T.stops, col = v => {
+      if (v == null) return [128, 128, 128];
+      if (v <= stops[0].value) return stops[0].rgb;
+      for (let i = 1; i < stops.length; i++) if (v <= stops[i].value) { const a = stops[i - 1], b = stops[i], k = (v - a.value) / (b.value - a.value); return a.rgb.map((c, j) => c + (b.rgb[j] - c) * k); }
+      return stops[stops.length - 1].rgb;
+    };
+    const cells = Array.from({ length: 16200 }, (_, i) => col(cellValue(state.yi, i)));
+    const out = g.createImageData(720, 360), o = out.data;
+    for (let py = 0; py < 360; py++) for (let px = 0; px < 720; px++) {
+      const p = py * 720 + px, c = coastMask[p] ? [15, 15, 15] : cells[(py >> 2) * 180 + (px >> 2)];
+      o[p * 4] = c[0]; o[p * 4 + 1] = c[1]; o[p * 4 + 2] = c[2]; o[p * 4 + 3] = 255;
+    }
+    g.putImageData(out, 0, 0);
+  } else {
+    g.drawImage(img, 0, 0, 720, 360); g.fillStyle = 'rgba(0,0,0,0.62)'; g.fillRect(0, 0, 720, 360);
+    for (let i = 0; i < 16200; i++) { const v = cellValue(state.yi, i); if (v > 0) { g.fillStyle = `rgba(255,226,70,${(0.25 + 0.75 * v).toFixed(2)})`; g.fillRect((i % 180) * 4, Math.floor(i / 180) * 4, 4, 4); } }
+  }
+  return monthCanvas;
 }
 
 function drawLegend() {
@@ -242,8 +308,8 @@ function updateReadout({ play = true, speakIt = false } = {}) {
   const v = currentValue(), place = currentPlace();
   showValue(v, place);
   if (play) { if (v == null) sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true }); score.live(stepOf(v), shortPlace(place)); }
-  const when = isImage() ? '' : ` in ${year()}`;
-  if (speakIt) speak(`${place}${when}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
+  const inWhen = isImage() ? '' : ` in ${when()}`;
+  if (speakIt) speak(`${place}${inWhen}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
   return v;
 }
 // The "now hearing" card glows from ice blue (low) to ember (high), like NASA's colour bar.
@@ -260,11 +326,13 @@ function toneFor(v) {
 function showValue(v, place) {
   $('#nowBox').style.setProperty('--tone', toneFor(v));
   if (place) $('#rPlace').textContent = place;
+  if (v == null && !monthCovered()) { $('#rValue').textContent = 'No data for this month'; $('#rDetail').textContent = `NASA's data does not cover ${when()}`; return; }
   $('#rValue').textContent = feeling(v);
   $('#rDetail').textContent = v == null ? (isImage() ? 'Not a color on the color bar' : kind().noData) : isImage() ? fmt(v) : kind().detail(v, fmt(v));
 }
 // Plain words first; the number is shown smaller underneath.
 function feeling(v, k = isImage() ? null : kind()) {
+  if (v == null && !isImage() && !monthCovered()) return 'No data for this month';
   if (v == null) return k?.noDataWord || 'No data';
   if (!k) {
     const t = tOf(v);
@@ -393,7 +461,7 @@ function setYear(yi) {
   if (isImage()) return;
   state.yi = Math.max(0, Math.min(state.track.years.length - 1, yi));
   draw(); updateReadout({ play: true });
-  announce(`${year()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`);
+  announce(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`);
 }
 
 // ---------- actions ----------
@@ -402,8 +470,8 @@ async function playHistory() {
   if (state.playing) { state.playing = false; return; }
   state.playing = true; setPlayingUI(true);
   const place = placeName(state.lat, state.lon), years = state.track.years;
-  await speak(`${place}, ${years[0]} to ${years[years.length - 1]}.`);
-  score.line(`${shortPlace(place)}, every year`, years.length, String(years[0]), String(years[years.length - 1]));
+  await speak(`${place}, ${when(0)} to ${when(years.length - 1)}.`);
+  score.line(`${shortPlace(place)}, every ${monthMode() ? MONTHS[state.month - 1] : 'year'}`, years.length, when(0), when(years.length - 1));
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
   for (let i = 0; i < years.length && state.playing; i++) {
     state.yi = i; draw();
@@ -413,7 +481,7 @@ async function playHistory() {
     else if (inst === 'harp') sound.harp(tOf(v));
     else sound.note(tOf(v), { dur: short ? 0.4 : 0.16, gain: 0.45 });
     score.put(i, stepOf(v));
-    if (short) announce(`${years[i]}. ${feeling(v)}.`);
+    if (short) announce(`${when(i)}. ${feeling(v)}.`);
     else if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); announce(String(years[i])); }
     showValue(v);
     await sleep(short ? 650 : 140);
@@ -423,16 +491,20 @@ async function playHistory() {
   if (!finished) return;
   const avg = (a, b) => { let s = 0, n = 0; for (let i = a; i <= b; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
   // compare the start with the end: the first and last 10 years of a long series, the first and last year of a short one
-  const L = years.length, n = short ? 1 : 10, first = avg(0, n - 1), last = avg(L - n, L - 1);
+  const L = years.length, n = short ? 1 : 10, mo = monthMode() ? MONTHS[state.month - 1] : null;
+  // short series: the first and last year that have data (a month can be missing at the start or end)
+  const has = i => boxMean(i, state.lat, state.lon, 6) != null;
+  const i0 = short ? Math.max(0, years.findIndex((_, i) => has(i))) : 0, i1 = short ? Math.max(i0, L - 1 - [...years].reverse().findIndex((_, j) => has(L - 1 - j))) : L - 1;
+  const first = avg(i0, i0 + n - 1), last = avg(i1 - n + 1, i1);
   const msg = first != null && last != null
     ? (state.track.kind === 'temperature'
-      ? `Near ${place}: the 1880s were ${feeling(first).toLowerCase()}. Today it is ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
-      : `Near ${place}: ${feeling(first).toLowerCase()} in ${years[0]}, ${feeling(last).toLowerCase()} in ${years[L - 1]}.`)
+      ? `Near ${place}: ${mo ? `${mo} in the 1880s was` : 'the 1880s were'} ${feeling(first).toLowerCase()}. ${mo ? `${mo} in recent years is` : 'Today it is'} ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
+      : `Near ${place}: ${feeling(first).toLowerCase()} in ${when(i0)}, ${feeling(last).toLowerCase()} in ${when(i1)}.`)
     : `NASA has no measurements near ${place} ${short ? 'in these years' : 'in the early years'}, so we can't compare then and now. Try another place.`;
   $('#desc').textContent = msg; speak(msg);
   if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
-function setPlayingUI(on) { const b = $('#playBtn'), y = state.track.years; b.textContent = on ? 'Stop' : `Play ${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
+function setPlayingUI(on) { const b = $('#playBtn'), y = state.track.years; b.textContent = on ? 'Stop' : `Play ${monthMode() ? MON[state.month - 1] + ' ' : ''}${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
 
 async function sweep() {
   if (state.busy || (isImage() && !src.legend)) return;
@@ -988,6 +1060,17 @@ async function init() {
   state.moments = shared || DEFAULT_MOMENTS.map(m => ({ ...m }));
   state.picking = null;
   $('#placeList').innerHTML = PLACE_NAMES.map(n => `<option value="${n}"></option>`).join('');
+  $('#monthSel').addEventListener('change', async e => {
+    sound.start();
+    const m = parseInt(e.target.value, 10) || null;
+    state.playing = false; state.month = m; state.texYear = null;
+    if (m) {
+      $('#desc').textContent = 'Loading NASA monthly data…'; await loadMonthCube(state.track.id, m);
+      if (!monthCovered()) for (let i = state.track.years.length - 1; i >= 0; i--) if (monthCovered(i)) { state.yi = i; break; } // nearest year that has this month
+    }
+    setPlayingUI(false); draw(); updateReadout({ play: true }); $('#desc').textContent = describe();
+    announce(m ? `${MONTHS[m - 1]} of every year. Now ${when()}.` : 'Whole year.');
+  });
   $('#moments').addEventListener('input', onMomentsInput);
   $('#moments').addEventListener('change', onMomentsInput);
   $('#moments').addEventListener('click', onMomentsClick);

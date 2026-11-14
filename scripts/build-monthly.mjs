@@ -3,6 +3,7 @@
 // Reads NASA GISS GISTEMP v4 monthly anomalies (data/gistemp/gistemp1200_GHCNv4_ERSSTv5.nc, NetCDF classic,
 // 2°x2° grid, °C vs 1951-1980; the same analysis behind the SVS 5603 map) and writes one small file per year:
 //   assets/temperature/monthly/<year>.bin   12 months x 90 rows (north first) x 180 columns (180°W first), 1 byte per cell
+//   assets/temperature/monthly/m01..m12.bin the same by calendar month (every year's March in m03.bin), for "pick a month" in Play
 //   assets/temperature/monthly/meta.json    encoding, months available, and a check against NASA's published global means
 // Byte 0 = no data; otherwise value = offset + (byte - 1) * step  (offset -6.35 °C, step 0.05 °C; values outside are clipped).
 // Run: node scripts/build-monthly.mjs
@@ -89,6 +90,13 @@ for (let r = 0; r < nTimes; r++) {
 const dir = root + 'assets/temperature/monthly/';
 mkdirSync(dir, { recursive: true });
 for (const [y, a] of out) if (monthsWithData[y]) writeFileSync(dir + `${y}.bin`, a);
+// the same data by calendar month, for "pick a month" in Play: m03.bin = March of every year, firstYear first
+const ys = [...out.keys()].filter(y => monthsWithData[y]).sort((a, b) => a - b);
+for (let m = 0; m < 12; m++) {
+  const mb = new Uint8Array(ys.length * 16200);
+  ys.forEach((y, k) => mb.set(out.get(y).subarray(m * 16200, (m + 1) * 16200), k * 16200));
+  writeFileSync(dir + `m${String(m + 1).padStart(2, '0')}.bin`, mb);
+}
 
 // ---- check: area-weighted global mean of the grid vs NASA's published monthly global means ----
 const glb = readFileSync(root + 'data/gistemp/GLB.Ts+dSST.csv', 'utf8').trim().split('\n').slice(2).map(l => l.split(','));

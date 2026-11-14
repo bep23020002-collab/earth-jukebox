@@ -18,8 +18,8 @@ export class Globe {
   get radius() { return this.size * 0.45; }
 
   // img: a loaded equirectangular picture (any size, 2:1).
-  setTexture(img) {
-    if (!img || !img.naturalWidth) return;
+  setTexture(img) { // an <img> or a <canvas>
+    if (!img || !(img.naturalWidth || img.width)) return;
     if (!this.texCanvas) { this.texCanvas = document.createElement('canvas'); this.texCanvas.width = 720; this.texCanvas.height = 360; this.texG = this.texCanvas.getContext('2d', { willReadFrequently: true }); }
     this.texG.drawImage(img, 0, 0, 720, 360);
     this.tex = { w: 720, h: 360, data: this.texG.getImageData(0, 0, 720, 360).data };
