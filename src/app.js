@@ -3,7 +3,8 @@
 // Two modes share one interface:
 //   track - a prepared NASA time series (Global temperature 1880–2025)
 //   image - any NASA picture with a color bar, calibrated on the spot
-import { Sound } from './audio.js';
+import { Sound, noteIndex } from './audio.js';
+import { Score } from './score.js';
 import { JUMPS, placeName, formatCoord, PLACE_NAMES, findPlace } from './places.js';
 import { ImageSource, describeSpot } from './image-source.js';
 import { Globe } from './globe.js';
@@ -15,6 +16,7 @@ const $ = s => document.querySelector(s);
 const sound = new Sound();
 const src = new ImageSource();
 const globe = new Globe($('#globe'));
+const score = new Score({ box: $('#scoreBox'), canvas: $('#score'), title: $('#scoreTitle'), legend: $('#scoreLegend'), note: $('#scoreNote') });
 const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
@@ -90,6 +92,14 @@ function scale() {
   return { min: state.track.min, max: state.track.max, unit: state.track.unit };
 }
 const tOf = v => { const s = scale(); return (v - s.min) / (s.max - s.min); };
+// for the score display: the note (0-10) a value plays, and a short place name to print under it
+const stepOf = v => (v == null ? null : noteIndex(tOf(v)));
+const shortPlace = name => String(name || '').replace(/^near (the )?/, '').split(',')[0];
+function scoreAxis() {
+  const k = isImage() ? null : state.mode === 'song' ? 'temperature' : state.track?.kind;
+  return k === 'temperature' ? { high: 'hotter', mid: 'normal', low: 'colder' } : k === 'ocean' ? { high: 'warm', low: 'cold' }
+    : k === 'lightning' ? { high: 'more', low: 'less' } : { high: 'high', low: 'low' };
+}
 function currentValue() { return isImage() ? src.valueAt(state.u, state.v) : trackValue(state.yi, state.lat, state.lon); }
 function currentPlace() { return isImage() ? describeSpot(state.u, state.v) : placeName(state.lat, state.lon); }
 // Left of the screen plays in the left ear.
@@ -230,7 +240,7 @@ function updateReadout({ play = true, speakIt = false } = {}) {
   if (isImage() && !src.legend) return null;
   const v = currentValue(), place = currentPlace();
   showValue(v, place);
-  if (play) { if (v == null) sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true }); }
+  if (play) { if (v == null) sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true }); score.live(stepOf(v), shortPlace(place)); }
   const when = isImage() ? '' : ` in ${year()}`;
   if (speakIt) speak(`${place}${when}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
   return v;
@@ -281,6 +291,8 @@ function tapAt(lat, lon, { record = true, fromDraw = false } = {}) {
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
   if (v == null) sound.noData({ pan }); else playValue(tOf(v), { pan });
+  const label = shortPlace(placeName(lat, lon));
+  if (state.replaying) score.add(stepOf(v), label); else score.live(stepOf(v), label, { tap: true });
   globe.ripple(lat, lon);
   draw(); updateReadout({ play: false });
   if (record) {
@@ -301,6 +313,7 @@ async function replayTaps() {
   if (state.replaying || !state.taps.length) return;
   state.replaying = true; $('#replayBtn').disabled = true;
   announce(`Playing your tune in ${year()}.`);
+  score.take(String(year()), state.taps.length);
   for (const t of state.taps) {
     await sleep(Math.max(250, Math.min(700, t.gap)));
     tapAt(t.lat, t.lon, { record: false });
@@ -321,7 +334,7 @@ function setGuide({ label, title, text, btn, alt }) {
   speak(`${title}. ${text || ''}`);
 }
 function resetGuide() {
-  state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes();
+  state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
   setGuide({ label: 'Step 1 of 3', title: 'Tap the Earth, or draw a line on it', text: 'Every place plays a note. Warmer places play higher notes. A line you draw becomes a tune.' });
 }
 function guideAfterTap(v) {
@@ -348,10 +361,13 @@ function guideStep3() {
 }
 function guideDone() {
   guide.step = 4; guide.done = true; $('.timeline').hidden = state.track.years.length < 2;
-  const avg = y => { const yi = yearIndexOf(y); const vs = state.taps.map(t => boxMean(yi, t.lat, t.lon, 4)).filter(v => v != null); return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null; };
-  const a = avg(1880), b = avg(2025), d = a != null && b != null ? b - a : null;
+  // compare only the places NASA measured in both years, so a place with no 1880 data can't tip the answer
+  const i0 = yearIndexOf(1880), i1 = yearIndexOf(2025);
+  const pairs = state.taps.map(t => [boxMean(i0, t.lat, t.lon, 4), boxMean(i1, t.lat, t.lon, 4)]).filter(([x, y]) => x != null && y != null);
+  const d = pairs.length ? pairs.reduce((s, [x, y]) => s + y - x, 0) / pairs.length : null;
+  score.setNote(d == null ? '' : `Your places: about ${Math.abs(d).toFixed(1)} °C ${d >= 0 ? 'warmer' : 'cooler'} than in 1880`);
   const text = d == null ? 'NASA has no 1880 data for some of your places, so try places with more history, like Europe or the USA.'
-    : d > 0.2 ? `Your tune went higher. The places you chose are about ${d.toFixed(1)} °C warmer than in 1880. That is what climate change sounds like.`
+    : d > 0.2 ? `Your tune went higher. The places you chose are about ${d.toFixed(1)} °C warmer than in 1880${pairs.length < state.taps.length ? ' (counting only places NASA measured back then)' : ''}. That is what climate change sounds like.`
       : d < -0.2 ? `Your tune went lower. The places you chose were cooler in 2025 than in 1880, which is rare. Most of the world got warmer.`
         : 'Your tune stayed about the same. These places changed less than most of the world. Try tapping the Arctic.';
   setGuide({
@@ -384,10 +400,12 @@ async function playHistory() {
   state.playing = true; setPlayingUI(true);
   const place = placeName(state.lat, state.lon), years = state.track.years;
   await speak(`${place}, ${years[0]} to ${years[years.length - 1]}.`);
+  score.line(`${shortPlace(place)}, every year`, years.length, String(years[0]), String(years[years.length - 1]));
   for (let i = 0; i < years.length && state.playing; i++) {
     state.yi = i; draw();
     const v = boxMean(i, state.lat, state.lon, 6);
     if (v == null) sound.noData(); else sound.note(tOf(v), { dur: 0.16, gain: 0.45 });
+    score.put(i, stepOf(v));
     if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); announce(String(years[i])); }
     showValue(v);
     await sleep(140);
@@ -403,6 +421,7 @@ async function playHistory() {
       : `Near ${place}: ${feeling(first).toLowerCase()} at the start, ${feeling(last).toLowerCase()} at the end.`)
     : `NASA has no measurements near ${place} in the early years, so we can't compare then and now. Try another place.`;
   $('#desc').textContent = msg; speak(msg);
+  if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
 function setPlayingUI(on) { const b = $('#playBtn'), y = state.track.years; b.textContent = on ? 'Stop' : `Play ${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
 
@@ -412,10 +431,12 @@ async function sweep() {
   if (isImage()) {
     const u0 = state.u;
     await speak('Sweeping left to right.');
+    score.line('Left to right', 61, 'left', 'right'); let k = 0;
     for (let u = 0; u <= 1.0001; u += 1 / 60) {
       state.u = Math.min(1, u); draw();
       const v = src.valueAt(state.u, state.v);
       if (v == null) sound.noData({ pan: u * 2 - 1 }); else sound.note(tOf(v), { pan: u * 2 - 1, dur: 0.12, gain: 0.4, layers: false });
+      score.put(Math.min(60, k++), stepOf(v));
       await sleep(85);
     }
     state.u = u0;
@@ -423,11 +444,13 @@ async function sweep() {
     // one full turn of the Earth along this latitude, starting and ending where you are
     const lat = state.lat, lon0 = state.lon;
     await speak('Spinning the Earth. Listen as we go around.');
+    score.line('One trip around the Earth', 61, shortPlace(placeName(lat, lon0)), 'back again');
     for (let k = 0; k <= 60; k++) {
       state.lon = ((lon0 + k * 6 + 540) % 360) - 180;
       globe.centerOn(lat, state.lon, 80); draw();
       const v = trackValue(state.yi, lat, state.lon);
       if (v == null) sound.noData(); else sound.note(tOf(v), { dur: 0.12, gain: 0.4, layers: false });
+      score.put(k, stepOf(v));
       await sleep(85);
     }
     state.lon = lon0;
@@ -442,7 +465,7 @@ async function hearLegend() {
   const parts = isImage()
     ? [[0, `This low note means the lowest value on the color bar.`], [0.5, `This middle note means the middle of the color bar.`], [1, `This high note means the highest value.`]]
     : [[0, 'This low note means colder than normal.'], [0.5, 'This middle note means normal.'], [1, 'This high note means much hotter than normal. When it is very warm, a second voice joins in.']];
-  for (const [t, text] of parts) { await speak(text); sound.note(t, { dur: 0.6 }); await sleep(900); }
+  for (const [t, text] of parts) { await speak(text); sound.note(t, { dur: 0.6 }); score.live(noteIndex(t), t === 0 ? 'low' : t === 1 ? 'high' : 'middle', { tap: true }); await sleep(900); }
   state.busy = false;
 }
 
@@ -467,7 +490,7 @@ function setMode(mode) {
   const img = isImage(), song = mode === 'song', ask = mode === 'ask', other = song || ask;
   $('#byo').hidden = !img; $('#songBox').hidden = !song; $('#askBox').hidden = !ask;
   $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img;
-  $('.timeline').hidden = img || other || !guide.done || state.track.years.length < 2;
+  $('.timeline').hidden = img || state.track.years.length < 2; // always on screen whenever the map has more than one year
   $('#trackPicker').hidden = img || other;
   $('#guide').hidden = img || other; $('#moreBox').hidden = img || other;
   if (!img && !other) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
@@ -481,6 +504,7 @@ function setMode(mode) {
   $('#globe').setAttribute('aria-label', `${kind().label} globe. Arrow keys travel, `
     + (state.track.years.length > 1 ? 'square brackets change the year, ' : '') + 'Enter reads the spot, question mark for help.');
   if (!img) globe.request();
+  score.clear(); score.setAxis(scoreAxis());
   draw(); drawLegend();
   if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
   else { updateReadout({ play: false }); $('#desc').textContent = ask ? '' : song || guide.done ? describe() : ''; }
@@ -552,7 +576,7 @@ async function storyToSong() {
 const nearestYear = (T, y) => T.years.reduce((best, v) => (Math.abs(v - y) < Math.abs(best - y) ? v : best), T.years[0]);
 function askTrack(id) {
   if (!state.tracks[id] || state.track.id === id) return;
-  useTrack(id); preloadAll(); drawLegend();
+  useTrack(id); preloadAll(); drawLegend(); score.setAxis(scoreAxis());
   $('#trackEic').textContent = `From NASA's Earth Information Center: ${state.track.eic || 'EIC content'}`;
 }
 async function playAt(p, yi) {
@@ -597,18 +621,21 @@ async function askEarth(question) {
       text = $('#desc').textContent;
     } else if (plan.kind === 'compare_years' && new Set(years).size >= 2) {
       const y1 = Math.min(...years), y2 = Math.max(...years);
-      const a = await playAt(places[0], yi(y1)); await sleep(900);
-      const b = await playAt(places[0], yi(y2));
+      score.clear();
+      const a = await playAt(places[0], yi(y1)); score.take(String(y1), 1, 'One place, two years'); score.add(stepOf(a), places[0].name); await sleep(900);
+      const b = await playAt(places[0], yi(y2)); score.take(String(y2), 1, 'One place, two years'); score.add(stepOf(b), places[0].name);
+      if (a != null && b != null && T.kind === 'temperature') score.setNote(`${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'} in ${y2} than in ${y1}`);
       text = `${places[0].name}: ${y1} was ${words(a)}; ${y2} was ${words(b)}.`
         + (a != null && b != null && T.kind === 'temperature' ? ` That is about ${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'}.` : '');
     } else if (plan.kind === 'compare_places' && places.length >= 2) {
       const y = years[years.length - 1] ?? last;
-      const a = await playAt(places[0], yi(y)); await sleep(900);
-      const b = await playAt(places[1], yi(y));
+      score.clear(); score.take(T.years.length > 1 ? String(y) : '', 2, 'Two places');
+      const a = await playAt(places[0], yi(y)); score.add(stepOf(a), places[0].name); await sleep(900);
+      const b = await playAt(places[1], yi(y)); score.add(stepOf(b), places[1].name);
       text = `${T.years.length > 1 ? `In ${y}, ` : ''}${places[0].name} was ${words(a)} and ${places[1].name} was ${words(b)}.`;
     } else {
       const y = years[years.length - 1] ?? last;
-      const a = await playAt(places[0], yi(y));
+      const a = await playAt(places[0], yi(y)); score.live(stepOf(a), places[0].name, { tap: true });
       text = `${places[0].name}${T.years.length > 1 ? ` in ${y}` : ''}: ${words(a)}.`;
     }
     if (T.kind === 'temperature' && plan.kind !== 'trend') text += ' "Normal" means the 1951–1980 average.';
@@ -831,6 +858,7 @@ async function playSong() {
     extra: songLayers,
   });
   state.songPlaying = true; $('#playSong').textContent = 'Stop';
+  score.song(song.sections.map(sec => ({ label: `${sec.moment.year} ${shortPlace(sec.moment.name)}`, notes: sec.notes.map(n => n.step) })));
   sound.beginSong();
   const t0 = scheduleSong(song, sound), spb = 60 / BPM, lead = (t0 - sound.now) * 1000;
   const at = (beat, fn) => songTimers.push(setTimeout(fn, lead + beat * spb * 1000));
@@ -845,7 +873,7 @@ async function playSong() {
       $('#desc').textContent = `${m.year}, ${m.name}${m.label ? `: ${m.label}` : ''}.`;
       announce(`${m.year}, ${m.name}. ${sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean)}.`);
     });
-    sec.notes.forEach(n => at(sec.startBeat + n.beat, () => globe.ripple(n.lat, n.lon)));
+    sec.notes.forEach((n, i) => at(sec.startBeat + n.beat, () => { globe.ripple(n.lat, n.lon); score.hit(k, i); }));
   });
   at(song.sections.length * BEATS_PER_MOMENT + 3.5, () => {
     stopSong();
@@ -854,6 +882,7 @@ async function playSong() {
       ? `Your Earth song starts in ${first.moment.year} (${KINDS.temperature.words(first.mean).toLowerCase()}) and ends in ${last.moment.year} (${KINDS.temperature.words(last.mean).toLowerCase()}).`
       : 'That was your Earth song.';
     $('#desc').textContent = msg; $('#songStatus').textContent = 'Change a year or a place and play it again.';
+    if (song.sections.length > 1 && first.mean != null && last.mean != null) score.setNote(`${first.moment.year} → ${last.moment.year}: ${last.mean >= first.mean ? '+' : '−'}${Math.abs(last.mean - first.mean).toFixed(1)} °C`);
     speak(msg);
   });
 }
