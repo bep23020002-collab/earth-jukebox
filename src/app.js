@@ -819,6 +819,7 @@ function makeItSing() {
 async function storyToSong() {
   const text = $('#storyText').value.trim();
   if (!text) { $('#storyNote').textContent = 'Write a sentence or two first.'; return; }
+  followLang(text);
   const btn = $('#storyBtn'); btn.disabled = true; $('#storyNote').textContent = 'Reading your story…';
   let moments = [], note = '', usedAI = false;
   try {
@@ -870,7 +871,8 @@ const zhNum = t => t.replace(' or more', ' 或以上').replace('no data', '没�
 const zhTrack = { temperature: '温度', ocean: '海水温度', lightning: '闪电' };
 async function askEarth(question) {
   const q = question.trim(); if (!q || state.asking) return;
-  const zh = state.lang === 'zh' || hasHan(q);
+  followLang(q);
+  const zh = state.lang === 'zh';
   const out = $('#askAnswer'); out.classList.remove('err'); out.lang = zh ? 'zh' : 'en';
   const fail = msg => { out.classList.add('err'); out.textContent = msg; announce(msg); };
   if (!aiReady()) { fail(zh ? '"问地球"需要 AI 小帮手，现在还没有开。可以先试 Play 或 My Earth song。' : 'Ask the Earth needs the AI helper, which is not switched on yet. Try Play or My Earth song.'); return; }
@@ -1058,6 +1060,8 @@ function setupSayOnHover() {
     const t = nameOf(el); if (t) talk(t);
   });
 }
+// The Speak buttons must be told the language before listening, so they follow the language you last typed or spoke in
+const followLang = t => { if (hasHan(t)) setLang('zh'); else if (/[a-z]{2}/i.test(t)) setLang('en'); };
 function setLang(l) { // English or 中文, for speaking (Speak buttons) and for Ask the Earth's answers
   state.lang = l; try { localStorage.setItem('ej-lang', l); } catch { /* private window */ }
   document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === l));
