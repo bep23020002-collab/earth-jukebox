@@ -88,6 +88,17 @@ English:
 
 **有人卡住（找不到按钮、读屏软件念不出来、没有声音），马上告诉我是哪一步、什么装置、哪个读屏软件，我当天修好。**
 
+### 要放进视频的话（多做 3 件事）
+1. **第 0 步多问一句**，对方亲口同意才可以，这段问答也要录下来。不同意就只做测试，不放进视频：
+   > 我们想把你试用的 3 秒画面放进比赛的公开视频（会上 YouTube），可以吗？要不要写你的名字？
+   > Can we put 3 seconds of you trying it in our competition video? It will be public on YouTube. Should we show your name?
+2. **录好两个画面**：
+   - 任务 A：他按 North、Where am I?，然后答出"北极比较暖"。
+   - 第 6 步最后一题：他用一句话说这个网页。说完可以请他再讲一次："Could you say that once more, a bit slower? We'd like to record it clearly."
+3. **记下时间**：旁边的人记下这两个画面在录像的第几分第几秒（例如"08:40 答对北极"、"15:10 一句话"），视频才剪得快。
+
+Zoom 设定：用 Speaker View，关掉名字显示；请对方分享画面并勾选 "Share sound"。不方便分享画面的话，只录到脸和声音也可以。录完把档案和记下的时间交给视频会话。
+
 ---
 
 ## B. 闭眼测试（备案）
