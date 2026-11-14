@@ -760,7 +760,7 @@ function setMode(mode) {
   $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
   $('#map').setAttribute('aria-label', 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.');
   $('#globe').setAttribute('aria-label', `${kind().label} globe. Arrow keys travel, `
-    + (state.track.years.length > 1 ? 'square brackets change the year, ' : '') + 'Enter reads the spot, question mark for help.');
+    + (state.track.years.length > 1 ? 'square brackets change the year, ' : '') + 'Enter reads the spot, question mark for help. On a phone, use Controls at the top of the page.');
   if (!img) globe.request();
   score.clear(); score.setAxis(scoreAxis());
   draw(); drawLegend();
