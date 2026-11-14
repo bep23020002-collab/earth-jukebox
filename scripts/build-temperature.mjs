@@ -38,7 +38,7 @@ writeFileSync(root + 'assets/temperature/cube.bin', cube);
 writeFileSync(root + 'assets/temperature/track.json', JSON.stringify({
   id: 'temperature',
   title: 'Global temperature, 1880–2025',
-  subtitle: 'Surface temperature anomaly, 12-month average, relative to 1951–1980',
+  subtitle: 'How much warmer or colder each place was than normal, every year since 1880',
   unit: '°C', min: -RANGE, max: RANGE, years, grid: { width: GW, height: GH, cellDegrees: 2 },
   legendSource: legendFile.source + '; this video uses the same colors over -2 to +2 °C',
   credit: 'NASA Scientific Visualization Studio, data by Robert B. Schmunk (NASA/GSFC GISS), GISTEMP v4',

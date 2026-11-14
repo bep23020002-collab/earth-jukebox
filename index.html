@@ -92,46 +92,46 @@
       <section class="now" aria-label="Now hearing">
         <p id="rPlace" class="now-place">—</p>
         <p id="rValue" class="now-value">—</p>
-        <p class="now-meta"><span id="rCoord">—</span><span id="rNote">—</span></p>
+        <p id="rDetail" class="now-meta">—</p>
       </section>
 
       <p id="desc" class="desc"></p>
 
       <section class="play" id="playBox" aria-labelledby="playTitle">
-        <h3 id="playTitle">Play the Earth</h3>
-        <p class="small" id="tapCount">Tap a few places to make a melody. Then change the year and replay it: the same taps sound different in 1880.</p>
+        <h3 id="playTitle">Make a tune with the Earth</h3>
+        <p class="small" id="tapCount">Tap 3 to 5 places on the globe. Then hear your tune in 1880 and in 2025.</p>
         <div class="row">
-          <button type="button" id="replayBtn" class="primary" disabled>Replay my taps <kbd>R</kbd></button>
-          <button type="button" id="clearBtn" class="ghost" disabled>Clear</button>
+          <button type="button" class="primary" data-year-jump="1880" disabled>Hear it in 1880</button>
+          <button type="button" class="primary" data-year-jump="2025" disabled>Hear it in 2025</button>
         </div>
         <div class="row">
-          <button type="button" class="ghost" data-year-jump="1880">In 1880</button>
-          <button type="button" class="ghost" data-year-jump="2025">In 2025</button>
+          <button type="button" id="replayBtn" class="ghost" disabled>Play again</button>
+          <button type="button" id="clearBtn" class="ghost" disabled>Start over</button>
         </div>
       </section>
 
       <div class="actions">
-        <button type="button" data-act="legend">Hear the legend <kbd>L</kbd></button>
-        <button type="button" data-act="sweep">Sweep around <kbd>S</kbd></button>
-        <button type="button" data-act="describe">Describe <kbd>D</kbd></button>
-        <button type="button" data-act="ref" aria-pressed="false">Average hum <kbd>B</kbd></button>
-        <button type="button" data-act="voice" aria-pressed="true">Voice <kbd>V</kbd></button>
+        <button type="button" data-act="legend">What do the sounds mean?</button>
+        <button type="button" data-act="sweep">Spin the Earth</button>
+        <button type="button" data-act="describe">Tell me about this year</button>
+        <button type="button" data-act="voice" aria-pressed="true">Read aloud</button>
       </div>
 
       <div class="jumps">
-        <h3>Travel to</h3>
+        <h3>Go to</h3>
         <div id="jumps" class="jump-list"></div>
       </div>
 
       <details class="keys">
-        <summary>Keyboard</summary>
+        <summary>Use it without a mouse</summary>
         <ul>
-          <li><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> travel 10° (with <kbd>Shift</kbd>, 2°)</li>
-          <li><kbd>[</kbd> <kbd>]</kbd> or <kbd>Page Up</kbd> <kbd>Page Down</kbd> change the year (with <kbd>Shift</kbd>, 10 years)</li>
+          <li><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move around the Earth</li>
+          <li><kbd>[</kbd> <kbd>]</kbd> earlier or later year</li>
           <li><kbd>Space</kbd> play 1880 to 2025</li>
-          <li><kbd>T</kbd> tap here, <kbd>R</kbd> replay your taps</li>
-          <li><kbd>Enter</kbd> read this spot</li>
-          <li><kbd>1</kbd> to <kbd>9</kbd> travel to a place</li>
+          <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
+          <li><kbd>Enter</kbd> say where I am</li>
+          <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
+          <li><kbd>L</kbd> what the sounds mean, <kbd>S</kbd> spin, <kbd>D</kbd> about this year</li>
           <li><kbd>?</kbd> hear these keys</li>
         </ul>
       </details>
@@ -140,15 +140,18 @@
     <section class="about" aria-labelledby="howTitle">
       <h2 id="howTitle">How it works</h2>
       <ol class="steps">
-        <li><strong>Read the legend.</strong> We sample the color bar printed on NASA's map, so every color has a number.</li>
-        <li><strong>Read every pixel.</strong> Each spot is matched to the nearest legend color. Gray "no data" areas and coastlines stay silent.</li>
-        <li><strong>Turn numbers into music.</strong> Higher values play higher, brighter notes on a pentatonic scale. Above +1.0 °C a second voice joins in.</li>
-        <li><strong>Say it out loud.</strong> Every spot and every year can be read aloud for people who cannot see the map.</li>
+        <li><strong>We read NASA's color key.</strong> Every NASA map has a color bar that says what each color means. We read it, so every color becomes a number.</li>
+        <li><strong>Every spot gets a note.</strong> Warmer than normal plays higher. Much warmer adds a second voice. Places with no data stay silent.</li>
+        <li><strong>You can hear it without seeing it.</strong> Move with the arrow keys and the app says where you are and how warm it is.</li>
       </ol>
       <div class="credits">
-        <h3>Data</h3>
+        <h3>Where the data comes from</h3>
         <p id="credit"></p>
-        <p class="small">Values are read from the colors of NASA's visualization, so they are approximate and capped at the ends of the color scale. The equirectangular video has no printed legend; its colors match NASA's labelled map over −2 to +2 °C, which we checked against GISTEMP's published global averages.</p>
+        <p class="small">"Normal" means the average temperature for 1951–1980. Numbers are read from the colors of NASA's map, so they are close but not exact.</p>
+        <details class="small">
+          <summary>More detail for scientists</summary>
+          <p>The equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published global averages. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
+        </details>
         <p class="small">Built during the 2026 NASA Space Apps Challenge by Team Happy Squad (Sibu, Sarawak), with help from an AI coding assistant.</p>
       </div>
     </section>

@@ -3,7 +3,7 @@
 // Two modes share one interface:
 //   track - a prepared NASA time series (Global temperature 1880–2025)
 //   image - any NASA picture with a color bar, calibrated on the spot
-import { Sound, noteName } from './audio.js';
+import { Sound } from './audio.js';
 import { JUMPS, placeName, formatCoord } from './places.js';
 import { ImageSource, describeSpot } from './image-source.js';
 import { Globe } from './globe.js';
@@ -76,7 +76,6 @@ function scale() {
 const tOf = v => { const s = scale(); return (v - s.min) / (s.max - s.min); };
 function currentValue() { return isImage() ? src.valueAt(state.u, state.v) : trackValue(state.yi, state.lat, state.lon); }
 function currentPlace() { return isImage() ? describeSpot(state.u, state.v) : placeName(state.lat, state.lon); }
-function currentCoord() { return isImage() ? `${Math.round(state.u * 100)}% across, ${Math.round(state.v * 100)}% down` : formatCoord(state.lat, state.lon); }
 // Left of the screen plays in the left ear.
 const panFor = (lat, lon) => { const p = globe.project(lat, lon); return Math.max(-1, Math.min(1, (p.x / globe.size - 0.5) * 2.2)); };
 const currentPan = () => (isImage() ? state.u * 2 - 1 : panFor(state.lat, state.lon));
@@ -109,15 +108,15 @@ function describe() {
   if (isImage()) {
     if (!src.legend) return 'Mark the color bar first.';
     const st = src.stats();
-    if (st.mean == null) return 'No colors on this picture match the color bar. Try marking the bar again, closer to its middle.';
-    return `${Math.round(st.coverage * 100)}% of this picture matches the color bar. Average ${fmt(st.mean)}. Highest ${fmt(st.hi)}, at the ${describeSpot(st.hiAt.u, st.hiAt.v)}. Lowest ${fmt(st.lo)}, at the ${describeSpot(st.loAt.u, st.loAt.v)}.`;
+    if (st.mean == null) return 'None of the colors match the color bar. Try marking the bar again, a little closer to its middle.';
+    return `The highest values are at the ${describeSpot(st.hiAt.u, st.hiAt.v)} (${fmt(st.hi)}). The lowest are at the ${describeSpot(st.loAt.u, st.loAt.v)} (${fmt(st.lo)}).`;
   }
   const st = yearStats(state.yi);
   const warm = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
-  const cool = st.bands.reduce((a, b) => (b.mean < a.mean ? b : a));
-  return `${year()}. Compared with 1951–1980, the parts of the map with data (${Math.round(st.coverage * 100)}% of Earth's area) average about ${fmt(st.mean)}. ` +
-    `Warmest: ${warm.name}, ${fmt(warm.mean)}. Coolest: ${cool.name}, ${fmt(cool.mean)}. ` +
-    `Around ${placeName(state.lat, state.lon)}: ${fmt(boxMean(state.yi, state.lat, state.lon, 4))}.`;
+  const overall = st.mean < -0.3 ? 'most of the world was colder than normal' : st.mean < 0.3 ? 'the world as a whole was about normal'
+    : st.mean < 1 ? 'most of the world was warmer than normal' : 'most of the world was much warmer than normal';
+  const here = boxMean(state.yi, state.lat, state.lon, 4);
+  return `In ${year()}, ${overall}. The warmest part was ${warm.name}. Near ${placeName(state.lat, state.lon)}, it was ${feeling(here).toLowerCase()}.`;
 }
 
 // ---------- speech ----------
@@ -198,21 +197,35 @@ function drawLegend() {
   stops.forEach((s, i) => grad.addColorStop(i / (stops.length - 1), `rgb(${s.rgb.join(',')})`));
   g.fillStyle = grad; g.fillRect(0, 0, c.width, c.height);
   const { min, max } = scale();
-  $('#lgMin').textContent = `${fmt(min)}`;
-  $('#lgMid').textContent = isImage() ? fmt((min + max) / 2) : '0 = 1951–1980 average';
-  $('#lgMax').textContent = `${fmt(max)}`;
+  $('#lgMin').textContent = isImage() ? `Low: ${fmt(min)}` : 'Colder than normal';
+  $('#lgMid').textContent = isImage() ? '' : 'Normal';
+  $('#lgMax').textContent = isImage() ? `High: ${fmt(max)}` : 'Hotter than normal';
 }
 
 // ---------- readout ----------
 function updateReadout({ play = true, speakIt = false } = {}) {
   if (isImage() && !src.legend) return null;
   const v = currentValue(), place = currentPlace();
-  $('#rPlace').textContent = place; $('#rCoord').textContent = currentCoord();
-  $('#rValue').textContent = fmt(v); $('#rNote').textContent = v == null ? 'silent' : noteName(tOf(v));
+  showValue(v, place);
   if (play) { if (v == null) sound.noData({ pan: currentPan() }); else sound.note(tOf(v), { pan: currentPan() }); }
-  const when = isImage() ? '' : `, ${year()}`;
-  if (speakIt) speak(`${place}${when}. ${say(v)}.`); else announce(`${place}. ${fmt(v)}.`);
+  const when = isImage() ? '' : ` in ${year()}`;
+  if (speakIt) speak(`${place}${when}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
   return v;
+}
+function showValue(v, place) {
+  if (place) $('#rPlace').textContent = place;
+  $('#rValue').textContent = feeling(v);
+  $('#rDetail').textContent = v == null ? 'NASA has no measurement here' : isImage() ? fmt(v) : `${fmt(v)} compared with normal`;
+}
+// Plain words first; the number is shown smaller underneath.
+function feeling(v) {
+  if (v == null) return 'No data';
+  if (isImage()) {
+    const t = tOf(v);
+    return t < 0.15 ? 'Very low' : t < 0.4 ? 'Low' : t < 0.6 ? 'In the middle' : t < 0.85 ? 'High' : 'Very high';
+  }
+  return v <= -1 ? 'Much colder than normal' : v <= -0.3 ? 'Colder than normal' : v < 0.3 ? 'About normal'
+    : v < 1 ? 'Warmer than normal' : v < 1.6 ? 'Much warmer than normal' : 'Extremely warm';
 }
 function moveTo(lat, lon, opts = {}) {
   state.lat = Math.max(-89, Math.min(89, lat)); state.lon = ((lon + 540) % 360) - 180;
@@ -239,9 +252,10 @@ function tapAt(lat, lon, { record = true } = {}) {
 function updateTapUI() {
   const n = state.taps.length;
   $('#replayBtn').disabled = n === 0; $('#clearBtn').disabled = n === 0;
-  $('#tapCount').textContent = n
-    ? `Your melody: ${n} tap${n > 1 ? 's' : ''}. Replay it, then press "In 1880" to hear the same taps in a cooler world.`
-    : 'Tap a few places to make a melody. Then change the year and replay it: the same taps sound different in 1880.';
+  document.querySelectorAll('[data-year-jump]').forEach(b => { b.disabled = n === 0; });
+  $('#tapCount').textContent = n === 0 ? 'Tap 3 to 5 places on the globe. Then hear your tune in 1880 and in 2025.'
+    : n < 3 ? `${n} note${n > 1 ? 's' : ''} so far. Tap a few more places.`
+    : `Your tune has ${n} notes. Now hear it in 1880, then in 2025. Can you hear the difference?`;
 }
 async function replayTaps() {
   if (state.replaying || !state.taps.length) return;
@@ -277,7 +291,7 @@ async function playHistory() {
     const v = boxMean(i, state.lat, state.lon, 6);
     if (v == null) sound.noData(); else sound.note(tOf(v), { dur: 0.16, gain: 0.45 });
     if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); announce(String(years[i])); }
-    $('#rValue').textContent = fmt(v); $('#rNote').textContent = v == null ? 'silent' : noteName(tOf(v));
+    showValue(v);
     await sleep(140);
   }
   const finished = state.playing;
@@ -286,8 +300,8 @@ async function playHistory() {
   const avg = (a, b) => { let s = 0, n = 0; for (let i = a; i <= b; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
   const L = years.length, first = avg(0, 9), last = avg(L - 10, L - 1);
   const msg = first != null && last != null
-    ? `Around ${place}, ${years[0]} to ${years[9]} averaged ${fmt(first)}. ${years[L - 10]} to ${years[L - 1]} averaged ${fmt(last)}. That is ${Math.abs(last - first).toFixed(1)} degrees ${last >= first ? 'warmer' : 'cooler'}.`
-    : `Around ${place}, NASA's map has gaps in the early years, so the start and the end cannot be compared.`;
+    ? `Near ${place}: the 1880s were ${feeling(first).toLowerCase()}. Today it is ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
+    : `NASA has no measurements near ${place} in the early years, so we can't compare then and now. Try another place.`;
   $('#desc').textContent = msg; speak(msg);
 }
 function setPlayingUI(on) { const b = $('#playBtn'); b.textContent = on ? 'Stop' : 'Play 1880 → 2025'; b.setAttribute('aria-pressed', on); }
@@ -308,7 +322,7 @@ async function sweep() {
   } else {
     // one full turn of the Earth along this latitude, starting and ending where you are
     const lat = state.lat, lon0 = state.lon;
-    await speak(`Going once around the Earth along ${formatCoord(lat, 0).split(' ')[0]}.`);
+    await speak('Spinning the Earth. Listen as we go around.');
     for (let k = 0; k <= 60; k++) {
       state.lon = ((lon0 + k * 6 + 540) % 360) - 180;
       globe.centerOn(lat, state.lon, 80); draw();
@@ -326,8 +340,8 @@ async function hearLegend() {
   state.busy = true;
   const { min, max } = scale();
   const parts = isImage()
-    ? [[0, `Low note: ${say(min)}.`], [0.5, `Middle note: ${say((min + max) / 2)}.`], [1, `High note: ${say(max)}.`]]
-    : [[0, `Low note: ${min} degrees, colder than the 1951 to 1980 average.`], [0.5, 'Middle note: the same as the average.'], [1, `High note: plus ${max} degrees or warmer. Above plus 1, a second voice joins.`]];
+    ? [[0, `This low note means the lowest value on the color bar.`], [0.5, `This middle note means the middle of the color bar.`], [1, `This high note means the highest value.`]]
+    : [[0, 'This low note means colder than normal.'], [0.5, 'This middle note means normal.'], [1, 'This high note means much hotter than normal. When it is very warm, a second voice joins in.']];
   for (const [t, text] of parts) { await speak(text); sound.note(t, { dur: 0.6 }); await sleep(900); }
   state.busy = false;
 }
@@ -335,7 +349,7 @@ async function hearLegend() {
 function toggle(act) {
   if (act === 'voice') { state.voice = !state.voice; if (!state.voice) speechSynthesis?.cancel(); announce(state.voice ? 'Voice on' : 'Voice off'); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
-  document.querySelector(`[data-act="${act}"]`).setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
+  document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
 function act(name) {
   if (name === 'legend') hearLegend();
@@ -362,7 +376,7 @@ function setMode(mode) {
   if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
   else { updateReadout({ play: false }); $('#desc').textContent = describe(); }
 }
-function clearReadout() { ['#rPlace', '#rCoord', '#rValue', '#rNote'].forEach(s => { $(s).textContent = '—'; }); $('#desc').textContent = ''; }
+function clearReadout() { ['#rPlace', '#rValue', '#rDetail'].forEach(s => { $(s).textContent = '—'; }); $('#desc').textContent = ''; }
 function updateSteps() {
   const step = !src.canvas ? 0 : state.cal.step; // 0 no picture, 1 low end, 2 high end, 3 values, 4 ready
   [['#st1', 1], ['#st2', 2], ['#st3', 3]].forEach(([id, n]) => { const li = $(id); li.classList.toggle('now', step === n); li.classList.toggle('done', step > n); });
@@ -447,7 +461,7 @@ const drag = { on: false, x: 0, y: 0, moved: 0, id: null };
 function onGlobeDown(e) {
   sound.start();
   Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId });
-  $('#globe').setPointerCapture(e.pointerId);
+  try { $('#globe').setPointerCapture(e.pointerId); } catch { /* synthetic or ended pointer */ }
 }
 function onGlobeMove(e) {
   if (drag.on && e.pointerId === drag.id) {
