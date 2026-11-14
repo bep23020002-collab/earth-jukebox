@@ -56,12 +56,13 @@
       </div>
 
       <div class="screen">
+      <button type="button" id="issBtn" class="iss-btn" aria-pressed="false">Fly with the Space Station</button>
       <div class="globe-wrap" id="globeWrap">
         <canvas id="globe" width="760" height="760" tabindex="0" role="application"
           aria-roledescription="sound globe"
           aria-label="Temperature globe. Arrow keys travel, square brackets change the year, Enter reads the spot, question mark for help."></canvas>
         <p class="year-big" aria-hidden="true"><span id="yearBig">2025</span></p>
-        <p class="globe-hint" id="globeHint" aria-hidden="true"><span class="hint-mouse">Tap, or draw a line, to play. Hold Shift and drag to spin.</span><span class="hint-touch">Tap, or draw with one finger. Spin with two fingers.</span></p>
+        <p class="globe-hint" id="globeHint" aria-hidden="true"><span class="hint-mouse">Tap to play. Drag to spin the Earth.</span><span class="hint-touch">Tap to play. Drag to spin the Earth.</span></p>
       </div>
 
       <div class="mapwrap" id="mapWrap" hidden>
@@ -205,6 +206,7 @@
               <li><kbd>[</kbd> <kbd>]</kbd> earlier or later year</li>
               <li><kbd>Space</kbd> play every year, first to last</li>
               <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
+              <li><kbd>I</kbd> fly one orbit with the Space Station</li>
               <li><kbd>Enter</kbd> say where I am</li>
               <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
               <li><kbd>?</kbd> hear these keys</li>

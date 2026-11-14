@@ -362,7 +362,7 @@ function moveTo(lat, lon, opts = {}) {
 }
 
 // ---------- play the Earth like an instrument ----------
-function tapAt(lat, lon, { record = true, fromDraw = false } = {}) {
+function tapAt(lat, lon, { record = true } = {}) {
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
@@ -378,7 +378,7 @@ function tapAt(lat, lon, { record = true, fromDraw = false } = {}) {
     state.taps.push({ gap, lat, lon });
     if (state.taps.length > 32) state.taps.shift();
     updateTapUI();
-    if (!fromDraw) guideAfterTap(v); // a drawn line moves the guide on when the line ends
+    guideAfterTap(v);
   }
 }
 function updateTapUI() {
@@ -411,13 +411,13 @@ function setGuide({ label, title, text, btn, alt }) {
 }
 function resetGuide() {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
-  setGuide({ label: 'Step 1 of 3', title: 'Tap the Earth, or draw a line on it', text: 'Every place plays a note. Warmer places play higher notes. A line you draw becomes a tune.' });
+  setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.' });
 }
 function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
-    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}. You can also draw a line across the Earth.` });
+    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.` });
     return;
   }
   guide.step = 2;
@@ -549,6 +549,52 @@ async function playMonths(series, place) {
   state.monthLabel = null; state.month = null;
 }
 
+// ---------- Fly with the Space Station ----------
+// One orbit like the ISS's: a circle tilted 51.6° to the equator, once every 92.9 minutes, while the Earth turns
+// underneath (so each orbit lands about 23° further west). The orbit is placed so it passes over the place you picked;
+// the ISS never flies further north or south than 51.6°, so for places beyond that it passes as close as it can.
+// It fits the data: NASA's lightning track was seen from the ISS, and the background photo was taken from it.
+const ISS = { inc: 51.64, periodMin: 92.9, earthDegPerMin: 360 / 1436.07, steps: 120, stepMs: 125 };
+function issTrack(lat, lon) {
+  const i = ISS.inc * Math.PI / 180, latP = Math.max(-ISS.inc + 0.05, Math.min(ISS.inc - 0.05, lat)) * Math.PI / 180;
+  const u0 = Math.asin(Math.sin(latP) / Math.sin(i)), node = lon - Math.atan2(Math.cos(i) * Math.sin(u0), Math.cos(u0)) * 180 / Math.PI;
+  const pts = [];
+  for (let k = 0; k <= ISS.steps; k++) {
+    const f = k / ISS.steps - 0.5, u = u0 + 2 * Math.PI * f; // half an orbit before the place, half after
+    const la = Math.asin(Math.sin(i) * Math.sin(u)) * 180 / Math.PI;
+    const lo = node + Math.atan2(Math.cos(i) * Math.sin(u), Math.cos(u)) * 180 / Math.PI - ISS.earthDegPerMin * f * ISS.periodMin;
+    pts.push({ lat: la, lon: ((lo + 540) % 360) - 180, min: f * ISS.periodMin });
+  }
+  return { pts, over: Math.abs(lat) <= ISS.inc };
+}
+function setIssUI(on) { const b = $('#issBtn'); b.textContent = on ? 'Stop' : 'Fly with the Space Station'; b.setAttribute('aria-pressed', on); }
+async function flyISS() {
+  if (isImage()) return;
+  if (state.playing) { state.playing = false; return; }
+  state.playing = true; setIssUI(true); $('#playBtn').disabled = true;
+  const place = placeName(state.lat, state.lon), { pts, over } = issTrack(state.lat, state.lon), kd = state.track.kind;
+  globe.clearStrokes(); globe.startStroke(); pts.forEach(p => globe.addPoint(p.lat, p.lon)); // the orbit line
+  $('#nowBox').hidden = false; $('#globeHint').hidden = true;
+  await speak(over ? `One orbit with the Space Station, passing over ${place}.` : `The Space Station never flies over ${place}. This orbit passes as close as it can.`);
+  score.line('One orbit with the Space Station', pts.length, '−46 min', '+46 min');
+  let best = null;
+  for (let k = 0; k < pts.length && state.playing; k++) {
+    const p = pts[k], v = trackValue(state.yi, p.lat, p.lon);
+    if (v != null) { playValue(tOf(v), { pan: 0 }); if (!best || v > best.v) best = { ...p, v }; }
+    globe.setMarker(p.lat, p.lon); globe.centerOn(p.lat, p.lon, ISS.stepMs);
+    if (k % 12 === 0) globe.ripple(p.lat, p.lon);
+    showValue(v, placeName(p.lat, p.lon)); score.put(k, stepOf(v));
+    await sleep(ISS.stepMs);
+  }
+  const finished = state.playing;
+  state.playing = false; setIssUI(false); $('#playBtn').disabled = false;
+  globe.setMarker(state.lat, state.lon); globe.centerOn(state.lat, state.lon, 600); draw(); updateReadout({ play: false });
+  if (!finished) return;
+  const top = best ? `${kd === 'lightning' ? 'The most lightning' : kd === 'ocean' ? 'The warmest water' : 'The warmest place'} under it was ${placeName(best.lat, best.lon)} (${fmt(best.v)}).` : 'NASA has no data along this orbit.';
+  const msg = `That was one orbit of the Space Station: about 93 minutes, played in 15 seconds${over ? `, right over ${place}` : ''}. ${top}`;
+  $('#desc').textContent = msg; speak(msg);
+}
+
 async function playHistory() {
   if (isImage()) return;
   if (state.playing) { state.playing = false; return; }
@@ -659,7 +705,7 @@ function setMode(mode) {
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
   const img = isImage(), song = mode === 'song', ask = mode === 'ask', other = song || ask;
   $('#byo').hidden = !img; $('#songBox').hidden = !song; $('#askBox').hidden = !ask;
-  $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img;
+  $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img; $('#issBtn').hidden = img;
   $('.timeline').hidden = img || state.track.years.length < 2; // always on screen whenever the map has more than one year
   $('#trackPicker').hidden = img || other;
   $('#guide').hidden = img || other; $('#moreBox').hidden = img || other;
@@ -867,7 +913,7 @@ function help() { // spoken key help; the year keys only matter when the track h
   const y = state.track.years, many = !isImage() && y.length > 1;
   return 'Arrow keys travel, with shift in small steps. '
     + (many ? `Square brackets, or page up and page down, change the year. Space plays ${y[0]} to ${y[y.length - 1]}. ` : '')
-    + 'T taps here, R replays your taps. Enter reads this spot. S goes once around the Earth. L plays the legend. '
+    + 'T taps here, R replays your taps. Enter reads this spot. I flies one orbit with the Space Station. S goes once around the Earth. L plays the legend. '
     + (many ? 'D describes the year. ' : 'D describes the map. ')
     + 'B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off.';
 }
@@ -884,7 +930,7 @@ function onKey(e) {
     ']': () => setYear(state.yi + 1), '[': () => setYear(state.yi - 1), '}': () => setYear(state.yi + 10), '{': () => setYear(state.yi - 10),
     Home: () => setYear(0), End: () => setYear(state.track.years.length - 1),
     Enter: () => updateReadout({ speakIt: true }), ' ': () => playHistory(),
-    s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(help()),
+    i: () => flyISS(), s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(help()),
     t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
   };
   let fn = map[k] || map[k.toLowerCase?.()];
@@ -913,9 +959,9 @@ function onMapUp() { if (src.legend) updateReadout({ play: false, speakIt: true 
 
 // Globe gestures:
 //   tap                         -> play that place
-//   press and drag              -> draw a line; every place it crosses plays, and the line becomes your tune
-//   Shift+drag, two fingers, or drag starting off the globe -> spin the Earth
+//   drag (one or two fingers)   -> spin the Earth
 //   mouse hover                 -> listen without clicking
+// The only line on the globe is the Space Station's orbit ("Fly with the Space Station").
 const drag = { on: false, x: 0, y: 0, moved: 0, id: null, mode: 'pending', lastNoteAt: 0, lastCell: -1, notes: 0 };
 const touches = new Map();
 function onGlobeDown(e) {
@@ -927,15 +973,6 @@ function onGlobeDown(e) {
   const spin = e.shiftKey || e.button === 1 || e.button === 2 || !onGlobe || state.replaying || state.songPlaying;
   Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId, mode: spin ? 'spin' : 'pending', lastCell: -1, notes: 0 });
 }
-function drawAt(clientX, clientY) {
-  const p = globe.pick(clientX, clientY); if (!p) return;
-  globe.addPoint(p.lat, p.lon);
-  const now = performance.now(), cell = cellIndex(p.lat, p.lon);
-  if (cell !== drag.lastCell && now - drag.lastNoteAt >= 140) {
-    drag.lastCell = cell; drag.lastNoteAt = now; drag.notes++;
-    tapAt(p.lat, p.lon, { record: state.mode !== 'song', fromDraw: true });
-  }
-}
 function onGlobeMove(e) {
   if (touches.has(e.pointerId)) {
     const t = touches.get(e.pointerId);
@@ -945,12 +982,8 @@ function onGlobeMove(e) {
   if (drag.on && e.pointerId === drag.id) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
-    if (drag.mode === 'pending' && drag.moved > 6) {
-      if (state.mode === 'song' && state.picking != null) drag.mode = 'spin';
-      else { drag.mode = 'draw'; globe.startStroke(); $('#globeHint').hidden = true; }
-    }
+    if (drag.mode === 'pending' && drag.moved > 6) drag.mode = 'spin';
     if (drag.mode === 'spin' && touches.size < 2) globe.rotateBy(dx, dy);
-    if (drag.mode === 'draw') drawAt(e.clientX, e.clientY);
     return;
   }
   if (e.pointerType !== 'mouse' || state.playing || state.busy || state.replaying) return;
@@ -963,11 +996,6 @@ function onGlobeUp(e) {
   touches.delete(e.pointerId);
   if (!drag.on || e.pointerId !== drag.id) return;
   drag.on = false;
-  if (drag.mode === 'draw') {
-    announce(`Your line played ${drag.notes} notes.`);
-    guideAfterTap(currentValue());
-    return;
-  }
   if (drag.mode !== 'pending') return; // that was a spin
   const p = globe.pick(e.clientX, e.clientY);
   if (!p) return;
@@ -982,8 +1010,8 @@ function switchTrack(id) {
   state.playing = false; stopSong();
   useTrack(id); preloadAll();
   setMode('track');
-  if (id === 'temperature') { if (!guide.done) resetGuide(); else setGuide({ label: 'Temperature, 1880–2025', title: 'Tap or draw on the Earth', text: KINDS.temperature.hint }); }
-  else setGuide({ label: state.track.title, title: id === 'ocean' ? 'Tap or draw across the ocean' : 'Tap or draw anywhere', text: kind().hint });
+  if (id === 'temperature') { if (!guide.done) resetGuide(); else setGuide({ label: 'Temperature, 1880–2025', title: 'Tap the Earth, or fly with the Space Station', text: KINDS.temperature.hint }); }
+  else setGuide({ label: state.track.title, title: id === 'ocean' ? 'Tap the ocean, or fly with the Space Station' : 'Tap anywhere, or fly with the Space Station', text: kind().hint });
   $('#desc').textContent = describe();
 }
 
@@ -1181,6 +1209,7 @@ async function init() {
   $('#startBtn').addEventListener('click', () => start(false));
   $('#startVoiceBtn').addEventListener('click', () => start(true));
   $('#playBtn').addEventListener('click', () => { sound.start(); playHistory(); });
+  $('#issBtn').addEventListener('click', () => { sound.start(); flyISS(); });
   $('#year').addEventListener('input', e => { // 12 steps per year: the bar lands on a month
     sound.start(); const k = +e.target.value;
     if (hasMonths()) setYear(Math.floor(k / 12), (k % 12) + 1); else setYear(k);
