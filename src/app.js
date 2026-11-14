@@ -128,9 +128,10 @@ function describe() {
   }
   const st = yearStats(state.yi);
   const top = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
-  const here = boxMean(state.yi, state.lat, state.lon, 4), near = placeName(state.lat, state.lon);
+  const here = boxMean(state.yi, state.lat, state.lon, 4), name = placeName(state.lat, state.lon);
+  const near = name.replace(/^near /, ''); // placeName says "near X" when far from X; the sentences below add their own "Near"
   if (state.track.kind === 'ocean') return `The warmest water is in ${top.name}. The coldest is near the poles. Near ${near}: ${feeling(here).toLowerCase()}.`;
-  if (state.track.kind === 'lightning') return `In ${year()}, NASA saw the most lightning in ${top.name}. Near ${near}: ${feeling(here).toLowerCase()}.`;
+  if (state.track.kind === 'lightning') return `In ${year()}${kind().partYears?.[year()] ? ` (${kind().partYears[year()]})` : ''}, NASA saw the most lightning in ${top.name}. Near ${near}: ${feeling(here).toLowerCase()}.`;
   const overall = st.mean < -0.3 ? 'most of the world was colder than normal' : st.mean < 0.3 ? 'the world as a whole was about normal'
     : st.mean < 1 ? 'most of the world was warmer than normal' : 'most of the world was much warmer than normal';
   return `In ${year()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.`;
@@ -160,17 +161,19 @@ function speak(text, { interrupt = true } = {}) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---------- drawing ----------
-function frameImage(yi) {
-  const y = state.track.years[yi], key = `${state.track.id}/${y}`;
+function frameImage(yi, T = state.track) {
+  const y = T.years[yi], key = `${T.id}/${y}`;
   if (!state.images.has(key)) {
     const img = new Image(); img.decoding = 'async';
-    img.src = `assets/${state.track.id}/frames/${y}.jpg`;
+    img.src = `assets/${T.id}/frames/${y}.jpg`;
     img.onload = () => { if (!isImage() && `${state.track.id}/${year()}` === key) draw(); };
     state.images.set(key, img);
   }
   return state.images.get(key);
 }
-function preloadAll() { state.track.years.forEach((_, i) => setTimeout(() => frameImage(i), i * 40)); }
+function preloadAll() { // keeps loading this track's frames even if the listener switches tracks meanwhile
+  const T = state.track; T.years.forEach((_, i) => setTimeout(() => frameImage(i, T), i * 40));
+}
 
 function sizeCanvas(w, h) {
   const c = $('#map');
@@ -461,6 +464,8 @@ function setMode(mode) {
   if (song) renderMoments();
   $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
   $('#map').setAttribute('aria-label', 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.');
+  $('#globe').setAttribute('aria-label', `${kind().label} globe. Arrow keys travel, `
+    + (state.track.years.length > 1 ? 'square brackets change the year, ' : '') + 'Enter reads the spot, question mark for help.');
   if (!img) globe.request();
   draw(); drawLegend();
   if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
@@ -505,7 +510,14 @@ function makeItSing() {
 }
 
 // ---------- input ----------
-const HELP = 'Arrow keys travel, with shift in small steps. Square brackets, or page up and page down, change the year. Space plays 1880 to 2025. T taps here, R replays your taps. Enter reads this spot. S goes once around the Earth. L plays the legend. D describes the year. B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off.';
+function help() { // spoken key help; the year keys only matter when the track has more than one year
+  const y = state.track.years, many = !isImage() && y.length > 1;
+  return 'Arrow keys travel, with shift in small steps. '
+    + (many ? `Square brackets, or page up and page down, change the year. Space plays ${y[0]} to ${y[y.length - 1]}. ` : '')
+    + 'T taps here, R replays your taps. Enter reads this spot. S goes once around the Earth. L plays the legend. '
+    + (many ? 'D describes the year. ' : 'D describes the map. ')
+    + 'B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off.';
+}
 function onKey(e) {
   if (!state.track) return;
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Enter' && e.target.closest('#byo')) makeItSing(); return; }
@@ -519,7 +531,7 @@ function onKey(e) {
     ']': () => setYear(state.yi + 1), '[': () => setYear(state.yi - 1), '}': () => setYear(state.yi + 10), '{': () => setYear(state.yi - 10),
     Home: () => setYear(0), End: () => setYear(state.track.years.length - 1),
     Enter: () => updateReadout({ speakIt: true }), ' ': () => playHistory(),
-    s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(HELP),
+    s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(help()),
     t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
   };
   let fn = map[k] || map[k.toLowerCase?.()];

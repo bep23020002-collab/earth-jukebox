@@ -161,7 +161,7 @@
             <ul>
               <li><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move around the Earth</li>
               <li><kbd>[</kbd> <kbd>]</kbd> earlier or later year</li>
-              <li><kbd>Space</kbd> play 1880 to 2025</li>
+              <li><kbd>Space</kbd> play every year, first to last</li>
               <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
               <li><kbd>Enter</kbd> say where I am</li>
               <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
@@ -176,8 +176,8 @@
       <h2 id="howTitle">How it works</h2>
       <ol class="steps">
         <li><strong>We read NASA's color key.</strong> Every NASA map has a color bar that says what each color means. We read it, so every color becomes a number.</li>
-        <li><strong>Every spot gets a note.</strong> Warmer than normal plays higher. Much warmer adds a second voice. Places with no data stay silent.</li>
-        <li><strong>You can hear it without seeing it.</strong> Move with the arrow keys and the app says where you are and how warm it is.</li>
+        <li><strong>Every spot gets a note.</strong> Higher numbers play higher notes, on a musical scale, so it always sounds like music. Each NASA visualization has its own instrument: temperature plays a marimba (much warmer than normal adds a second voice), ocean temperature plays a harp, and lightning plays drums (more lightning, more hits). Places with no data stay silent.</li>
+        <li><strong>You can hear it without seeing it.</strong> Move with the arrow keys and the app says where you are and what NASA measured there.</li>
       </ol>
       <div class="credits">
         <h3>Where the data comes from</h3>
@@ -186,7 +186,9 @@
         <p class="small">"Normal" means the average temperature for 1951–1980. Numbers are read from the colors of NASA's map, so they are close but not exact.</p>
         <details class="small">
           <summary>More detail for scientists</summary>
-          <p>The equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published global averages. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
+          <p>Temperature: the equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published global averages. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
+          <p>Ocean: one frame of the ECCO2 model (19 June 2007), read against NASA's 0–32 °C color bar by hue, so the light and shadow of the flow lines do not change the number.</p>
+          <p>Lightning: the sensor on the Space Station only sees between about 56° north and 56° south, so places outside that band stay silent instead of claiming "no lightning". Values are the share of 10-day periods in which lightning was seen.</p>
         </details>
         <p class="small">Built during the 2026 NASA Space Apps Challenge by Team Happy Squad (Sibu, Sarawak), with help from an AI coding assistant.</p>
       </div>

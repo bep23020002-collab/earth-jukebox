@@ -65,7 +65,7 @@ WHAT WE CONSIDERED
 Scientific honesty (values come only from NASA's legend; no-data stays silent; the color range was checked against published data); musicality versus accuracy (pentatonic scale, but fixed rules explained to the user); first-time users (a three-step guide and plain words); privacy (no accounts, no tracking, nothing leaves the browser).
 
 LIMITATIONS
-Values are read from the colors of NASA's visualizations, so they are close but not exact, and capped at the ends of each color scale. The ocean track is one model snapshot (19 June 2007). The lightning track counts how often lightning was seen in 10-day windows, not how many strikes there were. "Use any NASA map" needs a sighted helper to mark the color bar once.
+Values are read from the colors of NASA's visualizations, so they are close but not exact, and capped at the ends of each color scale. The ocean track is one model snapshot (19 June 2007). The lightning track counts how often lightning was seen in 10-day windows, not how many strikes there were, and the Space Station's sensor only sees between about 56°N and 56°S, so places farther north or south stay silent. "Use any NASA map" needs a sighted helper to mark the color bar once.
 ```
 
 ## Use of Super Intelligence (SI)
@@ -86,6 +86,7 @@ We used AI chatbots (OpenAI Codex and Anthropic Claude) before the hackathon to 
 | Link Text | Link Url |
 |---|---|
 | Global Temperature Anomalies from 1880 to 2025 (NASA SVS 5603; EIC Climate Vital Signs dashboard, updated version) | https://svs.gsfc.nasa.gov/5603/ |
+| Global Temperature Anomalies from 1880 to 2023 (NASA SVS 5207, the version shown in the EIC Climate Vital Signs Dashboard) | https://svs.gsfc.nasa.gov/5207/ |
 | Global Sea Surface Currents and Temperature (NASA SVS 3912, EIC) | https://svs.gsfc.nasa.gov/3912/ |
 | Lightning Events Detected from the ISS 2017–2023 (NASA SVS 5011, EIC) | https://svs.gsfc.nasa.gov/5011/ |
 | Earth Information Center Content Database (NASA SVS) | https://svs.gsfc.nasa.gov/gallery/earth-information-center/ |

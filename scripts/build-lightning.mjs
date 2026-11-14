@@ -6,6 +6,8 @@
 //   assets/lightning/frames/<y>.jpg   all lightning dots seen that year, laid over NASA's own background
 // labels.txt gives the date of every frame; after "31 Dec 2022" it says "2003", which must mean 2023
 // (the movie ends in July 2023), so 2003 is read as 2023.
+// The ISS orbit only lets the sensor see between about 55°N and 55°S. Rows of cells where no lightning
+// was seen in the whole movie are outside that band, so they are stored as "no data" (0), not as "no lightning".
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
@@ -45,8 +47,11 @@ ff.stdout.on('data', chunk => {
 ff.on('close', () => {
   mkdirSync(root + 'assets/lightning/frames', { recursive: true });
   const cube = new Uint8Array(YEARS.length * GW * GH);
+  const observedRow = Array.from({ length: GH }, (_, cy) => counts.some(c => c.subarray(cy * GW, (cy + 1) * GW).some(n => n > 0)));
+  const rows = observedRow.flatMap((o, cy) => (o ? [cy] : []));
+  const band = [90 - rows[0] * 2, 90 - (rows[rows.length - 1] + 1) * 2];
   YEARS.forEach((y, yi) => {
-    for (let i = 0; i < GW * GH; i++) cube[yi * GW * GH + i] = 1 + Math.round(counts[yi][i] / Math.max(1, windows[yi]) * 254);
+    for (let i = 0; i < GW * GH; i++) cube[yi * GW * GH + i] = observedRow[Math.floor(i / GW)] ? 1 + Math.round(counts[yi][i] / Math.max(1, windows[yi]) * 254) : 0;
     spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-i', '-', '-q:v', '3', `${root}assets/lightning/frames/${y}.jpg`], { input: composite[yi] });
   });
   writeFileSync(root + 'assets/lightning/cube.bin', cube);
@@ -56,9 +61,10 @@ ff.on('close', () => {
     subtitle: 'How often NASA\'s Lightning Imaging Sensor on the ISS saw lightning, March 2017 to July 2023',
     unit: '', min: 0, max: 1, years: YEARS, grid: { width: GW, height: GH, cellDegrees: 2 },
     windows: Object.fromEntries(YEARS.map((y, i) => [y, windows[i]])),
+    observedLatitudes: band, // [north, south] edge of the band the sensor could see; outside it is "no data"
     credit: 'NASA Scientific Visualization Studio, "Lightning Events Detected from the International Space Station (ISS) 2017-2023" (LIS on ISS)',
     sourceUrl: 'https://svs.gsfc.nasa.gov/5011/',
     stops: [{ rgb: [20, 20, 20], value: 0 }, { rgb: [120, 110, 20], value: 0.4 }, { rgb: [255, 230, 0], value: 1 }],
   }));
-  console.log('windows per year', windows.join(', '));
+  console.log('windows per year', windows.join(', '), '| observed latitudes', band.join(' to '));
 });

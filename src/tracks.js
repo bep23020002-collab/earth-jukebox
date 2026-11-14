@@ -26,11 +26,15 @@ export const KINDS = {
   lightning: {
     label: 'Lightning',
     instrument: 'drum',              // more lightning, more drum hits
-    hint: 'The more lightning NASA saw from space, the more drum hits you hear.',
+    hint: 'The more lightning NASA saw from space, the more drum hits you hear. Places too far north or south for the Space Station to see stay silent.',
     legend: ['No lightning', '', 'Lots of lightning'],
     words: v => (v < 0.02 ? 'Almost no lightning' : v < 0.15 ? 'A little lightning' : v < 0.4 ? 'Some lightning'
       : v < 0.7 ? 'Lots of lightning' : 'A lightning hotspot'),
     detail: v => `Lightning seen in ${Math.round(v * 100)}% of 10-day periods`,
-    noData: 'No lightning data here',
+    // The sensor on the ISS only sees between about 56°N and 56°S (see scripts/build-lightning.mjs).
+    noData: 'The Space Station cannot see this far north or south',
+    noDataWord: 'Not seen from the Space Station',
+    // The record starts in March 2017 and ends in July 2023, so those two years miss part of the stormy seasons.
+    partYears: { 2017: 'March to December only', 2023: 'January to July only' },
   },
 };
