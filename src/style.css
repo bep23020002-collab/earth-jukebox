@@ -204,15 +204,17 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 /* my Earth song */
 .song { display: grid; gap: 14px; padding: 22px; box-shadow: var(--shadow); }
 .moments { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.moment { display: grid; grid-template-columns: 5.4em minmax(0, 1fr) auto; gap: 8px; padding: 12px; border-radius: var(--r-m); -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(214, 232, 255, .04); transition: border-color .2s, box-shadow .2s; }
+.moment { display: grid; grid-template-columns: 5.4em minmax(0, 1fr) 40px; align-items: end; gap: 8px; padding: 12px; border-radius: var(--r-m); -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(214, 232, 255, .04); transition: border-color .2s, box-shadow .2s; }
 .moment.playing { border-color: var(--ember); box-shadow: 0 0 0 1px var(--ember) inset, 0 0 26px rgba(232, 131, 74, .3); }
 .moment.picking { border-color: var(--ice); }
-.moment .m-labelf { grid-column: 1 / 3; }
 .m-f { display: grid; gap: 3px; min-width: 0; }
 .m-f span { font-size: .76rem; color: var(--muted); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
-.moment .m-remove, .moment .m-pick { align-self: end; height: 42px; background: var(--glass); border: 1px solid var(--hair); border-radius: var(--r-s); color: var(--muted); cursor: pointer; padding: 0 12px; }
-.moment .m-remove:hover, .moment .m-pick:hover { color: var(--ink); background: var(--glass-2); }
-.moment .m-pick { grid-column: 3; grid-row: 2; font-size: .85rem; }
+.moment .m-labelf { grid-column: 1 / -1; }
+.moment .m-remove { width: 40px; height: 44px; padding: 0; background: var(--glass); border: 1px solid var(--hair); border-radius: var(--r-s); color: var(--muted); cursor: pointer; }
+.moment .m-pick { grid-column: 1 / -1; justify-self: start; background: transparent; border: 0; color: var(--ice); cursor: pointer; padding: 2px 0; font-size: .88rem; font-weight: 700; }
+.moment .m-pick[aria-pressed="true"] { color: var(--ember-2); }
+.moment .m-remove:hover { color: var(--ink); background: var(--glass-2); }
+.moment .m-pick:hover { text-decoration: underline; }
 .moment .m-feel { grid-column: 1 / -1; font-size: .88rem; color: var(--muted); }
 .moment .m-feel:empty { display: none; }
 .howto { margin: 0; padding-left: 22px; display: grid; gap: 4px; color: var(--muted); }
@@ -245,7 +247,11 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 }
 @media (max-width: 620px) {
   html, body { font-size: 16px; }
-  .track-picker { grid-template-columns: 1fr; }
+  .track-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .track-picker button { grid-template-columns: 1fr; grid-template-rows: auto; row-gap: 4px; justify-items: center; text-align: center; padding: 8px 6px; }
+  .track-picker button img { grid-row: auto; width: 100%; height: 42px; }
+  .track-picker .tt-name { font-size: .9rem; }
+  .track-picker .tt-inst { font-size: .76rem; justify-content: center; }
   .timeline { flex-wrap: wrap; border-radius: var(--r-l); }
   .year-range { order: 3; flex-basis: 100%; }
   .about { padding: 22px; }
