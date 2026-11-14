@@ -1,9 +1,12 @@
 // AI-assisted (Anthropic Claude). Renders the 30-second Earth Jukebox demo video.
 // Product-demo style in the website's hardware look (Dieter Rams / Braun recipe).
 // Every globe frame, every note and every number comes from the same NASA data the website uses (../assets).
-// Usage: node render.mjs [out.mp4]   |   node render.mjs --samples   (writes PNG frames to out/)
+// Usage: node render.mjs [out.mp4]   |   node render.mjs --samples [seconds…]   (writes PNG frames to out/)
+// Options: --ssb out/ssb.json   put the SSB Sibu tester clip where the family-story section is (see SSB below)
+//          --wm quiet|pill      AI-assistance watermark style (default quiet)
+//          --look night|concrete|orange   colours around the device (default night, with twinkling stars)
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { KINDS } from '../src/tracks.js';
@@ -13,6 +16,8 @@ import { composeSong } from '../src/song.js';
 const HERE = path.dirname(new URL(import.meta.url).pathname), A = path.join(HERE, '../assets/');
 const OUT = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : path.join(HERE, 'out/earth-jukebox-demo.mp4');
 const SAMPLES = process.argv.includes('--samples');
+const argOf = name => { const i = process.argv.indexOf(name); return i > 1 ? process.argv[i + 1] : null; };
+const WM = argOf('--wm') || 'quiet';
 const W = 1920, H = 1080, FPS = 30, DUR = 30, SR = 44100;
 for (const f of ['/System/Library/Fonts/HelveticaNeue.ttc', '/System/Library/Fonts/Menlo.ttc']) if (fs.existsSync(f)) GlobalFonts.registerFromPath(f);
 const SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif', MONO = 'Menlo, Monaco, monospace';
@@ -20,6 +25,13 @@ const K = {
   bg: '#D3CFC7', body: '#E4E1DC', plate: '#EFEDE8', paper: '#F8F7F3', key: '#D4D0C8', line: '#C6C1B8', line2: '#B3AEA4',
   ink: '#191919', gray: '#5C5C5C', orange: '#E96A26', screen: '#171716', sInk: '#E6E3DD', sDim: '#9D9A93', lcd: '#232B25', lInk: '#D6F0C4', lDim: '#9CC48A',
 };
+// stage look: the colours around the device and of the full-screen scenes (the device and NASA's maps never change)
+const LOOKS = {
+  concrete: { bg: '#D3CFC7', fill: '#E4E1DC', ink: '#191919', dim: '#5C5C5C', num: '#191919', plate: '#EFEDE8', line: '#C6C1B8', line2: '#B3AEA4', led: '#E96A26' },
+  night: { bg: '#0B0B0D', fill: '#0B0B0D', ink: '#F4F1EB', dim: '#A6A39C', num: '#FF7A2F', plate: '#1A1A18', line: '#2C2B28', line2: '#4A4843', led: '#FF6B1A', stars: true },
+  orange: { bg: '#E96A26', fill: '#E96A26', ink: '#141414', dim: '#3F1C08', num: '#FFFFFF', plate: '#F8F7F3', line: '#C9561C', line2: '#A9470F', led: '#141414' },
+};
+const ST = LOOKS[argOf('--look') || 'night'] || LOOKS.night;
 
 // ---------- NASA data ----------
 const loadTrack = id => { const t = JSON.parse(fs.readFileSync(A + id + '/track.json')); t.cube = fs.readFileSync(A + id + '/cube.bin'); return t; };
@@ -61,11 +73,25 @@ const ASK = { a: boxMean(TEMP, yIdx(1960), SIBU.lat, SIBU.lon, 3), b: boxMean(TE
 // three tracks at places near Borneo
 const SEA = { name: 'South China Sea', lat: 6, lon: 112 }, oceanV = boxMean(OCEAN, 0, SEA.lat, SEA.lon, 4);
 const lightV = boxMean(LIGHT, yIdx(2020, LIGHT), SIBU.lat, SIBU.lon, 4);
-// My Earth song, composed by the website's own composer
-const STORY = [{ year: 1950, name: 'Fuzhou', lat: 26.07, lon: 119.3 }, { year: 1970, name: 'Sibu', lat: 2.3, lon: 111.8 }, { year: 2006, name: 'Kuching', lat: 1.55, lon: 110.35 }];
+// NASA GISTEMP v4 monthly data (same files and rules as the website's src/monthly.js), for a moment with a month
+const MMETA = JSON.parse(fs.readFileSync(A + 'temperature/monthly/meta.json')), MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthBin = new Map(), monthYear = y => { if (!monthBin.has(y)) monthBin.set(y, fs.readFileSync(`${A}temperature/monthly/${y}.bin`)); return monthBin.get(y); };
+const monthValue = (y, mo, lat, lon) => { const c = monthYear(y)[(mo - 1) * 16200 + cellIdx(lat, lon)]; return c ? MMETA.encoding.offset + (c - 1) * MMETA.encoding.step : null; };
+function monthBoxMean(y, mo, lat, lon, r = 6) {
+  let s = 0, w = 0;
+  for (let la = lat - r + 1; la <= lat + r; la += 2) for (let lo = lon - r + 1; lo <= lon + r; lo += 2) {
+    const v = monthValue(y, mo, Math.max(-89, Math.min(89, la)), lo); if (v == null) continue;
+    const k = Math.cos(la * Math.PI / 180); s += v * k; w += k;
+  }
+  return w ? s / w : null;
+}
+const dateText = m => [m.month && m.day ? m.day : '', m.month ? MON[m.month - 1] : '', m.year].filter(Boolean).join(' '); // "15 Mar 2006"
+// My Earth song, composed by the website's own composer; the birthday uses that month's NASA data (judges asked for dates)
+const STORY = [{ year: 1950, name: 'Fuzhou', lat: 26.07, lon: 119.3 }, { year: 1970, name: 'Sibu', lat: 2.3, lon: 111.8 }, { year: 2006, month: 3, day: 15, name: 'Kuching', lat: 1.55, lon: 110.35 }];
 const SONG = composeSong(STORY, {
   yearIndexOf: y => yIdx(y), tOf: v => tOf(TEMP, v),
-  localMean: (yi, lat, lon) => boxMean(TEMP, yi, lat, lon, 6), valueAt: (yi, lat, lon) => cellVal(TEMP, yi, lat, lon) ?? boxMean(TEMP, yi, lat, lon, 4),
+  localMean: (yi, lat, lon, m) => (m.month ? monthBoxMean(m.year, m.month, lat, lon, 6) : boxMean(TEMP, yi, lat, lon, 6)),
+  valueAt: (yi, lat, lon, m) => (m.month ? monthValue(m.year, m.month, lat, lon) ?? monthBoxMean(m.year, m.month, lat, lon, 4) : cellVal(TEMP, yi, lat, lon) ?? boxMean(TEMP, yi, lat, lon, 4)),
 });
 
 // ---------- textures ----------
@@ -93,7 +119,19 @@ function text(s, x, y, size, color = K.ink, { weight = 400, align = 'left', font
 }
 const measure = (s, size, weight = 400, font = SANS) => { g.save(); g.font = `${weight} ${size}px ${font}`; const w = g.measureText(s).width; g.restore(); return w; };
 function led(x, y, r = 7, color = K.orange) { g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
-function grille(x, y, w, h, step = 13, r = 2.6) { g.fillStyle = K.line2; for (let yy = y + step / 2; yy < y + h; yy += step) for (let xx = x + step / 2; xx < x + w; xx += step) { g.beginPath(); g.arc(xx, yy, r, 0, Math.PI * 2); g.fill(); } }
+function grille(x, y, w, h, step = 13, r = 2.6, color = K.line2) { g.fillStyle = color; for (let yy = y + step / 2; yy < y + h; yy += step) for (let xx = x + step / 2; xx < x + w; xx += step) { g.beginPath(); g.arc(xx, yy, r, 0, Math.PI * 2); g.fill(); } }
+// twinkling stars for the night look (decorative, drawn in screen space so the device moves in front of a still sky)
+const STARS = (() => { let q = 11; const r = () => (q = (q * 16807) % 2147483647) / 2147483647; return Array.from({ length: 440 }, (_, i) => ({ x: r() * W, y: r() * H, rad: i < 22 ? 1.6 + r() * 0.9 : 0.55 + r() ** 3 * 1.5, a: i < 22 ? 0.9 : 0.22 + r() * 0.55, ph: r() * 6.283, sp: 0.5 + r() * 1.6, big: i < 22 })); })();
+function stars(t, alpha) {
+  if (!ST.stars || alpha <= 0) return;
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#FFFFFF'; g.strokeStyle = '#FFFFFF';
+  for (const st of STARS) {
+    const tw = 0.5 + 0.5 * Math.sin(t * st.sp * 2.4 + st.ph); g.globalAlpha = alpha * st.a * (0.35 + 0.65 * tw);
+    g.beginPath(); g.arc(st.x, st.y, st.rad, 0, 6.283); g.fill();
+    if (st.big && tw > 0.6) { const L = 4 + 9 * (tw - 0.6) / 0.4; g.lineWidth = 1; g.globalAlpha = alpha * 0.55 * tw; g.beginPath(); g.moveTo(st.x - L, st.y); g.lineTo(st.x + L, st.y); g.moveTo(st.x, st.y - L); g.lineTo(st.x, st.y + L); g.stroke(); }
+  }
+  g.restore();
+}
 const typed = (s, t0, cps, t) => s.slice(0, Math.max(0, Math.min(s.length, Math.floor((t - t0) * cps))));
 function wrap(s, size, maxW, weight = 400) { const lines = ['']; for (const w of s.split(' ')) { const tryL = lines[lines.length - 1] ? lines[lines.length - 1] + ' ' + w : w; if (measure(tryL, size, weight) > maxW && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = tryL; } return lines; }
 function toneFor(v, T = TEMP) {
@@ -157,26 +195,50 @@ function drawGlobe(tex, v) { // v in app coordinates
 function ripple(x, y, k) { g.save(); g.strokeStyle = `rgba(255,255,255,${0.95 * (1 - k)})`; g.lineWidth = 5 * (1 - k) + 1.5; g.beginPath(); g.arc(x, y, 16 + k * 110, 0, Math.PI * 2); g.stroke(); g.restore(); }
 function marker(x, y) { g.save(); g.lineWidth = 7; g.strokeStyle = '#0A0F18'; g.beginPath(); g.arc(x, y, 20, 0, Math.PI * 2); g.stroke(); g.lineWidth = 3.5; g.strokeStyle = '#fff'; g.beginPath(); g.arc(x, y, 20, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fill(); g.restore(); }
 
+// ---------- SSB Sibu tester clip (optional) ----------
+// Real camera footage of an adult tester, used only with recorded consent. It replaces the family-story section.
+// Keep the clip and its JSON in video/out/ (gitignored), so no tester's face, voice or name is committed. JSON fields:
+//   clip (path, relative to the JSON), start (s, default 0), len (s, 3–4 is best; longer is cut at 4),
+//   quote (English subtitle: the tester's own words, translated if needed), lang (e.g. "Malay", if translated),
+//   who (attribution the tester agreed to, e.g. "Tester, Sarawak Society for the Blind, Sibu"),
+//   stat (optional, from the record sheet, e.g. ["4 of 5", "found the warmer place by ear"]), statNote (optional),
+//   adult: true and consent: true (both required: no one under 18, and the tester agreed to appear in the video)
+const SSB = (() => {
+  const file = argOf('--ssb'); if (!file) return null;
+  const cfg = JSON.parse(fs.readFileSync(path.resolve(file)));
+  if (cfg.adult !== true || cfg.consent !== true) throw new Error('ssb.json: set "adult": true and "consent": true only after checking both on the consent sheet');
+  const dir = path.join(HERE, 'out/ssb_frames'); fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+  const src = path.resolve(path.dirname(path.resolve(file)), cfg.clip), len = Math.min(4, cfg.len ?? 4), ss = String(cfg.start ?? 0);
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-ss', ss, '-t', String(len), '-i', src, '-vf', 'fps=30,scale=1280:1280:force_original_aspect_ratio=decrease', '-q:v', '3', path.join(dir, '%04d.jpg')]);
+  let voice = null;
+  try { const raw = execFileSync('ffmpeg', ['-loglevel', 'error', '-ss', ss, '-t', String(len), '-i', src, '-vn', '-ac', '2', '-ar', String(SR), '-f', 'f32le', '-'], { maxBuffer: 1 << 28 }); voice = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4); } catch { voice = null; }
+  const frames = fs.readdirSync(dir).filter(f => f.endsWith('.jpg')).length;
+  if (!frames) throw new Error('ssb: no frames read from ' + src);
+  return { ...cfg, dir, frames, dur: Math.max(3, Math.min(4, frames / FPS)), voice };
+})();
+
 // ---------- timeline of what is on the device ----------
 const T_TAP = [6.6, 7.7, 8.8], T_1880 = [10.95, 11.45, 11.95], T_2025 = [12.95, 13.45, 13.95], T_DONE = 14.35;
 const T_OCEAN = 15.95, T_LIGHT = 16.95, T_TEMP = 17.95, T_TAB_ASK = 18.75, T_ASKBTN = 20.0, T_ANS_A = 20.2, T_ANS_B = 20.75, T_TAB_SONG = 22.3, T_SONGBTN = 23.35, T_SONG0 = 23.55, SEC = 0.75;
-const T_VALID = 25.9, T_END = 28.25;
+const T_CLIP = T_TAB_SONG; // the SSB clip takes the family-story slot
+const T_VALID = SSB ? T_CLIP + SSB.dur : 25.9, T_END = SSB ? T_VALID + (30 - T_VALID) * 0.57 : 28.25;
+const DEV_END = SSB ? T_CLIP : T_VALID; // when the device leaves the screen
 function yearOnGlobe(t) {
   if (t < 0.6) return 1880;
   if (t < 2.9) return YEARS[Math.round(ease((t - 0.6) / 2.3) * (YEARS.length - 1))];
   if (t >= 10.65 && t < 12.65) return 1880;
   if (t >= T_ANS_A && t < T_ANS_B) return 1960;
-  if (t >= T_SONG0 - 0.2 && t < T_VALID) return STORY[Math.max(0, Math.min(2, Math.floor((t - T_SONG0) / SEC)))].year;
+  if (!SSB && t >= T_SONG0 - 0.2 && t < T_VALID) return STORY[Math.max(0, Math.min(2, Math.floor((t - T_SONG0) / SEC)))].year;
   return 2025;
 }
 function trackAt(t) { return t >= T_OCEAN && t < T_LIGHT ? 'ocean' : t >= T_LIGHT && t < T_TEMP ? 'lightning' : 'temperature'; }
-function modeAt(t) { return t >= T_TAB_SONG ? 'song' : t >= T_TAB_ASK ? 'ask' : 'play'; }
+function modeAt(t) { return t >= T_TAB_SONG && !SSB ? 'song' : t >= T_TAB_ASK ? 'ask' : 'play'; }
 function globeView(t) {
   let lat0 = 15, lon0 = 72 + Math.min(t, 3) * 6, R = 205;
   if (t > 2.9) { const k = ease((t - 2.9) / 0.9); R = 205 + 175 * k; }
   if (t > 3.0) { const k = ease((t - 3.0) / 2.2); lat0 = 15 - 10 * k; lon0 = 90 + 10 * k; }
   if (t > T_TAB_ASK) { const k = ease((t - T_TAB_ASK) / 0.8); lat0 += (SIBU.lat + 8 - lat0) * k; lon0 += (SIBU.lon - lon0) * k; }
-  if (t > T_SONG0 - 0.3) { const k = ease((t - T_SONG0 + 0.3) / 0.8); lat0 += (13 - lat0) * k; lon0 += (115 - lon0) * k; }
+  if (!SSB && t > T_SONG0 - 0.3) { const k = ease((t - T_SONG0 + 0.3) / 0.8); lat0 += (13 - lat0) * k; lon0 += (115 - lon0) * k; }
   return { cx: 580, cy: 590, R, lat0, lon0 };
 }
 // cursor waypoints (app coordinates), clicked at their time
@@ -190,10 +252,10 @@ const WAY = [
   [10.65, [1300, 990], true], [12.65, [1300, 990], true],
   [T_OCEAN, [keyX(1) + 116, 190], true], [T_LIGHT, [keyX(2) + 116, 190], true], [T_TEMP, [keyX(0) + 116, 190], true],
   [T_TAB_ASK, [tabRects[2].x + tabRects[2].w / 2, 74], true], [T_ASKBTN, [1772, 262], true],
-  [T_TAB_SONG, [tabRects[1].x + tabRects[1].w / 2, 74], true], [T_SONGBTN, [1300, 395], true], [T_VALID - 0.3, [1250, 560], false],
+  ...(SSB ? [[DEV_END - 0.3, [1790, 300], false]] : [[T_TAB_SONG, [tabRects[1].x + tabRects[1].w / 2, 74], true], [T_SONGBTN, [1300, 395], true], [T_VALID - 0.3, [1250, 560], false]]),
 ];
 function cursorAt(t) {
-  if (t < WAY[0][0] - 0.2 || t > T_VALID - 0.3) return null;
+  if (t < WAY[0][0] - 0.2 || t > DEV_END - 0.3) return null;
   let i = 0; while (i < WAY.length - 1 && t > WAY[i + 1][0]) i++;
   const [t0, p0] = WAY[i], [t1, p1, click1] = WAY[Math.min(i + 1, WAY.length - 1)];
   const dur = Math.min(0.75, 0.8 * (t1 - t0)), k = t1 === t0 ? 1 : ease((t - (t1 - dur)) / Math.max(0.01, dur)); // rest, then move just before the click
@@ -255,13 +317,14 @@ async function drawDevice(t) {
   g.fillStyle = K.screen; g.fillRect(80, 130, 1000, 900);
   g.globalAlpha = 0.55; g.drawImage(AIRGLOW, 80, 690, 1000, 340); g.globalAlpha = 1;
   const fade = g.createLinearGradient(0, 690, 0, 880); fade.addColorStop(0, K.screen); fade.addColorStop(1, 'rgba(23,23,22,0)'); g.fillStyle = fade; g.fillRect(80, 690, 1000, 200);
+  stars(t, 1 - ease((t - 2.9) / 0.8)); // the opening's sky; the stage's own stars take over as the camera pulls back
   const v = globeView(t), y = yearOnGlobe(t);
   const tex = track === 'ocean' ? await texture('ocean', 2007) : track === 'lightning' ? await texture('lightning', 2020) : await texture('temperature', y);
   drawGlobe(tex, v);
   // taps on the globe
   const taps = [...TUNE.map((p, i) => [T_TAP[i], p]), ...TUNE.map((p, i) => [T_1880[i], p]), ...TUNE.map((p, i) => [T_2025[i], p]),
     [T_OCEAN + 0.25, SEA], [T_LIGHT + 0.25, SIBU], [T_TEMP + 0.25, SIBU], [T_ANS_A, SIBU], [T_ANS_B, SIBU],
-    ...SONG.sections.map((s, k) => [T_SONG0 + k * SEC, s.moment])];
+    ...(SSB ? [] : SONG.sections.map((s, k) => [T_SONG0 + k * SEC, s.moment]))];
   let mk = null;
   for (const [t0, p] of taps) { if (t < t0) continue; const q = project(p.lat, p.lon, v); if (!q.visible) continue; mk = q; const k = (t - t0) / 0.9; if (k < 1) ripple(q.x, q.y, k); }
   if (mk && t > T_TAP[0]) marker(mk.x, mk.y);
@@ -366,19 +429,19 @@ async function drawDevice(t) {
     text('My Earth song', RX + 30, 172, 34, K.ink, { weight: 500 });
     text('Tell your story, in any language', RX + 30, 214, 22, K.gray, { font: MONO });
     box(RX + 26, 236, RW - 52, 118, 12, K.paper, K.line2, 2);
-    const story = 'Grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching in 2006.';
+    const story = 'Grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006.';
     wrap(typed(story, T_TAB_SONG + 0.15, 125, t), 25, RW - 100).slice(0, 3).forEach((ln, i) => text(ln, RX + 46, 268 + i * 34, 25, K.ink));
     keyBtn(RX + 30, 368, 300, 48, 'Make my song from this', { primary: true, size: 21, down: pressed(t, T_SONGBTN) });
     const playing = t >= T_SONG0, hits = new Set(); let section = -1;
     SONG.sections.forEach((s, k) => s.notes.forEach((nn, i) => { if (t >= T_SONG0 + k * SEC + nn.beat / 8 * SEC) { hits.add(`${k}:${i}`); section = k; } }));
-    const view = playing ? { type: 'song', sections: SONG.sections.map(s => ({ label: `${s.moment.year} ${s.moment.name}`, notes: s.notes.map(nn => nn.step) })), hits, section } : null;
+    const view = playing ? { type: 'song', sections: SONG.sections.map(s => ({ label: dateText(s.moment), notes: s.notes.map(nn => nn.step) })), hits, section } : null;
     scoreLCD(RX, 452, RW, 320, { title: 'Your Earth song', view, axis: { high: 'hotter', mid: 'normal', low: 'colder' }, alpha: playing ? out3((t - T_SONG0 + 0.2) / 0.3) : 0.0001 });
-    SONG.sections.forEach((s, k) => {
-      const yy = 794 + k * 78, on = section === k;
+    SONG.sections.forEach((s, k) => { // the moments appear once the story has been read (after the button)
+      const yy = 794 + k * 78, on = section === k; g.save(); g.globalAlpha *= out3((t - T_SONGBTN - 0.05 - k * 0.06) / 0.3);
       box(RX, yy, RW, 66, 12, K.body, on ? K.orange : K.line, on ? 3 : 2);
-      text(String(s.moment.year), RX + 24, yy + 33, 28, K.ink, { weight: 500, font: MONO });
-      text(s.moment.name, RX + 120, yy + 33, 28, K.ink, { weight: 500 });
-      text(s.mean == null ? 'No data' : KINDS.temperature.words(s.mean), RX + RW - 24, yy + 33, 22, K.gray, { align: 'right' });
+      text(dateText(s.moment), RX + 24, yy + 33, 28, K.ink, { weight: 500, font: MONO });
+      text(s.moment.name, RX + 250, yy + 33, 28, K.ink, { weight: 500 });
+      text(s.mean == null ? 'No data' : KINDS.temperature.words(s.mean), RX + RW - 24, yy + 33, 22, K.gray, { align: 'right' }); g.restore();
     });
   }
   // cursor
@@ -397,18 +460,32 @@ const HEADLINES = [
   [10.4, 15.4, 'Same tune in 1880, then 2025. Hear the warming. See it.'],
   [15.6, 18.65, 'Three NASA Earth Information Center maps. Three instruments.'],
   [18.75, 22.25, 'Ask in any language. Every number comes from NASA.'],
-  [22.3, 25.9, 'Your family story becomes a song made from NASA data.'],
+  ...(SSB ? [] : [[22.3, 25.9, 'Your story becomes a song from NASA data, down to the month.']]),
 ];
+function headlineText(s, al) {
+  const w = measure(s, 46, 500);
+  g.save(); g.globalAlpha *= al; led(W / 2 - w / 2 - 26, 82, 9, ST.led); g.restore();
+  text(s, W / 2, 82, 46, ST.ink, { weight: 500, align: 'center', alpha: al });
+}
 function headline(t) {
   for (const [a, b, s] of HEADLINES) {
-    const al = ease((t - a) / 0.3) * (1 - ease((t - (b - 0.25)) / 0.25)); if (al <= 0) continue;
-    const w = measure(s, 46, 500);
-    g.save(); g.globalAlpha = al; led(W / 2 - w / 2 - 26, 82, 9); g.restore();
-    text(s, W / 2, 82, 46, K.ink, { weight: 500, align: 'center', alpha: al });
+    const al = ease((t - a) / 0.3) * (1 - ease((t - (b - 0.25)) / 0.25)); if (al > 0) headlineText(s, al);
   }
+}
+function speaker(x, y, s, color) { // loudspeaker icon, centred on (x, y)
+  g.save(); g.fillStyle = color; g.strokeStyle = color; g.lineWidth = s * 0.1; g.lineCap = 'round'; x -= s * 0.45;
+  g.beginPath(); g.moveTo(x, y - s * 0.18); g.lineTo(x + s * 0.2, y - s * 0.18); g.lineTo(x + s * 0.45, y - s * 0.42); g.lineTo(x + s * 0.45, y + s * 0.42); g.lineTo(x + s * 0.2, y + s * 0.18); g.lineTo(x, y + s * 0.18); g.closePath(); g.fill();
+  for (const r of [0.22, 0.42]) { g.beginPath(); g.arc(x + s * 0.5, y, s * r, -0.85, 0.85); g.stroke(); }
+  g.restore();
 }
 function hookOverlay(t) {
   const a = 1 - ease((t - 2.85) / 0.35); if (a <= 0) return;
+  // who we are and which challenge (official demo template: team first), and a sound cue for anyone watching muted
+  text('Team Happy Squad · Sibu, Sarawak', 60, 42, 22, K.sDim, { font: MONO, alpha: a });
+  text('NASA Space Apps 2026 · The Earth Information Jukebox', W - 60, 42, 22, K.sDim, { font: MONO, align: 'right', alpha: a });
+  { const s = 'Sound on', sw = measure(s, 26, 500, MONO) + 92, x0 = W / 2 - sw / 2, al = a * ease(t / 0.25);
+    g.save(); g.globalAlpha *= al; box(x0, 966, sw, 56, 28, 'rgba(23,23,22,0.7)', 'rgba(230,227,221,0.35)', 2); speaker(x0 + 36, 994, 30, K.orange); g.restore();
+    text(s, x0 + 66, 995, 26, K.sInk, { font: MONO, weight: 500, alpha: al }); }
   const q = 'What does climate change sound like?', qt = typed(q, 0.05, 44, t);
   const w = measure(q, 76, 500);
   text(qt, W / 2 - w / 2, 120, 76, K.sInk, { weight: 500, alpha: a });
@@ -423,81 +500,127 @@ function hookOverlay(t) {
 function impactOverlay(t) {
   const a = ease((t - 3.45) / 0.3) * (1 - ease((t - 5.75) / 0.35)); if (a <= 0) return;
   const f = (t0) => a * out3((t - t0) / 0.35), dx = t0 => 30 * (1 - out3((t - t0) / 0.35));
-  text('43 million', 110 + dx(3.5), 380, 150, K.ink, { weight: 500, alpha: f(3.5) });
-  text('people are blind.', 116 + dx(3.65), 490, 64, K.ink, { weight: 500, alpha: f(3.65) });
-  text("NASA's Earth maps are", 116 + dx(4.2), 590, 40, K.gray, { alpha: f(4.2) });
-  text('made to be seen.', 116 + dx(4.2), 640, 40, K.gray, { alpha: f(4.2) });
-  g.save(); g.globalAlpha = f(4.8); led(126 + dx(4.8), 742, 9); g.restore();
-  text('Earth Jukebox makes', 150 + dx(4.8), 742, 44, K.ink, { weight: 500, alpha: f(4.8) });
-  text('them heard.', 150 + dx(4.8), 796, 44, K.ink, { weight: 500, alpha: f(4.8) });
-  text('Lancet Global Health, 2021', 116, 900, 20, K.gray, { font: MONO, alpha: f(3.6) });
+  text('43 million', 110 + dx(3.5), 380, 150, ST.num, { weight: 500, alpha: f(3.5) });
+  text('people are blind.', 116 + dx(3.65), 490, 64, ST.ink, { weight: 500, alpha: f(3.65) });
+  text("NASA's Earth maps are", 116 + dx(4.2), 590, 40, ST.dim, { alpha: f(4.2) });
+  text('made to be seen.', 116 + dx(4.2), 640, 40, ST.dim, { alpha: f(4.2) });
+  g.save(); g.globalAlpha = f(4.8); led(126 + dx(4.8), 742, 9, ST.led); g.restore();
+  text('Earth Jukebox makes', 150 + dx(4.8), 742, 44, ST.ink, { weight: 500, alpha: f(4.8) });
+  text('them heard.', 150 + dx(4.8), 796, 44, ST.ink, { weight: 500, alpha: f(4.8) });
+  text('Lancet Global Health, 2021', 116, 900, 20, ST.dim, { font: MONO, alpha: f(3.6) });
 }
 function validityScene(t, a) {
   g.save(); g.globalAlpha = a;
-  g.fillStyle = K.body; g.fillRect(0, 0, W, H);
+  g.fillStyle = ST.fill; g.fillRect(0, 0, W, H); stars(t, a);
   const f = t0 => out3((t - t0) / 0.35);
-  led(122, 150, 9); text('Checked against NASA’s own numbers', 144, 150, 30, K.gray, { font: MONO });
+  led(122, 150, 9, ST.led); text('Checked against NASA’s own numbers', 144, 150, 30, ST.dim, { font: MONO });
   const V = T_VALID;
-  text(`${VALID.global.mae.toFixed(2)} °C`, 110, 310, 170, K.ink, { weight: 500, alpha: f(V + 0.25) });
-  text('average gap from NASA GISTEMP v4,', 116, 430, 38, K.ink, { alpha: f(V + 0.4) });
-  text('every year from 1880 to 2025', 116, 478, 38, K.ink, { alpha: f(V + 0.4) });
-  text(`Warming you hear: +${VALID.warming1880sTo2015s.ours.toFixed(2)} °C   NASA: +${VALID.warming1880sTo2015s.nasa.toFixed(2)} °C`, 116, 560, 28, K.gray, { font: MONO, alpha: f(V + 0.55) });
+  text(`${VALID.global.mae.toFixed(2)} °C`, 110, 310, 170, ST.num, { weight: 500, alpha: f(V + 0.25) });
+  text('average gap from NASA GISTEMP v4,', 116, 430, 38, ST.ink, { alpha: f(V + 0.4) });
+  text('every year from 1880 to 2025', 116, 478, 38, ST.ink, { alpha: f(V + 0.4) });
+  text(`Warming you hear: +${VALID.warming1880sTo2015s.ours.toFixed(2)} °C   NASA: +${VALID.warming1880sTo2015s.nasa.toFixed(2)} °C`, 116, 560, 28, ST.dim, { font: MONO, alpha: f(V + 0.55) });
   // chart
   const cx = 1010, cy = 150, cw = 800, ch = 440, yMin = -0.6, yMax = 1.4;
-  box(cx, cy, cw, ch, 16, K.plate, K.line, 2);
+  box(cx, cy, cw, ch, 16, ST.plate, ST.line, 2);
   const X = yr => cx + 50 + (yr - 1880) / 145 * (cw - 80), Y = v => cy + 30 + (yMax - v) / (yMax - yMin) * (ch - 80);
-  g.strokeStyle = K.line2; g.lineWidth = 1.5; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(cx + 40, Y(0)); g.lineTo(cx + cw - 24, Y(0)); g.stroke(); g.setLineDash([]);
-  text('normal', cx + cw - 30, Y(0) - 16, 18, K.gray, { font: MONO, align: 'right' });
-  [1880, 1950, 2025].forEach(yr => text(String(yr), X(yr), cy + ch - 26, 20, K.gray, { font: MONO, align: 'center' }));
+  g.strokeStyle = ST.line2; g.lineWidth = 1.5; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(cx + 40, Y(0)); g.lineTo(cx + cw - 24, Y(0)); g.stroke(); g.setLineDash([]);
+  text('normal', cx + cw - 30, Y(0) - 16, 18, ST.dim, { font: MONO, align: 'right' });
+  [1880, 1950, 2025].forEach(yr => text(String(yr), X(yr), cy + ch - 26, 20, ST.dim, { font: MONO, align: 'center' }));
   const prog = clamp01((t - V - 0.3) / 1.2), last = 1880 + 145 * prog;
-  for (const [key, color, lw] of [['nasa', K.ink, 4], ['ours', K.orange, 2.6]]) {
+  for (const [key, color, lw] of [['nasa', ST.ink, 4], ['ours', K.orange, 2.6]]) {
     g.strokeStyle = color; g.lineWidth = lw; g.beginPath(); let pen = false;
     for (const r of VALID.years) { if (r.year > last || r[key] == null) continue; const px = X(r.year), py = Y(r[key]); if (pen) g.lineTo(px, py); else { g.moveTo(px, py); pen = true; } }
     g.stroke();
   }
-  g.fillStyle = K.ink; g.fillRect(cx + 50, cy + 44, 26, 5); text('NASA', cx + 86, cy + 47, 22, K.ink, { font: MONO });
-  g.fillStyle = K.orange; g.fillRect(cx + 190, cy + 44, 26, 5); text('Earth Jukebox', cx + 226, cy + 47, 22, K.ink, { font: MONO });
+  g.fillStyle = ST.ink; g.fillRect(cx + 50, cy + 44, 26, 5); text('NASA', cx + 86, cy + 47, 22, ST.ink, { font: MONO });
+  g.fillStyle = K.orange; g.fillRect(cx + 190, cy + 44, 26, 5); text('Earth Jukebox', cx + 226, cy + 47, 22, ST.ink, { font: MONO });
   // made for everyone
-  text('Made for everyone', 116, 720, 30, K.gray, { font: MONO, alpha: f(V + 0.8) });
+  text('Made for everyone', 116, 720, 30, ST.dim, { font: MONO, alpha: f(V + 0.8) });
   const chips = ['Arrow keys', 'Screen reader', 'Voice guide', 'Score display', 'Any phone, no app'];
   let x = 110;
   chips.forEach((c, i) => { const w = measure(c, 30, 500) + 56, al = f(V + 0.9 + i * 0.1); g.save(); g.globalAlpha *= al; keyBtn(x, 760, w, 74, c, { size: 30 }); g.restore(); x += w + 18; });
   g.restore();
 }
+// the SSB tester clip: real footage, an English subtitle with the tester's own words, and the attribution they agreed to
+const clipImg = { i: -1, img: null };
+async function clipFrame(i) { if (clipImg.i !== i) { clipImg.img = await loadImage(path.join(SSB.dir, `${String(i + 1).padStart(4, '0')}.jpg`)); clipImg.i = i; } return clipImg.img; }
+async function clipScene(t, a) {
+  g.save(); g.globalAlpha = a;
+  g.fillStyle = ST.bg; g.fillRect(0, 0, W, H); stars(t, a);
+  headlineText(SSB.headline || 'Tested by blind and low-vision adults in Sibu.', 1);
+  const img = await clipFrame(Math.max(0, Math.min(SSB.frames - 1, Math.floor((t - T_CLIP) * FPS))));
+  const ar = img.width / img.height, MX = 110, MY = 178, MW = 1180, MH = 800;
+  let pw = MW, ph = pw / ar; if (ph > MH) { ph = MH; pw = ph * ar; }
+  const px = MX, py = MY, wide = pw >= 900, f = t0 => out3((t - T_CLIP - t0) / 0.35);
+  box(px - 12, py - 12, pw + 24, ph + 24, 28, K.key);
+  g.save(); rrect(px, py, pw, ph, 18); g.clip(); g.fillStyle = '#000'; g.fillRect(px, py, pw, ph); g.drawImage(img, px, py, pw, ph);
+  if (wide && SSB.quote) { // subtitle burned onto the clip
+    const lines = wrap(SSB.quote, 44, pw - 120, 500).slice(0, 2), bh = 30 + lines.length * 56;
+    g.fillStyle = 'rgba(10,10,10,0.72)'; g.fillRect(px, py + ph - bh - 24, pw, bh);
+    lines.forEach((ln, i) => text(ln, px + pw / 2, py + ph - bh - 24 + 43 + i * 56, 44, '#FFFFFF', { weight: 500, align: 'center', alpha: f(0.15) }));
+  }
+  g.restore();
+  // right column: the quote (if the clip is narrow), the result from the record sheet, and who said it
+  const RX = px + pw + 64, RW = W - 110 - RX; let y = MY + 20;
+  if (!wide && SSB.quote) {
+    const lines = wrap(`“${SSB.quote}”`, 56, RW, 500).slice(0, 4);
+    lines.forEach((ln, i) => text(ln, RX, y + 30 + i * 70, 56, ST.ink, { weight: 500, alpha: f(0.15) })); y += lines.length * 70 + 60;
+  }
+  if (SSB.stat) {
+    text(SSB.stat[0], RX - 4, y + 70, 120, ST.num, { weight: 500, alpha: f(0.3) });
+    wrap(SSB.stat[1], 34, RW).slice(0, 3).forEach((ln, i) => text(ln, RX, y + 175 + i * 44, 34, ST.ink, { alpha: f(0.4) }));
+    y += 175 + Math.min(3, wrap(SSB.stat[1], 34, RW).length) * 44 + 20;
+    if (SSB.statNote) { wrap(SSB.statNote, 22, RW, 400).slice(0, 2).forEach((ln, i) => text(ln, RX, y + i * 30, 22, ST.dim, { font: MONO, alpha: f(0.4) })); y += 80; }
+  }
+  const credit = [SSB.who, SSB.lang ? `Subtitle translated from ${SSB.lang}` : ''].filter(Boolean);
+  if (wide) credit.forEach((c, i) => text(c, px + 4, py + ph + 52 + i * 34, 24, ST.dim, { font: MONO, alpha: f(0.2) }));
+  else credit.forEach((c, i) => wrap(c, 24, RW).forEach((ln, j) => text(ln, RX, Math.max(y, MY + ph - 70) + i * 40 + j * 32, 24, ST.dim, { font: MONO, alpha: f(0.2) })));
+  g.restore();
+}
+
+const FUTURE = 'Next: every NASA Earth map, for everyone who can’t see it.';
 function endScene(t, a) {
   g.save(); g.globalAlpha = a;
-  g.fillStyle = K.body; g.fillRect(0, 0, W, H);
+  g.fillStyle = ST.fill; g.fillRect(0, 0, W, H); stars(t, a);
   const w = measure('Earth Jukebox', 150, 500);
-  led(W / 2 - w / 2 - 40, 380, 16); text('Earth Jukebox', W / 2 + 10, 380, 150, K.ink, { weight: 500, align: 'center' });
-  text('Hear our changing planet.', W / 2, 500, 56, K.gray, { align: 'center' });
+  led(W / 2 - w / 2 - 40, 300, 16, ST.led); text('Earth Jukebox', W / 2 + 10, 300, 150, ST.ink, { weight: 500, align: 'center' });
+  text('Hear our changing planet.', W / 2, 415, 56, ST.dim, { align: 'center' });
+  // look into the future (official demo template, 0:20–0:30)
+  text(FUTURE, W / 2, 520, 40, ST.ink, { weight: 500, align: 'center' });
   const url = 'bep23020002-collab.github.io/earth-jukebox', uw = measure(url, 34, 500, MONO) + 60;
-  box(W / 2 - uw / 2, 580, uw, 76, 12, K.lcd); text(url, W / 2, 618, 34, K.lInk, { weight: 500, font: MONO, align: 'center' });
-  text('Data: NASA Earth Information Center · SVS 5603 · 3912 · 5011', W / 2, 730, 26, K.gray, { font: MONO, align: 'center' });
-  text('Team Happy Squad · Sibu, Sarawak · NASA Space Apps Challenge 2026', W / 2, 776, 26, K.gray, { align: 'center' });
-  grille(W / 2 - 300, 860, 600, 52);
+  box(W / 2 - uw / 2, 600, uw, 76, 12, K.lcd); text(url, W / 2, 638, 34, K.lInk, { weight: 500, font: MONO, align: 'center' });
+  text('Data: NASA Earth Information Center · SVS 5603 · 3912 · 5011', W / 2, 750, 26, ST.dim, { font: MONO, align: 'center' });
+  text('Team Happy Squad · Sibu, Sarawak · NASA Space Apps Challenge 2026', W / 2, 796, 26, ST.dim, { align: 'center' });
+  grille(W / 2 - 300, 870, 600, 52, 13, 2.6, ST.line2);
   g.restore();
 }
 
 async function drawFrame(t) {
   g.setTransform(1, 0, 0, 1, 0, 0);
   const inHook = t < 3.0;
-  g.fillStyle = inHook ? K.screen : K.bg; g.fillRect(0, 0, W, H);
+  g.fillStyle = inHook ? K.screen : ST.bg; g.fillRect(0, 0, W, H);
   if (!inHook && t < 3.8) { g.save(); g.globalAlpha = 1 - ease((t - 3.0) / 0.8); g.fillStyle = K.screen; g.fillRect(0, 0, W, H); g.restore(); }
-  const devA = 1 - ease((t - (T_VALID - 0.05)) / 0.35);
+  if (!inHook) stars(t, 1);
+  const devA = 1 - ease((t - (DEV_END - 0.05)) / 0.35);
   if (devA > 0) {
     cam = camAt(t); applyCam();
     g.save(); g.globalAlpha = devA; await drawDevice(t); g.restore();
     g.setTransform(1, 0, 0, 1, 0, 0);
-    if (t > 5.9 && t < T_VALID + 0.3) { g.save(); g.globalAlpha = devA * ease((t - 5.9) / 0.4); g.fillStyle = K.bg; g.fillRect(0, 0, W, 142); g.restore(); headline(t); }
+    if (t > 5.9 && t < DEV_END + 0.3) { g.save(); g.globalAlpha = devA * ease((t - 5.9) / 0.4); g.fillStyle = ST.bg; g.fillRect(0, 0, W, 142); rrect(0, 0, W, 142, 0); g.clip(); stars(t, 1); g.restore(); headline(t); }
   }
   hookOverlay(t); impactOverlay(t);
+  if (SSB) { const ca = ease((t - (T_CLIP - 0.05)) / 0.35) * (1 - ease((t - (T_VALID - 0.05)) / 0.35)); if (ca > 0) await clipScene(t, ca); }
   const va = ease((t - (T_VALID - 0.05)) / 0.35) * (1 - ease((t - (T_END - 0.05)) / 0.3));
   if (va > 0) validityScene(t, va);
-  const ea = ease((t - T_END) / 0.4) * (1 - ease((t - 29.5) / 0.5));
+  const ea = ease((t - T_END) / 0.4); // the end card holds to the last frame
   if (ea > 0) endScene(t, ea);
-  // watermarks: AI-assistance notice (Space Apps rule) and brand
-  const wm = (s, x, align) => { const w = measure(s, 22, 500) + 28, x0 = align === 'right' ? x - w : x; box(x0, H - 46, w, 36, 8, 'rgba(228,225,220,0.88)'); text(s, x0 + 14, H - 28, 22, K.ink, { weight: 500 }); };
-  wm('Made with AI assistance', 30, 'left'); wm('Earth Jukebox', W - 30, 'right');
+  // watermarks: AI-assistance notice (Space Apps rule: visible watermark on SI-generated images and video)
+  if (WM === 'quiet') { // smaller, one corner only, still readable on dark and light frames
+    const s = 'Made with AI assistance', w = measure(s, 18, 500) + 22; box(24, H - 42, w, 28, 6, 'rgba(228,225,220,0.82)'); text(s, 35, H - 28, 18, '#333333', { weight: 500 });
+  } else {
+    const wm = (s, x, align) => { const w = measure(s, 22, 500) + 28, x0 = align === 'right' ? x - w : x; box(x0, H - 46, w, 36, 8, 'rgba(228,225,220,0.88)'); text(s, x0 + 14, H - 28, 22, K.ink, { weight: 500 }); };
+    wm('Made with AI assistance', 30, 'left'); wm('Earth Jukebox', W - 30, 'right');
+  }
 }
 
 // ---------- sound (same rules as the website) ----------
@@ -519,8 +642,9 @@ for (let r = 0; r < 2; r++) for (let i = 0; i < hits; i++) ev.push({ t: T_LIGHT 
 note(T_TEMP + 0.25, stepOf(TEMP, SIBU.v2025), { inst: 'tap', gain: 0.6 });
 // ask
 note(T_ANS_A, stepOf(TEMP, ASK.a), { inst: 'tap', gain: 0.6 }); note(T_ANS_B, stepOf(TEMP, ASK.b), { inst: 'tap', gain: 0.6 });
-// song (the website's composer, played faster for the video)
-SONG.sections.forEach((s, k) => {
+// song (the website's composer, played faster for the video); with the SSB clip, a quiet pad sits under the tester's voice
+if (SSB) pad(T_CLIP, T_VALID, [5, 7], 0.035);
+if (!SSB) SONG.sections.forEach((s, k) => {
   const t0 = T_SONG0 + k * SEC;
   if (s.centre != null) pad(t0, t0 + SEC, [s.centre, s.centre + 2], 0.07);
   s.notes.forEach(nn => note(t0 + nn.beat / 8 * SEC, nn.step, { dur: 0.16, gain: 0.42 }));
@@ -556,6 +680,15 @@ function renderAudio(file) {
   }
   for (const [d, fb] of [[0.043, 0.3], [0.061, 0.25], [0.089, 0.2]]) { const ds = Math.floor(d * SR); for (let i = ds; i < n; i++) { L[i] += L[i - ds] * fb * 0.5; Rr[i] += Rr[i - ds] * fb * 0.5; } }
   let peak = 0; for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rr[i]));
+  if (SSB?.voice) { // the tester's own voice, dry (no echo), a little louder on average than the demo's music, with short fades
+    const v = SSB.voice, m = Math.min(v.length / 2, Math.floor(SSB.dur * SR)), s0 = Math.floor(T_CLIP * SR); let vp = 0, vs = 0, ms = 0;
+    for (let i = 0; i < m * 2; i++) { vp = Math.max(vp, Math.abs(v[i])); vs += v[i] * v[i]; }
+    const a0 = Math.floor(6 * SR), a1 = Math.floor(T_CLIP * SR); for (let i = a0; i < a1; i++) ms += L[i] * L[i] + Rr[i] * Rr[i];
+    const vRms = Math.sqrt(vs / (2 * m)), mRms = Math.sqrt(ms / (2 * (a1 - a0)));
+    const k = vp ? Math.min(1.2 * peak / vp, vRms ? 1.6 * mRms / vRms : Infinity) : 0, fade = 0.08 * SR;
+    for (let i = 0; i < m && s0 + i < n; i++) { const env = Math.min(1, i / fade, (m - i) / fade); L[s0 + i] += v[2 * i] * k * env; Rr[s0 + i] += v[2 * i + 1] * k * env; }
+    peak = 0; for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rr[i]));
+  }
   const gain = 0.9 / peak, buf = Buffer.alloc(44 + n * 4);
   buf.write('RIFF', 0); buf.writeUInt32LE(36 + n * 4, 4); buf.write('WAVEfmt ', 8); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(2, 22); buf.writeUInt32LE(SR, 24); buf.writeUInt32LE(SR * 4, 28); buf.writeUInt16LE(4, 32); buf.writeUInt16LE(16, 34); buf.write('data', 36); buf.writeUInt32LE(n * 4, 40);
   for (let i = 0; i < n; i++) { const fo = Math.min(1, (n - i) / (SR * 0.6)); buf.writeInt16LE(Math.round(Math.max(-1, Math.min(1, L[i] * gain * fo)) * 32767), 44 + i * 4); buf.writeInt16LE(Math.round(Math.max(-1, Math.min(1, Rr[i] * gain * fo)) * 32767), 46 + i * 4); }
@@ -570,7 +703,7 @@ if (SAMPLES) {
   for (const t of times.length ? times : [0.4, 1.8, 2.95, 4.9, 7.9, 11.6, 14.8, 16.5, 17.5, 21.6, 24.2, 27.4, 29.0]) {
     await drawFrame(t); fs.writeFileSync(path.join(HERE, 'out', `s_${String(t).replace('.', '_')}.png`), await cv.encode('png'));
   }
-  console.log('samples written', { warmer: WARMER.toFixed(2), ask: [ASK.a.toFixed(2), ASK.b.toFixed(2)], oceanV: oceanV.toFixed(1), lightV: lightV.toFixed(2) });
+  console.log('samples written', { song: SONG.sections.map(s => `${dateText(s.moment)} ${s.moment.name} ${s.mean?.toFixed(2)}`), warmer: WARMER.toFixed(2), ask: [ASK.a.toFixed(2), ASK.b.toFixed(2)], oceanV: oceanV.toFixed(1), lightV: lightV.toFixed(2) });
 } else {
   const wav = path.join(HERE, 'out/audio.wav'); renderAudio(wav);
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(FPS), '-i', '-', '-i', wav,
