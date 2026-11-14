@@ -165,7 +165,9 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 @media (hover: none) and (pointer: coarse) { .controls kbd, .keys-list { display: none; } .pad-side button { justify-content: center; text-align: center; } }
 
 /* panel: plates screwed onto the body */
-.panel { display: grid; gap: 14px; align-content: start; }
+.panel { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.panel > * { min-width: 0; } /* plates shrink to the phone width; long example questions wrap */
+.ask-examples .chip { white-space: normal; text-align: left; }
 .guide, .ask, .song, .byo, .more { background: var(--plate); border: 1px solid var(--line); border-radius: var(--r-plate); }
 
 .guide { display: grid; gap: 8px; padding: 22px; }
@@ -238,9 +240,9 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 /* AI: story and questions */
 .story { display: grid; gap: 8px; }
 .story textarea { width: 100%; resize: vertical; }
-.ask { display: grid; gap: 14px; padding: 22px; }
+.ask { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 22px; }
 .ask-form { display: flex; gap: 6px; padding: 5px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line-2); }
-.ask-form input { flex: 1; border: 0; background: transparent; padding: 8px 10px; }
+.ask-form input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 8px 10px; } /* min-width 0: the box shrinks on phones instead of widening the page */
 .ask-form input:focus { outline: none; }
 .ask-form:focus-within { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
 .ask-examples { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -312,7 +314,7 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .hint-touch { display: none; }
 @media (hover: none) { .hint-touch { display: inline; } .hint-mouse { display: none; } }
 @media (max-width: 1020px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
   .panel { order: -1; } /* on phones the step-by-step guide comes before the globe */
   .about { grid-template-columns: 1fr; }
   .impact-stats, .impact-who ul, .check { grid-template-columns: 1fr; }
