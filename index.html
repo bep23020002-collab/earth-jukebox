@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;800&display=swap">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23E8894B'/%3E%3Cpath d='M10 30c8-6 14 6 22 0s14-6 22 0' stroke='%23060A13' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
@@ -27,7 +28,11 @@
     <div class="start-card">
       <h1 id="startTitle">Tap the Earth.<br>Hear it change.</h1>
       <p>Every spot on this NASA map has a note. Warmer places sing higher. Put on headphones, then tap anywhere on the globe.</p>
-      <button type="button" id="startBtn" class="primary big">Start listening</button>
+      <div class="row">
+        <button type="button" id="startBtn" class="primary big">Start listening</button>
+        <button type="button" id="startVoiceBtn" class="ghost big">Start with voice guide</button>
+      </div>
+      <p class="hint">Voice guide reads every step aloud, for people who cannot see the screen. Screen readers work too.</p>
       <p class="hint">No sound on iPhone? Turn off silent mode.</p>
     </div>
   </div>
@@ -35,6 +40,7 @@
   <main id="main" class="layout">
     <section class="stage" aria-labelledby="trackTitle">
       <div class="stage-head">
+        <p id="trackEic" class="eic"></p>
         <h2 id="trackTitle">Global temperature, 1880–2025</h2>
         <p id="trackSub" class="sub"></p>
         <div class="track-picker" id="trackPicker" role="group" aria-label="Choose a NASA visualization to listen to">
@@ -142,7 +148,7 @@
             <button type="button" data-act="legend">What do the sounds mean?</button>
             <button type="button" data-act="sweep">Spin the Earth</button>
             <button type="button" data-act="describe">Tell me about this year</button>
-            <button type="button" data-act="voice" aria-pressed="true">Read aloud</button>
+            <button type="button" data-act="voice" aria-pressed="false">Read aloud</button>
             <button type="button" id="replayBtn" disabled>Play my tune again</button>
             <button type="button" id="clearBtn" disabled>Clear my tune</button>
           </div>

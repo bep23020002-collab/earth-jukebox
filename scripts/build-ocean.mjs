@@ -37,7 +37,7 @@ mkdirSync(root + 'assets/ocean/frames', { recursive: true });
 writeFileSync(root + 'assets/ocean/cube.bin', cube);
 spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', raw + 'flat_global_ecco2_2028x1024.25000.jpg', '-vf', 'scale=1440:720', '-q:v', '3', root + 'assets/ocean/frames/2007.jpg']);
 writeFileSync(root + 'assets/ocean/track.json', JSON.stringify({
-  id: 'ocean', kind: 'ocean',
+  id: 'ocean', kind: 'ocean', eic: 'Global Sea Surface Currents and Temperature',
   title: 'Ocean currents and temperature',
   subtitle: 'Sea surface currents colored by water temperature, 19 June 2007',
   unit: '°C', min: 0, max: 32, years: [2007], grid: { width: GW, height: GH, cellDegrees: 2 },

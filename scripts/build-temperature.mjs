@@ -36,7 +36,7 @@ for (const [k, y] of years.entries()) {
 }
 writeFileSync(root + 'assets/temperature/cube.bin', cube);
 writeFileSync(root + 'assets/temperature/track.json', JSON.stringify({
-  id: 'temperature',
+  id: 'temperature', eic: 'Climate Vital Signs dashboard (updated 2025 version)',
   title: 'Global temperature, 1880–2025',
   subtitle: 'How much warmer or colder each place was than normal, every year since 1880',
   unit: '°C', min: -RANGE, max: RANGE, years, grid: { width: GW, height: GH, cellDegrees: 2 },

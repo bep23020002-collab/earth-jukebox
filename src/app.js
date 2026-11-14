@@ -17,7 +17,7 @@ const globe = new Globe($('#globe'));
 const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
-  voice: true, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
+  voice: false, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
   texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {},
 };
 
@@ -37,6 +37,7 @@ function useTrack(id) {
   const track = state.tracks[id]; if (!track) return;
   Object.assign(state, { track, cube: track.cube, yi: track.years.length - 1, texYear: null });
   const yr = $('#year'); yr.max = track.years.length - 1; yr.value = state.yi;
+  setPlayingUI(false);
   document.querySelectorAll('[data-track]').forEach(b => b.setAttribute('aria-pressed', b.dataset.track === id));
 }
 const kind = () => KINDS[state.track?.kind] || KINDS.temperature;
@@ -387,7 +388,7 @@ async function playHistory() {
     : `NASA has no measurements near ${place} in the early years, so we can't compare then and now. Try another place.`;
   $('#desc').textContent = msg; speak(msg);
 }
-function setPlayingUI(on) { const b = $('#playBtn'); b.textContent = on ? 'Stop' : 'Play 1880 → 2025'; b.setAttribute('aria-pressed', on); }
+function setPlayingUI(on) { const b = $('#playBtn'), y = state.track.years; b.textContent = on ? 'Stop' : `Play ${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
 
 async function sweep() {
   if (state.busy || (isImage() && !src.legend)) return;
@@ -456,6 +457,7 @@ function setMode(mode) {
   if (!img && !song) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
   $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : song ? 'My Earth song' : state.track.title;
   $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : song ? 'Years and places that matter to you, played as music' : state.track.subtitle;
+  $('#trackEic').textContent = img || song ? '' : `From NASA's Earth Information Center: ${state.track.eic || 'EIC content'}`;
   if (song) renderMoments();
   $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
   $('#map').setAttribute('aria-label', 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.');
@@ -747,7 +749,8 @@ async function shareSong() {
 }
 
 // ---------- start ----------
-async function start() {
+async function start(withVoice = false) {
+  state.voice = withVoice; document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
   const ok = await sound.start();
   $('#start').hidden = true; $('#globe').focus();
   draw(); preloadAll();
@@ -781,7 +784,8 @@ async function init() {
   $('#playSong').addEventListener('click', playSong);
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
-  $('#startBtn').addEventListener('click', start);
+  $('#startBtn').addEventListener('click', () => start(false));
+  $('#startVoiceBtn').addEventListener('click', () => start(true));
   $('#playBtn').addEventListener('click', () => { sound.start(); playHistory(); });
   $('#year').addEventListener('input', e => { sound.start(); setYear(+e.target.value); });
   document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { sound.start(); act(b.dataset.act); }));
