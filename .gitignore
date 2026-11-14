@@ -1,3 +1,4 @@
 data/raw/
 node_modules/
 .DS_Store
+data/frames/*.png
