@@ -237,7 +237,7 @@ function showValue(v, place) {
 }
 // Plain words first; the number is shown smaller underneath.
 function feeling(v, k = isImage() ? null : kind()) {
-  if (v == null) return 'No data';
+  if (v == null) return k?.noDataWord || 'No data';
   if (!k) {
     const t = tOf(v);
     return t < 0.15 ? 'Very low' : t < 0.4 ? 'Low' : t < 0.6 ? 'In the middle' : t < 0.85 ? 'High' : 'Very high';

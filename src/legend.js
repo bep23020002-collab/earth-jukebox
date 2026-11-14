@@ -43,13 +43,23 @@ export function stopsFromSamples(colors, vmin, vmax) {
 
 // A legend answers: "what value does this color mean?" Colors that are not on the legend
 // (missing-data gray, coastlines, labels) come back as null instead of a made-up number.
-export function createLegend(stops, { tolerance = 12 } = {}) {
+// matchHue: compare only the hue (useful for shaded visualizations like flowing ocean currents,
+// where the same color appears lighter or darker); grays below minChroma are ignored.
+export function createLegend(stops, { tolerance = 12, matchHue = false, minChroma = 16 } = {}) {
   const labs = stops.map(s => rgbToLab(...s.rgb));
+  const hues = labs.map(([, a, b]) => Math.atan2(b, a) * 180 / Math.PI);
   const values = stops.map(s => s.value);
   const min = Math.min(...values), max = Math.max(...values);
   const cache = new Map();
   function nearest(r, g, b) {
     const [L, A, B] = rgbToLab(r, g, b);
+    if (matchHue) {
+      if (Math.hypot(A, B) < minChroma) return [0, Infinity];
+      const h = Math.atan2(B, A) * 180 / Math.PI;
+      let best = -1, bestD = Infinity;
+      for (let i = 0; i < hues.length; i++) { const d = Math.abs(((h - hues[i] + 540) % 360) - 180); if (d < bestD) { bestD = d; best = i; } }
+      return [best, bestD];
+    }
     let best = -1, bestD = Infinity;
     for (let i = 0; i < labs.length; i++) {
       const l = labs[i], d = (l[0] - L) ** 2 + (l[1] - A) ** 2 + (l[2] - B) ** 2;

@@ -21,6 +21,7 @@ export const KINDS = {
     words: v => (v < 5 ? 'Icy water' : v < 15 ? 'Cold water' : v < 22 ? 'Cool water' : v < 27 ? 'Warm water' : 'Very warm water'),
     detail: (v, f) => `Sea surface ${f}`,
     noData: 'Land, or no ocean data here',
+    noDataWord: 'Land',
   },
   lightning: {
     label: 'Lightning',
