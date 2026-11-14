@@ -1,0 +1,1115 @@
+{
+ "source": "NASA GISS GISTEMP v4, GLB.Ts+dSST.csv (J-D) and ZonAnn.Ts+dSST.csv, downloaded 2026-11-14",
+ "method": "Area-weighted (cos latitude) mean of every 2° cell that has data in the Earth Jukebox temperature cube, compared with NASA's published mean for the same year.",
+ "global": {
+  "n": 146,
+  "mae": 0.069,
+  "rmse": 0.085,
+  "bias": -0.016,
+  "maxAbs": 0.226,
+  "r": 0.9821
+ },
+ "globalVsNasa5yr": {
+  "n": 142,
+  "mae": 0.081,
+  "rmse": 0.099,
+  "bias": -0.016,
+  "maxAbs": 0.286,
+  "r": 0.975
+ },
+ "warming1880sTo2015s": {
+  "ours": 1.26,
+  "nasa": 1.21
+ },
+ "bands": {
+  "64N-90N": {
+   "n": 146,
+   "mae": 0.345,
+   "rmse": 0.43,
+   "bias": -0.078,
+   "maxAbs": 1.326,
+   "r": 0.9168
+  },
+  "44N-64N": {
+   "n": 146,
+   "mae": 0.208,
+   "rmse": 0.254,
+   "bias": -0.014,
+   "maxAbs": 0.65,
+   "r": 0.9198
+  },
+  "24N-44N": {
+   "n": 146,
+   "mae": 0.085,
+   "rmse": 0.107,
+   "bias": -0.014,
+   "maxAbs": 0.328,
+   "r": 0.9806
+  },
+  "EQU-24N": {
+   "n": 146,
+   "mae": 0.11,
+   "rmse": 0.136,
+   "bias": -0.017,
+   "maxAbs": 0.361,
+   "r": 0.9556
+  },
+  "24S-EQU": {
+   "n": 146,
+   "mae": 0.118,
+   "rmse": 0.145,
+   "bias": -0.011,
+   "maxAbs": 0.405,
+   "r": 0.9395
+  },
+  "44S-24S": {
+   "n": 146,
+   "mae": 0.065,
+   "rmse": 0.078,
+   "bias": -0.002,
+   "maxAbs": 0.191,
+   "r": 0.9852
+  },
+  "64S-44S": {
+   "n": 146,
+   "mae": 0.08,
+   "rmse": 0.098,
+   "bias": -0.02,
+   "maxAbs": 0.267,
+   "r": 0.9708
+  },
+  "90S-64S": {
+   "n": 146,
+   "mae": 0.374,
+   "rmse": 0.499,
+   "bias": 0.034,
+   "maxAbs": 1.956,
+   "r": 0.7805
+  }
+ },
+ "clippedShare2025": 0.266,
+ "years": [
+  {
+   "year": 1880,
+   "ours": -0.161,
+   "nasa": -0.18,
+   "coverage": 0.735,
+   "clipped": 0.029
+  },
+  {
+   "year": 1881,
+   "ours": -0.088,
+   "nasa": -0.09,
+   "coverage": 0.739,
+   "clipped": 0.033
+  },
+  {
+   "year": 1882,
+   "ours": -0.252,
+   "nasa": -0.11,
+   "coverage": 0.75,
+   "clipped": 0.026
+  },
+  {
+   "year": 1883,
+   "ours": -0.247,
+   "nasa": -0.17,
+   "coverage": 0.75,
+   "clipped": 0.031
+  },
+  {
+   "year": 1884,
+   "ours": -0.423,
+   "nasa": -0.28,
+   "coverage": 0.758,
+   "clipped": 0.023
+  },
+  {
+   "year": 1885,
+   "ours": -0.371,
+   "nasa": -0.33,
+   "coverage": 0.768,
+   "clipped": 0.062
+  },
+  {
+   "year": 1886,
+   "ours": -0.41,
+   "nasa": -0.31,
+   "coverage": 0.761,
+   "clipped": 0.038
+  },
+  {
+   "year": 1887,
+   "ours": -0.36,
+   "nasa": -0.36,
+   "coverage": 0.761,
+   "clipped": 0.031
+  },
+  {
+   "year": 1888,
+   "ours": -0.077,
+   "nasa": -0.18,
+   "coverage": 0.762,
+   "clipped": 0.01
+  },
+  {
+   "year": 1889,
+   "ours": -0.336,
+   "nasa": -0.11,
+   "coverage": 0.765,
+   "clipped": 0.056
+  },
+  {
+   "year": 1890,
+   "ours": -0.362,
+   "nasa": -0.36,
+   "coverage": 0.767,
+   "clipped": 0.035
+  },
+  {
+   "year": 1891,
+   "ours": -0.275,
+   "nasa": -0.22,
+   "coverage": 0.764,
+   "clipped": 0.018
+  },
+  {
+   "year": 1892,
+   "ours": -0.409,
+   "nasa": -0.27,
+   "coverage": 0.781,
+   "clipped": 0.018
+  },
+  {
+   "year": 1893,
+   "ours": -0.342,
+   "nasa": -0.31,
+   "coverage": 0.784,
+   "clipped": 0.034
+  },
+  {
+   "year": 1894,
+   "ours": -0.362,
+   "nasa": -0.3,
+   "coverage": 0.785,
+   "clipped": 0.01
+  },
+  {
+   "year": 1895,
+   "ours": -0.199,
+   "nasa": -0.23,
+   "coverage": 0.788,
+   "clipped": 0.03
+  },
+  {
+   "year": 1896,
+   "ours": -0.111,
+   "nasa": -0.11,
+   "coverage": 0.793,
+   "clipped": 0.011
+  },
+  {
+   "year": 1897,
+   "ours": -0.232,
+   "nasa": -0.11,
+   "coverage": 0.795,
+   "clipped": 0.017
+  },
+  {
+   "year": 1898,
+   "ours": -0.31,
+   "nasa": -0.28,
+   "coverage": 0.798,
+   "clipped": 0.033
+  },
+  {
+   "year": 1899,
+   "ours": -0.156,
+   "nasa": -0.18,
+   "coverage": 0.797,
+   "clipped": 0.001
+  },
+  {
+   "year": 1900,
+   "ours": -0.092,
+   "nasa": -0.08,
+   "coverage": 0.8,
+   "clipped": 0.01
+  },
+  {
+   "year": 1901,
+   "ours": -0.254,
+   "nasa": -0.16,
+   "coverage": 0.799,
+   "clipped": 0.016
+  },
+  {
+   "year": 1902,
+   "ours": -0.367,
+   "nasa": -0.28,
+   "coverage": 0.806,
+   "clipped": 0.015
+  },
+  {
+   "year": 1903,
+   "ours": -0.579,
+   "nasa": -0.37,
+   "coverage": 0.809,
+   "clipped": 0.005
+  },
+  {
+   "year": 1904,
+   "ours": -0.45,
+   "nasa": -0.47,
+   "coverage": 0.813,
+   "clipped": 0.008
+  },
+  {
+   "year": 1905,
+   "ours": -0.263,
+   "nasa": -0.26,
+   "coverage": 0.81,
+   "clipped": 0.013
+  },
+  {
+   "year": 1906,
+   "ours": -0.378,
+   "nasa": -0.22,
+   "coverage": 0.811,
+   "clipped": 0.028
+  },
+  {
+   "year": 1907,
+   "ours": -0.475,
+   "nasa": -0.38,
+   "coverage": 0.814,
+   "clipped": 0.002
+  },
+  {
+   "year": 1908,
+   "ours": -0.57,
+   "nasa": -0.42,
+   "coverage": 0.816,
+   "clipped": 0.009
+  },
+  {
+   "year": 1909,
+   "ours": -0.493,
+   "nasa": -0.48,
+   "coverage": 0.818,
+   "clipped": 0.018
+  },
+  {
+   "year": 1910,
+   "ours": -0.586,
+   "nasa": -0.43,
+   "coverage": 0.82,
+   "clipped": 0.001
+  },
+  {
+   "year": 1911,
+   "ours": -0.368,
+   "nasa": -0.44,
+   "coverage": 0.819,
+   "clipped": 0.01
+  },
+  {
+   "year": 1912,
+   "ours": -0.527,
+   "nasa": -0.37,
+   "coverage": 0.819,
+   "clipped": 0.003
+  },
+  {
+   "year": 1913,
+   "ours": -0.302,
+   "nasa": -0.35,
+   "coverage": 0.819,
+   "clipped": 0.02
+  },
+  {
+   "year": 1914,
+   "ours": -0.158,
+   "nasa": -0.15,
+   "coverage": 0.82,
+   "clipped": 0.017
+  },
+  {
+   "year": 1915,
+   "ours": -0.261,
+   "nasa": -0.14,
+   "coverage": 0.819,
+   "clipped": 0.014
+  },
+  {
+   "year": 1916,
+   "ours": -0.568,
+   "nasa": -0.36,
+   "coverage": 0.821,
+   "clipped": 0.015
+  },
+  {
+   "year": 1917,
+   "ours": -0.451,
+   "nasa": -0.46,
+   "coverage": 0.819,
+   "clipped": 0.042
+  },
+  {
+   "year": 1918,
+   "ours": -0.282,
+   "nasa": -0.3,
+   "coverage": 0.817,
+   "clipped": 0.016
+  },
+  {
+   "year": 1919,
+   "ours": -0.352,
+   "nasa": -0.28,
+   "coverage": 0.818,
+   "clipped": 0.017
+  },
+  {
+   "year": 1920,
+   "ours": -0.339,
+   "nasa": -0.27,
+   "coverage": 0.819,
+   "clipped": 0.012
+  },
+  {
+   "year": 1921,
+   "ours": -0.288,
+   "nasa": -0.19,
+   "coverage": 0.82,
+   "clipped": 0
+  },
+  {
+   "year": 1922,
+   "ours": -0.378,
+   "nasa": -0.28,
+   "coverage": 0.821,
+   "clipped": 0.005
+  },
+  {
+   "year": 1923,
+   "ours": -0.259,
+   "nasa": -0.27,
+   "coverage": 0.822,
+   "clipped": 0.004
+  },
+  {
+   "year": 1924,
+   "ours": -0.388,
+   "nasa": -0.27,
+   "coverage": 0.822,
+   "clipped": 0.003
+  },
+  {
+   "year": 1925,
+   "ours": -0.119,
+   "nasa": -0.22,
+   "coverage": 0.827,
+   "clipped": 0.016
+  },
+  {
+   "year": 1926,
+   "ours": -0.268,
+   "nasa": -0.11,
+   "coverage": 0.828,
+   "clipped": 0
+  },
+  {
+   "year": 1927,
+   "ours": -0.232,
+   "nasa": -0.22,
+   "coverage": 0.827,
+   "clipped": 0.016
+  },
+  {
+   "year": 1928,
+   "ours": -0.368,
+   "nasa": -0.2,
+   "coverage": 0.83,
+   "clipped": 0.025
+  },
+  {
+   "year": 1929,
+   "ours": -0.337,
+   "nasa": -0.36,
+   "coverage": 0.829,
+   "clipped": 0.001
+  },
+  {
+   "year": 1930,
+   "ours": -0.153,
+   "nasa": -0.16,
+   "coverage": 0.875,
+   "clipped": 0.012
+  },
+  {
+   "year": 1931,
+   "ours": -0.084,
+   "nasa": -0.09,
+   "coverage": 0.875,
+   "clipped": 0.081
+  },
+  {
+   "year": 1932,
+   "ours": -0.289,
+   "nasa": -0.16,
+   "coverage": 0.875,
+   "clipped": 0.054
+  },
+  {
+   "year": 1933,
+   "ours": -0.305,
+   "nasa": -0.29,
+   "coverage": 0.876,
+   "clipped": 0.007
+  },
+  {
+   "year": 1934,
+   "ours": -0.174,
+   "nasa": -0.13,
+   "coverage": 0.876,
+   "clipped": 0
+  },
+  {
+   "year": 1935,
+   "ours": -0.265,
+   "nasa": -0.2,
+   "coverage": 0.876,
+   "clipped": 0.014
+  },
+  {
+   "year": 1936,
+   "ours": -0.123,
+   "nasa": -0.15,
+   "coverage": 0.876,
+   "clipped": 0.078
+  },
+  {
+   "year": 1937,
+   "ours": 0.011,
+   "nasa": -0.03,
+   "coverage": 0.876,
+   "clipped": 0.089
+  },
+  {
+   "year": 1938,
+   "ours": -0.085,
+   "nasa": 0,
+   "coverage": 0.876,
+   "clipped": 0.005
+  },
+  {
+   "year": 1939,
+   "ours": 0.046,
+   "nasa": -0.02,
+   "coverage": 0.876,
+   "clipped": 0.028
+  },
+  {
+   "year": 1940,
+   "ours": 0.173,
+   "nasa": 0.12,
+   "coverage": 0.877,
+   "clipped": 0.001
+  },
+  {
+   "year": 1941,
+   "ours": 0.175,
+   "nasa": 0.18,
+   "coverage": 0.877,
+   "clipped": 0.014
+  },
+  {
+   "year": 1942,
+   "ours": 0.022,
+   "nasa": 0.06,
+   "coverage": 0.875,
+   "clipped": 0.085
+  },
+  {
+   "year": 1943,
+   "ours": 0.17,
+   "nasa": 0.09,
+   "coverage": 0.88,
+   "clipped": 0.04
+  },
+  {
+   "year": 1944,
+   "ours": 0.139,
+   "nasa": 0.2,
+   "coverage": 0.836,
+   "clipped": 0.017
+  },
+  {
+   "year": 1945,
+   "ours": 0.066,
+   "nasa": 0.09,
+   "coverage": 0.883,
+   "clipped": 0.003
+  },
+  {
+   "year": 1946,
+   "ours": -0.11,
+   "nasa": -0.07,
+   "coverage": 0.882,
+   "clipped": 0.015
+  },
+  {
+   "year": 1947,
+   "ours": -0.084,
+   "nasa": -0.03,
+   "coverage": 0.883,
+   "clipped": 0.003
+  },
+  {
+   "year": 1948,
+   "ours": -0.128,
+   "nasa": -0.11,
+   "coverage": 0.883,
+   "clipped": 0.012
+  },
+  {
+   "year": 1949,
+   "ours": -0.197,
+   "nasa": -0.11,
+   "coverage": 0.892,
+   "clipped": 0.003
+  },
+  {
+   "year": 1950,
+   "ours": -0.239,
+   "nasa": -0.17,
+   "coverage": 0.891,
+   "clipped": 0.001
+  },
+  {
+   "year": 1951,
+   "ours": 0.04,
+   "nasa": -0.07,
+   "coverage": 0.892,
+   "clipped": 0
+  },
+  {
+   "year": 1952,
+   "ours": 0.052,
+   "nasa": 0.01,
+   "coverage": 0.879,
+   "clipped": 0
+  },
+  {
+   "year": 1953,
+   "ours": -0.053,
+   "nasa": 0.08,
+   "coverage": 0.889,
+   "clipped": 0.018
+  },
+  {
+   "year": 1954,
+   "ours": -0.177,
+   "nasa": -0.13,
+   "coverage": 0.905,
+   "clipped": 0.011
+  },
+  {
+   "year": 1955,
+   "ours": -0.204,
+   "nasa": -0.14,
+   "coverage": 0.932,
+   "clipped": 0
+  },
+  {
+   "year": 1956,
+   "ours": -0.14,
+   "nasa": -0.19,
+   "coverage": 0.996,
+   "clipped": 0.015
+  },
+  {
+   "year": 1957,
+   "ours": 0.123,
+   "nasa": 0.05,
+   "coverage": 0.995,
+   "clipped": 0.011
+  },
+  {
+   "year": 1958,
+   "ours": 0.044,
+   "nasa": 0.06,
+   "coverage": 0.995,
+   "clipped": 0.005
+  },
+  {
+   "year": 1959,
+   "ours": -0.06,
+   "nasa": 0.03,
+   "coverage": 0.993,
+   "clipped": 0.001
+  },
+  {
+   "year": 1960,
+   "ours": 0.06,
+   "nasa": -0.03,
+   "coverage": 0.993,
+   "clipped": 0
+  },
+  {
+   "year": 1961,
+   "ours": 0.024,
+   "nasa": 0.06,
+   "coverage": 0.995,
+   "clipped": 0.001
+  },
+  {
+   "year": 1962,
+   "ours": -0.01,
+   "nasa": 0.03,
+   "coverage": 0.996,
+   "clipped": 0
+  },
+  {
+   "year": 1963,
+   "ours": -0.019,
+   "nasa": 0.05,
+   "coverage": 0.994,
+   "clipped": 0
+  },
+  {
+   "year": 1964,
+   "ours": -0.222,
+   "nasa": -0.2,
+   "coverage": 0.995,
+   "clipped": 0
+  },
+  {
+   "year": 1965,
+   "ours": -0.121,
+   "nasa": -0.11,
+   "coverage": 0.995,
+   "clipped": 0.005
+  },
+  {
+   "year": 1966,
+   "ours": -0.046,
+   "nasa": -0.06,
+   "coverage": 0.995,
+   "clipped": 0
+  },
+  {
+   "year": 1967,
+   "ours": -0.068,
+   "nasa": -0.02,
+   "coverage": 0.996,
+   "clipped": 0.018
+  },
+  {
+   "year": 1968,
+   "ours": -0.014,
+   "nasa": -0.08,
+   "coverage": 0.996,
+   "clipped": 0.033
+  },
+  {
+   "year": 1969,
+   "ours": 0.084,
+   "nasa": 0.05,
+   "coverage": 0.996,
+   "clipped": 0
+  },
+  {
+   "year": 1970,
+   "ours": -0.058,
+   "nasa": 0.03,
+   "coverage": 0.994,
+   "clipped": 0.003
+  },
+  {
+   "year": 1971,
+   "ours": -0.111,
+   "nasa": -0.08,
+   "coverage": 0.995,
+   "clipped": 0.006
+  },
+  {
+   "year": 1972,
+   "ours": 0.166,
+   "nasa": 0.01,
+   "coverage": 0.997,
+   "clipped": 0.012
+  },
+  {
+   "year": 1973,
+   "ours": -0.008,
+   "nasa": 0.16,
+   "coverage": 0.996,
+   "clipped": 0.007
+  },
+  {
+   "year": 1974,
+   "ours": 0.004,
+   "nasa": -0.07,
+   "coverage": 0.995,
+   "clipped": 0.015
+  },
+  {
+   "year": 1975,
+   "ours": -0.142,
+   "nasa": -0.01,
+   "coverage": 0.987,
+   "clipped": 0
+  },
+  {
+   "year": 1976,
+   "ours": 0.046,
+   "nasa": -0.1,
+   "coverage": 0.988,
+   "clipped": 0.013
+  },
+  {
+   "year": 1977,
+   "ours": 0.139,
+   "nasa": 0.18,
+   "coverage": 0.988,
+   "clipped": 0
+  },
+  {
+   "year": 1978,
+   "ours": 0.063,
+   "nasa": 0.07,
+   "coverage": 0.991,
+   "clipped": 0.005
+  },
+  {
+   "year": 1979,
+   "ours": 0.294,
+   "nasa": 0.16,
+   "coverage": 0.989,
+   "clipped": 0.004
+  },
+  {
+   "year": 1980,
+   "ours": 0.331,
+   "nasa": 0.26,
+   "coverage": 0.99,
+   "clipped": 0.008
+  },
+  {
+   "year": 1981,
+   "ours": 0.234,
+   "nasa": 0.32,
+   "coverage": 0.989,
+   "clipped": 0
+  },
+  {
+   "year": 1982,
+   "ours": 0.257,
+   "nasa": 0.14,
+   "coverage": 0.99,
+   "clipped": 0.02
+  },
+  {
+   "year": 1983,
+   "ours": 0.275,
+   "nasa": 0.31,
+   "coverage": 0.996,
+   "clipped": 0.013
+  },
+  {
+   "year": 1984,
+   "ours": 0.129,
+   "nasa": 0.16,
+   "coverage": 0.996,
+   "clipped": 0.01
+  },
+  {
+   "year": 1985,
+   "ours": 0.2,
+   "nasa": 0.12,
+   "coverage": 0.995,
+   "clipped": 0.008
+  },
+  {
+   "year": 1986,
+   "ours": 0.204,
+   "nasa": 0.18,
+   "coverage": 0.997,
+   "clipped": 0.014
+  },
+  {
+   "year": 1987,
+   "ours": 0.419,
+   "nasa": 0.32,
+   "coverage": 0.997,
+   "clipped": 0.011
+  },
+  {
+   "year": 1988,
+   "ours": 0.312,
+   "nasa": 0.39,
+   "coverage": 0.993,
+   "clipped": 0.036
+  },
+  {
+   "year": 1989,
+   "ours": 0.438,
+   "nasa": 0.27,
+   "coverage": 0.992,
+   "clipped": 0.023
+  },
+  {
+   "year": 1990,
+   "ours": 0.446,
+   "nasa": 0.45,
+   "coverage": 0.997,
+   "clipped": 0.002
+  },
+  {
+   "year": 1991,
+   "ours": 0.428,
+   "nasa": 0.41,
+   "coverage": 0.994,
+   "clipped": 0.007
+  },
+  {
+   "year": 1992,
+   "ours": 0.214,
+   "nasa": 0.22,
+   "coverage": 0.993,
+   "clipped": 0.005
+  },
+  {
+   "year": 1993,
+   "ours": 0.217,
+   "nasa": 0.23,
+   "coverage": 0.996,
+   "clipped": 0.007
+  },
+  {
+   "year": 1994,
+   "ours": 0.456,
+   "nasa": 0.31,
+   "coverage": 0.998,
+   "clipped": 0.03
+  },
+  {
+   "year": 1995,
+   "ours": 0.407,
+   "nasa": 0.44,
+   "coverage": 0.996,
+   "clipped": 0.016
+  },
+  {
+   "year": 1996,
+   "ours": 0.407,
+   "nasa": 0.33,
+   "coverage": 0.997,
+   "clipped": 0.021
+  },
+  {
+   "year": 1997,
+   "ours": 0.589,
+   "nasa": 0.46,
+   "coverage": 0.997,
+   "clipped": 0.045
+  },
+  {
+   "year": 1998,
+   "ours": 0.507,
+   "nasa": 0.61,
+   "coverage": 0.997,
+   "clipped": 0.037
+  },
+  {
+   "year": 1999,
+   "ours": 0.432,
+   "nasa": 0.38,
+   "coverage": 0.998,
+   "clipped": 0.022
+  },
+  {
+   "year": 2000,
+   "ours": 0.455,
+   "nasa": 0.39,
+   "coverage": 0.997,
+   "clipped": 0.018
+  },
+  {
+   "year": 2001,
+   "ours": 0.66,
+   "nasa": 0.53,
+   "coverage": 0.997,
+   "clipped": 0.033
+  },
+  {
+   "year": 2002,
+   "ours": 0.617,
+   "nasa": 0.63,
+   "coverage": 0.998,
+   "clipped": 0.072
+  },
+  {
+   "year": 2003,
+   "ours": 0.655,
+   "nasa": 0.61,
+   "coverage": 0.997,
+   "clipped": 0.011
+  },
+  {
+   "year": 2004,
+   "ours": 0.62,
+   "nasa": 0.53,
+   "coverage": 0.998,
+   "clipped": 0.023
+  },
+  {
+   "year": 2005,
+   "ours": 0.672,
+   "nasa": 0.68,
+   "coverage": 0.998,
+   "clipped": 0.111
+  },
+  {
+   "year": 2006,
+   "ours": 0.736,
+   "nasa": 0.64,
+   "coverage": 0.998,
+   "clipped": 0.167
+  },
+  {
+   "year": 2007,
+   "ours": 0.568,
+   "nasa": 0.66,
+   "coverage": 0.998,
+   "clipped": 0.143
+  },
+  {
+   "year": 2008,
+   "ours": 0.624,
+   "nasa": 0.54,
+   "coverage": 0.998,
+   "clipped": 0.075
+  },
+  {
+   "year": 2009,
+   "ours": 0.77,
+   "nasa": 0.66,
+   "coverage": 0.998,
+   "clipped": 0.133
+  },
+  {
+   "year": 2010,
+   "ours": 0.621,
+   "nasa": 0.72,
+   "coverage": 0.998,
+   "clipped": 0.136
+  },
+  {
+   "year": 2011,
+   "ours": 0.608,
+   "nasa": 0.61,
+   "coverage": 0.998,
+   "clipped": 0.157
+  },
+  {
+   "year": 2012,
+   "ours": 0.687,
+   "nasa": 0.64,
+   "coverage": 0.998,
+   "clipped": 0.108
+  },
+  {
+   "year": 2013,
+   "ours": 0.746,
+   "nasa": 0.67,
+   "coverage": 0.998,
+   "clipped": 0.171
+  },
+  {
+   "year": 2014,
+   "ours": 0.809,
+   "nasa": 0.75,
+   "coverage": 0.998,
+   "clipped": 0.148
+  },
+  {
+   "year": 2015,
+   "ours": 1.007,
+   "nasa": 0.9,
+   "coverage": 0.998,
+   "clipped": 0.207
+  },
+  {
+   "year": 2016,
+   "ours": 0.951,
+   "nasa": 1.01,
+   "coverage": 0.998,
+   "clipped": 0.177
+  },
+  {
+   "year": 2017,
+   "ours": 0.854,
+   "nasa": 0.91,
+   "coverage": 0.998,
+   "clipped": 0.125
+  },
+  {
+   "year": 2018,
+   "ours": 0.907,
+   "nasa": 0.85,
+   "coverage": 0.998,
+   "clipped": 0.157
+  },
+  {
+   "year": 2019,
+   "ours": 1.014,
+   "nasa": 0.98,
+   "coverage": 0.998,
+   "clipped": 0.196
+  },
+  {
+   "year": 2020,
+   "ours": 0.866,
+   "nasa": 1.01,
+   "coverage": 0.998,
+   "clipped": 0.149
+  },
+  {
+   "year": 2021,
+   "ours": 0.906,
+   "nasa": 0.85,
+   "coverage": 0.998,
+   "clipped": 0.175
+  },
+  {
+   "year": 2022,
+   "ours": 0.942,
+   "nasa": 0.89,
+   "coverage": 0.998,
+   "clipped": 0.175
+  },
+  {
+   "year": 2023,
+   "ours": 1.238,
+   "nasa": 1.17,
+   "coverage": 0.998,
+   "clipped": 0.272
+  },
+  {
+   "year": 2024,
+   "ours": 1.198,
+   "nasa": 1.28,
+   "coverage": 0.998,
+   "clipped": 0.25
+  },
+  {
+   "year": 2025,
+   "ours": 1.151,
+   "nasa": 1.19,
+   "coverage": 0.998,
+   "clipped": 0.266
+  }
+ ]
+}

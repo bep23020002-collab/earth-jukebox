@@ -239,6 +239,16 @@
         <li><strong>You can hear it without seeing it.</strong> Move with the arrow keys and the app says where you are and what NASA measured there.</li>
         <li><strong>You can see it without hearing it.</strong> Every note is also drawn on the score display, on the same scale as the sound, so the music works in a noisy room, on mute, or for people who are deaf or hard of hearing.</li>
       </ol>
+      <div class="check">
+        <h3>We checked our numbers against NASA's</h3>
+        <img src="assets/validation/temperature.svg" width="760" height="300" alt="Line chart from 1880 to 2025. NASA's published global temperature and the global average Earth Jukebox reads from the map colors lie almost on top of each other, both rising from about minus 0.2 to about plus 1.2 degrees.">
+        <ul class="check-stats">
+          <li><span class="big">0.07 °C</span> average gap between the global temperature we read from the map's colors and NASA's published number, over all 146 years. They move together almost perfectly (correlation 0.98).</li>
+          <li><span class="big">+1.26 °C</span> warming from 1880–1899 to 2015–2024 in what you hear. NASA's own number is +1.21 °C.</li>
+          <li><span class="big">Limits</span> The map's colors stop at ±2 °C, so the hottest places, mostly the Arctic, play as "+2 °C or more". Near the poles the gap is larger, about 0.35 °C. Values are on a 2° grid.</li>
+        </ul>
+        <p class="small">Compared with NASA GISS GISTEMP v4 yearly global and zonal means. Anyone can repeat the check: <a href="https://github.com/bep23020002-collab/earth-jukebox/blob/main/scripts/validate.mjs">scripts/validate.mjs</a>.</p>
+      </div>
       <div class="credits">
         <h3>Where the data comes from</h3>
         <p id="credit"></p>
@@ -246,7 +256,7 @@
         <p class="small">"Normal" means the average temperature for 1951–1980. Numbers are read from the colors of NASA's map, so they are close but not exact.</p>
         <details class="small">
           <summary>More detail for scientists</summary>
-          <p>Temperature: the equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published global averages. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
+          <p>Temperature: the equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published yearly means: the area-weighted global mean we read differs from GISTEMP by 0.07 °C on average (RMSE 0.085 °C, r = 0.98, 146 years) and fits the yearly series better than a 5-year running mean (0.08 °C), so the frames are single years. By latitude band the average gap is 0.07–0.12 °C between 64° S and 44° N, 0.21 °C at 44–64° N, and about 0.35 °C poleward of 64°, where colors saturate at ±2 °C and there are few cells. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
           <p>Ocean: one frame of the ECCO2 model (19 June 2007), read against NASA's 0–32 °C color bar by hue, so the light and shadow of the flow lines do not change the number.</p>
           <p>Lightning: the sensor on the Space Station only sees between about 56° north and 56° south, so places outside that band stay silent instead of claiming "no lightning". Values are the share of 10-day periods in which lightning was seen.</p>
         </details>
