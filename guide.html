@@ -1,0 +1,250 @@
+<!doctype html>
+<!-- AI-assisted (Anthropic Claude). A plain, linear guide for people who use Earth Jukebox without seeing the screen. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earth Jukebox guide</title>
+  <meta name="description" content="How to use Earth Jukebox with a screen reader, on a phone or a computer. 读屏使用指南。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&family=Atkinson+Hyperlegible+Next:wght@400;500&display=swap">
+  <link rel="stylesheet" href="src/style.css">
+  <style>
+    .guide-page { max-width: 46rem; margin: 0 auto; padding: 24px 16px 64px; }
+    .guide-page h1 { font-size: clamp(1.7rem, 5vw, 2.4rem); margin: 8px 0 12px; }
+    .guide-page h2 { font-size: 1.3rem; margin: 36px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .guide-page p, .guide-page li { font-size: 1.05rem; }
+    .guide-page p + p { margin-top: 10px; }
+    .guide-page ol, .guide-page ul { padding-left: 1.4em; margin: 8px 0 0; display: grid; gap: 8px; }
+    .guide-page .lang-switch { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .guide-page .lang-switch a, .guide-page .open { display: inline-block; padding: 10px 16px; border-radius: var(--r-key); background: var(--key); box-shadow: var(--press); color: var(--ink); text-decoration: none; font-weight: 500; }
+    .guide-page .open { background: var(--orange); margin-top: 16px; }
+    .guide-page .lang { margin-top: 48px; }
+    .guide-page .label { font-family: var(--mono); font-size: .85rem; color: var(--gray); }
+    .guide-page strong { font-weight: 500; background: var(--plate); padding: 0 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main class="guide-page">
+    <p class="label">Earth Jukebox</p>
+    <nav class="lang-switch" aria-label="Language">
+      <a href="#en">English</a>
+      <a href="#zh" lang="zh">中文</a>
+      <a href="./">Open Earth Jukebox</a>
+    </nav>
+
+    <!-- ===================== English ===================== -->
+    <section id="en" lang="en" aria-labelledby="enTitle">
+      <h1 id="enTitle">How to use Earth Jukebox without seeing the screen</h1>
+      <p>Earth Jukebox turns NASA's maps of the Earth into sound. Every place on Earth has a note. Warmer places play higher notes. You can hear how warm a place was in any year from 1880 to 2025.</p>
+      <p>The website is in English. The numbers come from NASA.</p>
+
+      <h2>Before you start</h2>
+      <ul>
+        <li>Use headphones if you can. The left and right of the Earth play in your left and right ear.</li>
+        <li>On an iPhone, turn off silent mode, or you will hear nothing.</li>
+        <li>If you use a screen reader (VoiceOver, TalkBack, NVDA or JAWS), keep <strong>Voice guide</strong> off. Your screen reader already reads everything. With both on, you would hear things twice.</li>
+        <li>If you don't use a screen reader, turn <strong>Voice guide</strong> on. It reads every step aloud.</li>
+      </ul>
+
+      <h2>What the sounds mean</h2>
+      <ul>
+        <li>A low note: colder than normal.</li>
+        <li>A middle note: normal. Normal means the average for 1951 to 1980.</li>
+        <li>A high note: much warmer than normal. When it is very warm, a second voice joins in.</li>
+        <li>A soft tick with no note: NASA has no data there.</li>
+      </ul>
+      <p>You can hear this any time with the button <strong>What do the sounds mean?</strong></p>
+
+      <h2>The first screen</h2>
+      <p>There are two buttons:</p>
+      <ul>
+        <li><strong>Start listening</strong>: choose this if you use a screen reader.</li>
+        <li><strong>Start with voice guide</strong>: choose this if you don't use a screen reader.</li>
+      </ul>
+
+      <h2>What is on the page, from top to bottom</h2>
+      <ol>
+        <li><strong>Voice guide</strong>: a switch. It turns the spoken guide on or off.</li>
+        <li><strong>Controls</strong>: opens big buttons to move around the Earth.</li>
+        <li>Three tabs: <strong>Play</strong>, <strong>My Earth song</strong> and <strong>Ask the Earth</strong>.</li>
+        <li>Four tracks: <strong>Temperature</strong>, <strong>Ocean</strong>, <strong>Lightning</strong> and <strong>All three</strong>.</li>
+        <li><strong>Fly with the Space Station</strong>.</li>
+        <li>The globe. A screen reader calls it "Temperature globe".</li>
+        <li><strong>Play 1880 → 2025</strong>. A screen reader may say "right arrow" between the years.</li>
+        <li>The year bar (a slider).</li>
+        <li>The Controls buttons, after you open them.</li>
+        <li>Further down: the step-by-step guide, and <strong>More ways to listen</strong>.</li>
+      </ol>
+
+      <h2>On a phone (VoiceOver or TalkBack)</h2>
+      <ol>
+        <li>Press <strong>Start listening</strong>.</li>
+        <li>Go to the top of the page and press <strong>Controls</strong>. Big buttons open, and you land on <strong>Where am I?</strong></li>
+        <li>Press <strong>Where am I?</strong> It plays the note, then says the place, the year and how warm it was.</li>
+        <li>Next to it are <strong>North</strong>, <strong>West</strong>, <strong>East</strong> and <strong>South</strong>. Each one moves you about 1,000 kilometres and says where you are now.</li>
+        <li><strong>Year before</strong> and <strong>Year after</strong> change the year by one.</li>
+        <li>To hear the whole history of a place, press <strong>Play 1880 → 2025</strong>. It plays every month from 1880 to 2025 in about 30 seconds, then says how much warmer it is than in the 1880s. Press it again to stop.</li>
+        <li>To jump to a place, open <strong>More ways to listen</strong>, then press a place under <strong>Go to a place</strong>: Sibu, the Arctic Ocean, the Sahara, the Amazon rainforest, Siberia, the middle of the Pacific Ocean, Europe, central Australia or Antarctica.</li>
+      </ol>
+      <p>You start at Sibu, Sarawak, in 2025.</p>
+
+      <h2>On a computer (keyboard)</h2>
+      <p>Move to the globe with the Tab key. Then use these keys:</p>
+      <ul>
+        <li>Arrow keys: move around the Earth. Hold Shift for small steps.</li>
+        <li>Enter: say where I am and how warm it is.</li>
+        <li>Square brackets [ and ]: the year before and the year after.</li>
+        <li>Space: play every month from 1880 to 2025.</li>
+        <li>I: fly one orbit with the Space Station.</li>
+        <li>Numbers 1 to 9: go to a place. 1 is Sibu, 2 is the Arctic Ocean.</li>
+        <li>L: what do the sounds mean.</li>
+        <li>V: Voice guide on or off.</li>
+        <li>Question mark: hear all the keys.</li>
+      </ul>
+      <p>With NVDA or JAWS, the globe should switch to focus mode by itself. If the arrow keys read text instead of moving, press NVDA plus Space (or Insert plus Z in JAWS) to switch to focus mode.</p>
+
+      <h2>The four tracks</h2>
+      <ul>
+        <li><strong>Temperature</strong>, played on a marimba: how much warmer or colder each place was than normal, every year since 1880.</li>
+        <li><strong>Ocean</strong>, played on a harp: how warm the sea is. This is one day, 19 June 2007.</li>
+        <li><strong>Lightning</strong>, played on drums: how often the Space Station saw lightning, 2017 to 2023. It only sees between about 56 degrees north and south, so places farther away stay silent.</li>
+        <li><strong>All three</strong>: temperature, the nearest sea and lightning together, at the same place.</li>
+      </ul>
+
+      <h2>Fly with the Space Station</h2>
+      <p>Press <strong>Fly with the Space Station</strong>. You fly one orbit, like the International Space Station, right over your place. It takes about 93 minutes in space and 15 seconds here. Every place below plays its note. At the end it tells you the warmest place it passed. Press <strong>Stop</strong> to stop early.</p>
+
+      <h2>My Earth song</h2>
+      <ol>
+        <li>Choose the tab <strong>My Earth song</strong>.</li>
+        <li>In the box <strong>Tell your story</strong>, type a short story with places and years, in any language. For example: "My grandpa was born in Fuzhou in 1950. I was born in Kuching on 15 March 2006." Or press <strong>Speak</strong> and say it.</li>
+        <li>Press <strong>Make my song from this</strong>, then <strong>Play my Earth song</strong>.</li>
+      </ol>
+
+      <h2>Ask the Earth</h2>
+      <ol>
+        <li>Choose the tab <strong>Ask the Earth</strong>.</li>
+        <li>Type a question, in any language, or press <strong>Speak</strong>. For example: "Is Sibu warmer now than in 1960?"</li>
+        <li>Press <strong>Ask</strong>. The answer plays as sound, then is read out.</li>
+      </ol>
+
+      <h2>No sound?</h2>
+      <ul>
+        <li>Turn up the volume. On an iPhone, turn off silent mode.</li>
+        <li>Press any button on the page once. Browsers only play sound after you press something.</li>
+        <li>If you are on a call on the same phone, the call can make the website quiet. Try a second device for the website.</li>
+      </ul>
+
+      <p><a class="open" href="./">Open Earth Jukebox</a></p>
+    </section>
+
+    <!-- ===================== 中文 ===================== -->
+    <section id="zh" lang="zh" class="lang" aria-labelledby="zhTitle">
+      <h1 id="zhTitle">不看屏幕也能用 Earth Jukebox</h1>
+      <p>Earth Jukebox 把 NASA 的地球地图变成声音。地球上每个地方都有一个音，越暖的地方，音越高。你可以听到一个地方从 1880 年到 2025 年每一年有多暖。</p>
+      <p>网站的文字和念出来的话是英文。数字都来自 NASA。</p>
+
+      <h2>开始之前</h2>
+      <ul>
+        <li>最好戴耳机。地球的左边和右边，会在左耳和右耳响。</li>
+        <li>用 iPhone 的话，要关掉静音模式，不然听不到声音。</li>
+        <li>有用读屏软件（VoiceOver、TalkBack、NVDA 或 JAWS）的话，<strong>Voice guide</strong> 请保持关闭。读屏软件已经会念，两个都开会念两次。</li>
+        <li>没有用读屏软件的话，请打开 <strong>Voice guide</strong>，它会把每一步念出来。</li>
+      </ul>
+
+      <h2>声音代表什么</h2>
+      <ul>
+        <li>低音：比正常冷。</li>
+        <li>中音：正常。正常是指 1951 到 1980 年的平均温度。</li>
+        <li>高音：比正常暖很多。很暖的时候，会多一个声音一起响。</li>
+        <li>轻轻的"嗒"一声、没有音高：NASA 在那里没有资料。</li>
+      </ul>
+      <p>随时可以按 <strong>What do the sounds mean?</strong> 再听一次。</p>
+
+      <h2>第一个画面</h2>
+      <p>有两个按钮：</p>
+      <ul>
+        <li><strong>Start listening</strong>：有用读屏软件的，请按这个。</li>
+        <li><strong>Start with voice guide</strong>：没有用读屏软件的，请按这个。</li>
+      </ul>
+
+      <h2>页面上从上到下有什么</h2>
+      <ol>
+        <li><strong>Voice guide</strong>：语音导览开关。</li>
+        <li><strong>Controls</strong>：打开一组大按钮，用来在地球上移动。</li>
+        <li>三个分页：<strong>Play</strong>、<strong>My Earth song</strong>、<strong>Ask the Earth</strong>。</li>
+        <li>四个曲目：<strong>Temperature</strong>（温度）、<strong>Ocean</strong>（海洋）、<strong>Lightning</strong>（闪电）、<strong>All three</strong>（三个一起）。</li>
+        <li><strong>Fly with the Space Station</strong>（跟着太空站飞一圈）。</li>
+        <li>地球。读屏软件会念 "Temperature globe"。</li>
+        <li><strong>Play 1880 → 2025</strong>。读屏软件可能会在两个年份中间念 "right arrow"。</li>
+        <li>年份条（滑杆）。</li>
+        <li>打开 Controls 之后的大按钮。</li>
+        <li>再往下：一步一步的导览，还有 <strong>More ways to listen</strong>。</li>
+      </ol>
+
+      <h2>用手机（VoiceOver 或 TalkBack）</h2>
+      <ol>
+        <li>按 <strong>Start listening</strong>。</li>
+        <li>到页面最上面，按 <strong>Controls</strong>。大按钮会打开，焦点会停在 <strong>Where am I?</strong></li>
+        <li>按 <strong>Where am I?</strong>：先弹出那个地方的音，再念出地点、年份和有多暖。</li>
+        <li>旁边有 <strong>North</strong>（北）、<strong>West</strong>（西）、<strong>East</strong>（东）、<strong>South</strong>（南）。每按一次移动大约 1,000 公里，并念出你现在在哪里。</li>
+        <li><strong>Year before</strong> 和 <strong>Year after</strong>：前一年、后一年。</li>
+        <li>想听一个地方的完整历史，按 <strong>Play 1880 → 2025</strong>。它会用大约 30 秒，把 1880 到 2025 年每个月都弹一遍，最后说出这里比 1880 年代暖了多少。再按一次可以停。</li>
+        <li>想直接去某个地方，打开 <strong>More ways to listen</strong>，在 <strong>Go to a place</strong> 下面选：诗巫、北冰洋、撒哈拉、亚马逊雨林、西伯利亚、太平洋中间、欧洲、澳洲中部、南极。</li>
+      </ol>
+      <p>一开始的位置是 2025 年的诗巫（Sibu, Sarawak）。</p>
+
+      <h2>用电脑（键盘）</h2>
+      <p>用 Tab 键移到地球，然后用这些键：</p>
+      <ul>
+        <li>方向键：在地球上移动。按住 Shift 是小步。</li>
+        <li>Enter：说出我在哪里、有多暖。</li>
+        <li>方括号 [ 和 ]：前一年、后一年。</li>
+        <li>空白键：把 1880 到 2025 年每个月播一遍。</li>
+        <li>I：跟着太空站飞一圈。</li>
+        <li>数字 1 到 9：去某个地方。1 是诗巫，2 是北冰洋。</li>
+        <li>L：声音代表什么。</li>
+        <li>V：语音导览开或关。</li>
+        <li>问号：念出所有按键。</li>
+      </ul>
+      <p>用 NVDA 或 JAWS 的话，到了地球应该会自动切换到焦点模式。如果按方向键是在读文字、没有移动，请按 NVDA 加空白键（JAWS 是 Insert 加 Z）切换到焦点模式。</p>
+
+      <h2>四个曲目</h2>
+      <ul>
+        <li><strong>Temperature</strong>，木琴：每个地方比正常暖或冷多少，1880 年起每一年。</li>
+        <li><strong>Ocean</strong>，竖琴：海水有多暖。这是 2007 年 6 月 19 日这一天。</li>
+        <li><strong>Lightning</strong>，鼓：太空站多常看到闪电，2017 到 2023 年。它只看得到大约北纬 56 度到南纬 56 度，更北或更南的地方不会出声。</li>
+        <li><strong>All three</strong>：同一个地方，温度、最近的海水和闪电一起响。</li>
+      </ul>
+
+      <h2>跟着太空站飞一圈</h2>
+      <p>按 <strong>Fly with the Space Station</strong>。你会像国际太空站一样绕地球飞一圈，正好经过你所在的地方。在太空中要大约 93 分钟，这里 15 秒。经过的每个地方都会弹出它的音，最后告诉你经过最暖的地方是哪里。想提早停，按 <strong>Stop</strong>。</p>
+
+      <h2>My Earth song（我的地球之歌）</h2>
+      <ol>
+        <li>选分页 <strong>My Earth song</strong>。</li>
+        <li>在 <strong>Tell your story</strong> 的格子里，打一小段有地方和年份的故事，什么语言都可以。例如："我爷爷 1950 年在福州出生。我 2006 年 3 月 15 日在古晋出生。" 也可以按 <strong>Speak</strong> 用说的。</li>
+        <li>按 <strong>Make my song from this</strong>，再按 <strong>Play my Earth song</strong>。</li>
+      </ol>
+
+      <h2>Ask the Earth（问地球）</h2>
+      <ol>
+        <li>选分页 <strong>Ask the Earth</strong>。</li>
+        <li>打一个问题，什么语言都可以，或者按 <strong>Speak</strong> 用说的。例如："诗巫现在比 1960 年暖吗？"</li>
+        <li>按 <strong>Ask</strong>。答案会先用声音弹出来，再念出来。</li>
+      </ol>
+
+      <h2>没有声音？</h2>
+      <ul>
+        <li>把音量调大。iPhone 要关掉静音模式。</li>
+        <li>在页面上随便按一个按钮。浏览器要你先按一下，才会出声。</li>
+        <li>如果同一支手机正在通话，通话可能会让网站变小声。试试用另一台装置开网站。</li>
+      </ul>
+
+      <p><a class="open" href="./">打开 Earth Jukebox</a></p>
+    </section>
+  </main>
+</body>
+</html>

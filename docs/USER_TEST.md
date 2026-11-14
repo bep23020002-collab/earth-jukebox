@@ -29,12 +29,14 @@
 > 你好！我们在参加 NASA 的比赛，做了一个把地球温度变成声音的网页，是专门给看不见地图的人用的。想请你在线上帮我们试用大约 20 分钟。我们测试的是网页，不是你，答案没有对错，随时可以停。
 > 请准备：耳机；最好两台装置，一台通话，一台开网页。
 > 网址：https://bep23020002-collab.github.io/earth-jukebox/
+> 使用说明（读屏软件友善，中英文）：https://bep23020002-collab.github.io/earth-jukebox/guide.html
 > 网页的文字是英文。用读屏软件（VoiceOver、TalkBack、NVDA）的话，请照常使用。
 
 English:
 > Hi! We're in a NASA competition and made a website that turns Earth's temperature into sound, for people who can't see maps. Could you try it with us online for about 20 minutes? We are testing the website, not you. There are no wrong answers, and you can stop at any time.
 > Please have headphones, and if possible two devices: one for the call and one for the website.
 > Link: https://bep23020002-collab.github.io/earth-jukebox/
+> How to use it (screen-reader friendly, English and Chinese): https://bep23020002-collab.github.io/earth-jukebox/guide.html
 > Please use your screen reader (VoiceOver, TalkBack, NVDA) as usual.
 
 ### 流程（约 20 分钟）
