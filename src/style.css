@@ -67,6 +67,14 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .mode-btn:hover { color: var(--ink); }
 .mode-btn[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: var(--press); }
 .mode-btn[aria-pressed="true"]::before { background: var(--orange); }
+/* Voice guide and Controls: always in view at the top, with a light that turns orange when on */
+.access { display: flex; gap: 6px; flex: none; }
+.access-key { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--plate); color: var(--ink); border-radius: var(--r-key);
+  padding: 8px 12px; font-family: var(--mono); font-size: .85rem; line-height: 1.2; cursor: pointer; box-shadow: var(--press); white-space: nowrap; }
+.access-key::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-2); flex: none; }
+.access-key[aria-pressed="true"]::before, .access-key[aria-expanded="true"]::before { background: var(--orange); }
+.access-key:hover { background: var(--paper); }
+.access-key:active { transform: translateY(1px); box-shadow: none; }
 
 /* layout */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 24px 32px; padding: 4px max(16px, 3vw) 64px; max-width: 1460px; margin: 0 auto; }
@@ -131,6 +139,25 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .small-key { padding: 7px 10px; font-size: .85rem; white-space: nowrap; }
 #yearOut { min-width: 5ch; white-space: nowrap; text-align: center; font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; padding: 7px 10px; border-radius: 6px;
   background: var(--lcd); color: var(--lcd-ink); }
+
+/* Controls: a keypad under the timeline. Arrows around "Where am I?" (orange: it plays and speaks) */
+.controls { display: grid; grid-template-columns: auto 1fr; gap: 14px 24px; align-items: start; padding: 16px; border-radius: var(--r-plate); background: var(--plate); border: 1px solid var(--line-2); }
+.controls-head { grid-column: 1 / -1; display: grid; gap: 4px; }
+.controls h3 { font-size: 1.05rem; }
+.pad { display: grid; grid-template-columns: repeat(3, 6.6em); grid-template-areas: ". n ." "w c e" ". s ."; gap: 6px; }
+.pad-n { grid-area: n; } .pad-w { grid-area: w; } .pad-c { grid-area: c; } .pad-e { grid-area: e; } .pad-s { grid-area: s; }
+.pad-side { display: grid; gap: 6px; align-content: start; }
+.pad button, .pad-side button { display: grid; place-items: center; align-content: center; gap: 5px; min-height: 58px; padding: 8px; border: 0; border-radius: var(--r-key);
+  background: var(--key); color: var(--ink); box-shadow: var(--press); cursor: pointer; font-weight: 500; font-size: .92rem; line-height: 1.2; text-align: center; }
+.pad-side button { min-height: 48px; grid-auto-flow: column; justify-content: space-between; text-align: left; padding: 8px 12px; }
+.pad .pad-c { background: var(--orange); }
+.pad button:hover, .pad-side button:hover { background: var(--key-hover); }
+.pad .pad-c:hover { background: var(--orange-hover); }
+.pad button:active, .pad-side button:active { transform: translateY(1px); box-shadow: none; }
+.keys-list { grid-column: 1 / -1; }
+.keys-list h4 { font-family: var(--mono); font-size: .78rem; color: var(--gray); font-weight: 400; margin: 0 0 8px; }
+.keys-list ul { grid-template-columns: repeat(auto-fill, minmax(15em, 1fr)); }
+@media (hover: none) and (pointer: coarse) { .controls kbd, .keys-list { display: none; } .pad-side button { justify-content: center; text-align: center; } }
 
 /* panel: plates screwed onto the body */
 .panel { display: grid; gap: 14px; align-content: start; }
@@ -306,5 +333,10 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   .year-range { order: 3; flex-basis: 100%; }
   .start-card { padding: 22px; }
   .globe-hint { white-space: normal; text-align: center; width: max-content; max-width: 92%; }
+  .access-key { padding: 7px 10px; font-size: .8rem; }
+  .controls { grid-template-columns: 1fr; padding: 14px; }
+  .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pad-side { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pad-side button { padding: 8px 6px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -313,13 +313,13 @@ function drawLegend() {
 }
 
 // ---------- readout ----------
-function updateReadout({ play = true, speakIt = false } = {}) {
+function updateReadout({ play = true, speakIt = false, sayShort = false } = {}) {
   if (isImage() && !src.legend) return null;
   const v = currentValue(), place = currentPlace();
   showValue(v, place);
   if (play) { if (v == null && state.track.kind !== 'combo') sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true, at: { lat: state.lat, lon: state.lon }, v }); score.live(stepOf(v), shortPlace(place)); }
   const inWhen = isImage() ? '' : ` in ${when()}`;
-  if (speakIt) speak(`${place}${inWhen}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
+  if (speakIt) speak(`${place}${inWhen}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else (sayShort ? speak : announce)(`${place}. ${feeling(v)}.`); // sayShort: arrow keys and Controls, so the voice guide says where you went
   return v;
 }
 // The "now hearing" card glows from ice blue (low) to ember (high), like NASA's colour bar.
@@ -727,7 +727,7 @@ async function hearLegend() {
 }
 
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; if (!state.voice) speechSynthesis?.cancel(); announce(state.voice ? 'Voice on' : 'Voice off'); }
+  if (act === 'voice') { state.voice = !state.voice; if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' : 'Voice guide off.'); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
   document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
@@ -748,6 +748,7 @@ function setMode(mode) {
   $('#byo').hidden = !img; $('#songBox').hidden = !song; $('#askBox').hidden = !ask;
   $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img; $('#issBtn').hidden = img;
   $('.timeline').hidden = img || state.track.years.length < 2; // always on screen whenever the map has more than one year
+  document.querySelectorAll('[data-years]').forEach(b => { b.hidden = img || state.track.years.length < 2; });
   $('#trackPicker').hidden = img || other;
   $('#guide').hidden = img || other; $('#moreBox').hidden = img || other;
   if (!img && !other) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
@@ -958,18 +959,20 @@ function help() { // spoken key help; the year keys only matter when the track h
     + (many ? 'D describes the year. ' : 'D describes the map. ')
     + 'B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off.';
 }
+const runKey = key => onKey({ key, shiftKey: false, target: document.body, preventDefault() {} });
 function onKey(e) {
   if (!state.track) return;
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Enter' && e.target.closest('#byo')) makeItSing(); return; }
   const k = e.key, img = isImage();
   if (img && !src.legend && k !== '?') return;
   const step = img ? (e.shiftKey ? 0.01 : 0.05) : (e.shiftKey ? 2 : 10);
-  const move = (dy, dx) => (img ? moveUV(state.u + dx * step, state.v + dy * step) : moveTo(state.lat - dy * step, state.lon + dx * step, { center: true }));
+  const yr = n => setYear(n).then(() => { if (state.voice) speak(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`); });
+  const move = (dy, dx) => (img ? moveUV(state.u + dx * step, state.v + dy * step) : moveTo(state.lat - dy * step, state.lon + dx * step, { center: true, sayShort: true }));
   const map = {
     ArrowLeft: () => move(0, -1), ArrowRight: () => move(0, 1), ArrowUp: () => move(-1, 0), ArrowDown: () => move(1, 0),
-    PageUp: () => setYear(state.yi + (e.shiftKey ? 10 : 1)), PageDown: () => setYear(state.yi - (e.shiftKey ? 10 : 1)),
-    ']': () => setYear(state.yi + 1), '[': () => setYear(state.yi - 1), '}': () => setYear(state.yi + 10), '{': () => setYear(state.yi - 10),
-    Home: () => setYear(0), End: () => setYear(state.track.years.length - 1),
+    PageUp: () => yr(state.yi + (e.shiftKey ? 10 : 1)), PageDown: () => yr(state.yi - (e.shiftKey ? 10 : 1)),
+    ']': () => yr(state.yi + 1), '[': () => yr(state.yi - 1), '}': () => yr(state.yi + 10), '{': () => yr(state.yi - 10),
+    Home: () => yr(0), End: () => yr(state.track.years.length - 1),
     Enter: () => updateReadout({ speakIt: true }), ' ': () => playHistory(),
     i: () => flyISS(), s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(help()),
     t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
@@ -1267,6 +1270,15 @@ async function init() {
   document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { sound.start(); act(b.dataset.act); }));
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   document.addEventListener('keydown', onKey);
+  // Controls: the same actions as the keys, as big buttons (phones have no arrow keys)
+  const ctl = $('#controls'), ctlBtn = $('#controlsBtn');
+  ctlBtn.addEventListener('click', () => {
+    const open = ctl.hidden; ctl.hidden = !open; ctlBtn.setAttribute('aria-expanded', open);
+    if (!open) return;
+    ctl.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    ctl.querySelector('.pad-c').focus({ preventScroll: true });
+  });
+  ctl.addEventListener('click', e => { const b = e.target.closest('[data-key]'); if (!b) return; sound.start(); runKey(b.dataset.key); });
   const g = $('#globe');
   g.addEventListener('pointerdown', onGlobeDown);
   g.addEventListener('pointermove', onGlobeMove);

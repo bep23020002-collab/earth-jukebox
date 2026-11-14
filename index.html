@@ -21,6 +21,10 @@
       <p class="tagline">NASA Earth data, played as sound</p>
     </div>
     <div class="grille" aria-hidden="true"></div>
+    <div class="access" role="group" aria-label="Use it without seeing it">
+      <button type="button" class="access-key" data-act="voice" aria-pressed="false" aria-keyshortcuts="V">Voice guide</button>
+      <button type="button" class="access-key" id="controlsBtn" aria-expanded="false" aria-controls="controls">Controls</button>
+    </div>
     <nav class="modes" aria-label="Choose what to listen to">
       <button type="button" class="mode-btn" data-mode="track" aria-pressed="true">Play</button>
       <button type="button" class="mode-btn" data-mode="song" aria-pressed="false">My Earth song</button>
@@ -37,7 +41,7 @@
         <button type="button" id="startBtn" class="primary big">Start listening</button>
         <button type="button" id="startVoiceBtn" class="ghost big">Start with voice guide</button>
       </div>
-      <p class="hint">Made for people who can't see NASA's maps, and for everyone else too. The voice guide reads every step aloud, and screen readers work.</p>
+      <p class="hint">Made for people who can't see NASA's maps, and for everyone else too. The voice guide reads every step aloud, and screen readers work. Turn the voice guide on or off, or open Controls, at the top of the page any time.</p>
       <p class="hint">No sound on iPhone? Turn off silent mode.</p>
     </div>
   </div>
@@ -85,6 +89,38 @@
         <output id="yearOut" for="year">2025</output>
         <button type="button" id="wholeYear" class="ghost small-key" hidden>Whole year</button>
       </div>
+
+      <!-- Controls: every action as a big button, for phones (no keyboard) and screen readers; the key for each is shown on computers -->
+      <section id="controls" class="controls" hidden aria-labelledby="controlsTitle">
+        <div class="controls-head">
+          <h3 id="controlsTitle">Use it without seeing it</h3>
+          <p class="small">Move around the Earth and hear what NASA measured there. With a screen reader (VoiceOver, TalkBack), leave Voice guide off: your screen reader reads everything.</p>
+        </div>
+        <div class="pad" role="group" aria-label="Move around the Earth">
+          <button type="button" class="pad-n" data-key="ArrowUp" aria-keyshortcuts="ArrowUp">North <kbd aria-hidden="true">↑</kbd></button>
+          <button type="button" class="pad-w" data-key="ArrowLeft" aria-keyshortcuts="ArrowLeft">West <kbd aria-hidden="true">←</kbd></button>
+          <button type="button" class="pad-c" data-key="Enter" aria-keyshortcuts="Enter">Where am I? <kbd aria-hidden="true">Enter</kbd></button>
+          <button type="button" class="pad-e" data-key="ArrowRight" aria-keyshortcuts="ArrowRight">East <kbd aria-hidden="true">→</kbd></button>
+          <button type="button" class="pad-s" data-key="ArrowDown" aria-keyshortcuts="ArrowDown">South <kbd aria-hidden="true">↓</kbd></button>
+        </div>
+        <div class="pad-side">
+          <button type="button" data-key="[" data-years aria-keyshortcuts="[">Year before <kbd aria-hidden="true">[</kbd></button>
+          <button type="button" data-key="]" data-years aria-keyshortcuts="]">Year after <kbd aria-hidden="true">]</kbd></button>
+          <button type="button" data-act="legend" aria-keyshortcuts="L">What do the sounds mean? <kbd aria-hidden="true">L</kbd></button>
+        </div>
+        <div class="keys keys-list">
+          <h4>More keys on a computer</h4>
+          <ul>
+            <li><kbd>Space</kbd> play every year, first to last</li>
+            <li><kbd>I</kbd> fly one orbit with the Space Station</li>
+            <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
+            <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
+            <li><kbd>Shift</kbd> + arrows: small steps</li>
+            <li><kbd>V</kbd> voice guide on or off</li>
+            <li><kbd>?</kbd> hear all the keys</li>
+          </ul>
+        </div>
+      </section>
     </section>
 
     <aside class="panel" aria-label="What you are hearing">
@@ -192,26 +228,12 @@
             <button type="button" data-act="legend">What do the sounds mean?</button>
             <button type="button" data-act="sweep">Spin the Earth</button>
             <button type="button" data-act="describe">Tell me about this year</button>
-            <button type="button" data-act="voice" aria-pressed="false">Read aloud</button>
             <button type="button" id="replayBtn" disabled>Play my tune again</button>
             <button type="button" id="clearBtn" disabled>Clear my tune</button>
           </div>
           <div class="jumps">
             <h3>Go to a place</h3>
             <div id="jumps" class="jump-list"></div>
-          </div>
-          <div class="keys">
-            <h3>Use it without a mouse</h3>
-            <ul>
-              <li><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move around the Earth</li>
-              <li><kbd>[</kbd> <kbd>]</kbd> earlier or later year</li>
-              <li><kbd>Space</kbd> play every year, first to last</li>
-              <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
-              <li><kbd>I</kbd> fly one orbit with the Space Station</li>
-              <li><kbd>Enter</kbd> say where I am</li>
-              <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
-              <li><kbd>?</kbd> hear these keys</li>
-            </ul>
           </div>
         </div>
       </details>

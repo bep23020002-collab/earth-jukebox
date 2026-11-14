@@ -13,6 +13,10 @@
 
 顶部有 3 个分页：**Play**、**My Earth song**、**Ask the Earth**
 
+顶部一直看得到两个键（给看不见屏幕的人，也让评审一眼看到）：
+- **Voice guide**：语音导览开关，开着时小灯变橘色，每一步都会念出来（键盘按 `V` 也可以）。用 VoiceOver / TalkBack 的人要关掉，因为读屏软件已经会念，否则会念两次。
+- **Controls**：打开一个按键面板，放在年份条下面：North / South / East / West 移动，中间橘色的 **Where am I?** 说出现在的位置和温度，还有 **Year before / Year after** 和 **What do the sounds mean?**。手机没有方向键，靠这个面板一样能用；电脑上每个按钮旁边会显示对应的键。
+
 ---
 
 ## 1. Play（玩地球）
@@ -63,11 +67,10 @@
 - **What do the sounds mean?**：听低音、中音、高音各代表什么
 - **Spin the Earth**：沿着现在的纬度转一圈，一路发声
 - **Tell me about this year**：用一句话描述这一年
-- **Read aloud**：开关语音
 - **Play my tune again / Clear my tune**：重播或清除你点的旋律
 - **Go to a place**：一键去诗巫、北极、撒哈拉等 9 个地方
 
-### 只用键盘（给看不见屏幕的人）
+### 只用键盘（给看不见屏幕的人；手机用顶部的 Controls）
 | 键 | 作用 |
 |---|---|
 | 方向键 | 在地球上移动（按住 Shift 是小步） |
