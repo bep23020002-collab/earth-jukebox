@@ -11,7 +11,7 @@
 - **Start listening**：一般使用，不会自动念出文字
 - **Start with voice guide**：每一步都会念出来，给看不见屏幕的人用
 
-顶部有 4 个分页：**Play**、**My Earth song**、**Ask the Earth**、**Use any NASA map**
+顶部有 3 个分页：**Play**、**My Earth song**、**Ask the Earth**
 
 ---
 
@@ -80,6 +80,7 @@
 1. 在 **Tell your story** 写一两句，例如：
    *My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006, and today I live in Sibu.*
    写到月份或生日，会用 NASA 那个月的资料
+   也可以按 **Speak** 用说的（说完按 Stop，检查文字后再按下一步）
 2. 按 **Make my song from this**，自动找出年份和地点，接着直接播放
 - AI 开启时：任何语言都可以写
 - AI 没开启时：只认英文地名，句子里要有年份和地名
@@ -113,16 +114,6 @@
 - 地球会转过去、播放声音，再用一句话回答
 - AI 只负责看懂问题，所有数字都来自 NASA 资料
 - **AI 还没开启时**，会显示 "not switched on yet"
-
----
-
-## 4. Use any NASA map（任何一张 NASA 地图）
-1. 在 NASA 网站上找一张**有色标（color bar）**的地图，右键 **Copy Image**，回到这里按 **⌘V**（Windows 按 Ctrl+V）。也可以把图拖进来，或按 **Choose a picture**
-2. 在图上点**色标的低端**，再点**色标的高端**
-3. 填入色标两端写的数字和单位（例如 −4、4、°C）
-4. 按 **Make it sing**：会显示花了几秒，然后左右扫一遍，接着就可以点图上任何地方来听
-- 灰色、黑色、文字等不在色标上的颜色不会发声
-- 这一步需要看得见的人帮忙点一次色标，之后任何人都能用耳朵探索
 
 ---
 

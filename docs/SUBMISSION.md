@@ -41,7 +41,6 @@ Earth Jukebox is a web app that pairs NASA Earth Information Center (EIC) visual
 - Choose an EIC visualization (a "track"): Global Temperature 1880–2025, Ocean Currents and Temperature, and Lightning from the Space Station 2017–2023. Each track has its own instrument.
 - Play 146 years of temperature at any place as a 20-second melody.
 - Make "My Earth song": pick years and places that matter to them; each becomes two bars of music, and the song can be shared as a link.
-- Load any NASA picture that has a color bar ("Use any NASA map"), mark the two ends of the bar, and explore it by ear.
 - Ask the Earth: ask a question by typing or speaking, in any language ("Is Sibu warmer now than in 1960?"). The globe turns, plays the answer as sound, and says it in plain words.
 - Tell a family story in one or two sentences, in any language, and it becomes an Earth song.
 

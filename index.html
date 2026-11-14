@@ -25,7 +25,6 @@
       <button type="button" class="mode-btn" data-mode="track" aria-pressed="true">Play</button>
       <button type="button" class="mode-btn" data-mode="song" aria-pressed="false">My Earth song</button>
       <button type="button" class="mode-btn" data-mode="ask" aria-pressed="false">Ask the Earth</button>
-      <button type="button" class="mode-btn" data-mode="image" aria-pressed="false">Use any NASA map</button>
     </nav>
   </header>
 
@@ -114,9 +113,9 @@
         <h3 id="songTitle">My Earth song</h3>
         <p>Pick years and places that mean something to you. Each one becomes part of a song.</p>
         <div class="story">
-          <label for="storyText"><strong>Tell your story</strong>, in any language</label>
+          <label for="storyText"><strong>Tell your story</strong>, in any language: type it, or press Speak</label>
           <textarea id="storyText" rows="3" placeholder="My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006."></textarea>
-          <div class="row"><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
+          <div class="row"><button type="button" id="storyMic" class="ghost" aria-label="Tell your story by speaking" hidden>Speak</button><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
           <p class="small" id="storyNote">AI reads your story and finds the years and places. The music itself comes only from NASA data.</p>
         </div>
         <p class="small">Or set the moments yourself:</p>
@@ -220,7 +219,7 @@
       <ul class="impact-stats">
         <li><span class="big">43 million</span> people are blind. NASA's Earth maps are made to be looked at, so they are shut out. <cite>Lancet Global Health, 2021</cite></li>
         <li><span class="big">2.2 billion</span> people live with a vision impairment. Many of them can't read a small color key. <cite>World Health Organization</cite></li>
-        <li><span class="big">Any NASA map</span> with a color bar can be played here, not only our three. A sighted helper marks the color bar once. <cite>Use any NASA map tab</cite></li>
+        <li><span class="big">Every month</span> since 1880, at any place on Earth, from NASA's own records. Your birthday month has a sound too. <cite>NASA GISTEMP v4</cite></li>
       </ul>
       <div class="impact-who">
         <h3>What changes</h3>

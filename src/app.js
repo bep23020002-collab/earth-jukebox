@@ -830,18 +830,36 @@ async function askEarth(question) {
     out.textContent = text; $('#desc').textContent = ''; speak(text);
   } finally { state.asking = false; }
 }
-function setupMic() {
+// Speak instead of typing (the browser's speech recognition, in the browser's language). Hidden where it isn't supported.
+// Ask the Earth: one question, answered as soon as you stop. My Earth song: keep talking, press Stop, check the text, then make the song.
+function attachMic(button, field, { story = false, onDone } = {}) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
-  const b = $('#micBtn'); b.hidden = false; let rec = null;
-  b.addEventListener('click', () => {
+  button.hidden = false; let rec = null;
+  const idle = button.textContent;
+  button.addEventListener('click', () => {
+    sound.start();
     if (rec) { rec.stop(); return; }
-    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
-    b.setAttribute('aria-pressed', 'true'); b.textContent = 'Listening…';
-    rec.onresult = e => { const t = e.results[0][0].transcript; $('#askText').value = t; askEarth(t); };
-    rec.onend = () => { rec = null; b.setAttribute('aria-pressed', 'false'); b.textContent = 'Speak'; };
-    rec.onerror = () => {};
+    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.maxAlternatives = 1;
+    rec.continuous = story; rec.interimResults = story;
+    const before = field.value.trim() ? field.value.trim() + ' ' : '';
+    button.setAttribute('aria-pressed', 'true'); button.textContent = story ? 'Stop' : 'Listening…';
+    announce(story ? 'Listening. Tell your story, then press Stop.' : 'Listening.');
+    rec.onresult = e => {
+      const text = [...e.results].map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').trim();
+      field.value = before + text;
+      if (!story && e.results[e.results.length - 1].isFinal) onDone?.(text);
+    };
+    rec.onend = () => {
+      rec = null; button.setAttribute('aria-pressed', 'false'); button.textContent = idle;
+      if (story && field.value.trim()) { announce('Got it. Check your story, then press Make my song from this.'); $('#storyBtn').focus(); }
+    };
+    rec.onerror = e => { if (e.error === 'not-allowed') $(story ? '#storyNote' : '#askAnswer').textContent = 'Allow the microphone in your browser to speak.'; };
     rec.start();
   });
+}
+function setupMic() {
+  attachMic($('#micBtn'), $('#askText'), { onDone: t => askEarth(t) });
+  attachMic($('#storyMic'), $('#storyText'), { story: true });
 }
 
 // ---------- input ----------
@@ -1186,17 +1204,9 @@ async function init() {
   $('#clearBtn').addEventListener('click', () => resetGuide());
   $('#moreBox').addEventListener('toggle', () => { if ($('#moreBox').open) { guide.done = true; $('.timeline').hidden = state.track.years.length < 2; } });
   document.querySelectorAll('[data-track]').forEach(b => b.addEventListener('click', () => { sound.start(); switchTrack(b.dataset.track); }));
-  // your own map: pick, drop, paste
+  // your own map (its tab is hidden for now; the code stays for later)
   $('#pickBtn').addEventListener('click', () => $('#pickFile').click());
   $('#pickFile').addEventListener('change', e => usePicture(e.target.files[0]));
   $('#singBtn').addEventListener('click', makeItSing);
-  const wrap = $('#mapWrap');
-  document.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
-  document.addEventListener('dragleave', e => { if (!e.relatedTarget) wrap.classList.remove('drop'); });
-  document.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); if (e.dataTransfer.files[0]) { $('#start').hidden = true; sound.start(); usePicture(e.dataTransfer.files[0]); } });
-  document.addEventListener('paste', e => {
-    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
-    if (item) { e.preventDefault(); $('#start').hidden = true; sound.start(); usePicture(item.getAsFile()); }
-  });
 }
 init();
