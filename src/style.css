@@ -140,6 +140,11 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 #yearOut { min-width: 5ch; white-space: nowrap; text-align: center; font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; padding: 7px 10px; border-radius: 6px;
   background: var(--lcd); color: var(--lcd-ink); }
 
+/* English / 中文 for speaking and answers */
+.lang-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.lang-row .small { margin-right: 4px; }
+.lang-row .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
 /* Controls: a keypad under the timeline. Arrows around "Where am I?" (orange: it plays and speaks) */
 .controls { display: grid; grid-template-columns: auto 1fr; gap: 14px 24px; align-items: start; padding: 16px; border-radius: var(--r-plate); background: var(--plate); border: 1px solid var(--line-2); }
 .controls-head { grid-column: 1 / -1; display: grid; gap: 4px; }

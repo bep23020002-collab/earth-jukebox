@@ -155,6 +155,11 @@
           <label for="storyText"><strong>Tell your story</strong>, in any language: type it, or press Speak</label>
           <textarea id="storyText" rows="3" placeholder="My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006."></textarea>
           <div class="row"><button type="button" id="storyMic" class="ghost" aria-label="Tell your story by speaking" hidden>Speak</button><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
+          <div class="lang-row" role="group" aria-label="Language for speaking">
+            <span class="small">Speak in</span>
+            <button type="button" class="chip" data-lang="en" aria-pressed="true">English</button>
+            <button type="button" class="chip" data-lang="zh" aria-pressed="false" lang="zh">中文</button>
+          </div>
           <p class="small" id="storyNote">AI reads your story and finds the years and places. The music itself comes only from NASA data.</p>
         </div>
         <p class="small">Or set the moments yourself:</p>
@@ -186,6 +191,11 @@
           <button type="button" id="micBtn" class="ghost" aria-label="Ask by speaking" hidden>Speak</button>
           <button type="submit" class="primary">Ask</button>
         </form>
+        <div class="lang-row" role="group" aria-label="Language for speaking and answers">
+          <span class="small">Speak and answer in</span>
+          <button type="button" class="chip" data-lang="en" aria-pressed="true">English</button>
+          <button type="button" class="chip" data-lang="zh" aria-pressed="false" lang="zh">中文</button>
+        </div>
         <div class="ask-examples" id="askExamples">
           <button type="button" class="chip">Is Sibu warmer now than in 1960?</button>
           <button type="button" class="chip">Compare the Arctic and Sibu in 2025</button>

@@ -21,7 +21,7 @@ const score = new Score({ box: $('#scoreBox'), canvas: $('#score'), title: $('#s
 const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
-  voice: false, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
+  voice: false, ref: false, playing: false, busy: false, lang: 'en', hist: null, images: new Map(), lastCell: -1,
   texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {}, monthLabel: null, month: null,
 };
 
@@ -198,17 +198,19 @@ function pickVoice() {
   voicePick = vs.find(v => /en-(US|GB|AU)/i.test(v.lang) && /Samantha|Google|Natural|Daniel|Karen/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null;
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function announce(text) { const el = $('#live'); el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
+const hasHan = t => /[\u3400-\u9fff]/.test(t); // Chinese characters
+const zhVoice = () => { const vs = speechSynthesis.getVoices(); return vs.find(v => /^zh[-_](CN|Hans)/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; };
+function announce(text) { const el = $('#live'); el.lang = hasHan(text) ? 'zh' : 'en'; el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
 function speak(text, { interrupt = true } = {}) {
   announce(text);
   if (!state.voice || !('speechSynthesis' in window)) return Promise.resolve();
   if (interrupt) speechSynthesis.cancel();
   return new Promise(res => {
-    const u = new SpeechSynthesisUtterance(text);
-    if (voicePick) u.voice = voicePick;
-    u.lang = voicePick?.lang || 'en-US'; u.rate = 1.05;
+    const u = new SpeechSynthesisUtterance(text), zh = hasHan(text), v = zh ? zhVoice() : voicePick;
+    if (v) u.voice = v;
+    u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = zh ? 1 : 1.05;
     u.onend = res; u.onerror = res;
-    setTimeout(res, 400 + text.length * 75); // never hang if the engine stays silent
+    setTimeout(res, 400 + text.length * (zh ? 260 : 75)); // never hang if the engine stays silent
     speechSynthesis.speak(u);
   });
 }
@@ -638,12 +640,12 @@ async function flyISS() {
   $('#desc').textContent = msg; speak(msg);
 }
 
-async function playHistory() {
+async function playHistory({ quiet = false } = {}) {
   if (isImage()) return;
   if (state.playing) { state.playing = false; return; }
-  state.playing = true; state.month = null; setPlayingUI(true); draw();
+  state.playing = true; state.month = null; state.hist = null; setPlayingUI(true); draw();
   const place = placeName(state.lat, state.lon), years = state.track.years;
-  await speak(`${place}, ${when(0)} to ${when(years.length - 1)}.`);
+  if (!quiet) await speak(`${place}, ${when(0)} to ${when(years.length - 1)}.`);
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
   let series = null;
   if (MONTH_SERIES[dataId()] && state.playing) {
@@ -679,7 +681,8 @@ async function playHistory() {
       ? `Near ${place}: ${mo ? `${mo} in the 1880s was` : 'the 1880s were'} ${feeling(first).toLowerCase()}. ${mo ? `${mo} in recent years is` : 'Today it is'} ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
       : `Near ${place}: ${feeling(first).toLowerCase()} in ${when(i0)}, ${feeling(last).toLowerCase()} in ${when(i1)}.`)
     : `NASA has no measurements near ${place} ${short ? 'in these years' : 'in the early years'}, so we can't compare then and now. Try another place.`;
-  $('#desc').textContent = msg; speak(msg);
+  state.hist = { first, last, i0, i1, short };
+  $('#desc').textContent = msg; if (!quiet) speak(msg);
   if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
 function setPlayingUI(on) { const b = $('#playBtn'), y = state.track.years; b.textContent = on ? 'Stop' : `Play ${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
@@ -857,23 +860,32 @@ async function playAt(p, yi, when = null) { // when = {year, month}: use NASA's 
   globe.ripple(p.lat, p.lon); showValue(v, p.name);
   return v;
 }
+// Answers in Chinese when 中文 is chosen or the question is written in Chinese. Same NASA numbers, same rules.
+const ZH_WORDS = { 'Much colder than normal': '比正常冷很多', 'Colder than normal': '比正常冷', 'About normal': '和正常差不多', 'Warmer than normal': '比正常暖',
+  'Much warmer than normal': '比正常暖很多', 'Extremely warm': '非常暖', 'Icy water': '冰冷的海水', 'Cold water': '冷的海水', 'Cool water': '凉的海水',
+  'Warm water': '暖的海水', 'Very warm water': '很暖的海水', 'Almost no lightning': '几乎没有闪电', 'A little lightning': '有一点闪电',
+  'Some lightning': '有一些闪电', 'Lots of lightning': '闪电很多', 'A lightning hotspot': '闪电热点' };
+const zhFeel = (v, k = kind()) => (v == null ? '没有资料' : ZH_WORDS[k.words(v)] || k.words(v));
+const zhNum = t => t.replace(' or more', ' 或以上').replace('no data', '没有资料');
+const zhTrack = { temperature: '温度', ocean: '海水温度', lightning: '闪电' };
 async function askEarth(question) {
   const q = question.trim(); if (!q || state.asking) return;
-  const out = $('#askAnswer'); out.classList.remove('err');
+  const zh = state.lang === 'zh' || hasHan(q);
+  const out = $('#askAnswer'); out.classList.remove('err'); out.lang = zh ? 'zh' : 'en';
   const fail = msg => { out.classList.add('err'); out.textContent = msg; announce(msg); };
-  if (!aiReady()) { fail('Ask the Earth needs the AI helper, which is not switched on yet. Try Play or My Earth song.'); return; }
-  state.asking = true; out.textContent = 'Reading your question…';
+  if (!aiReady()) { fail(zh ? '"问地球"需要 AI 小帮手，现在还没有开。可以先试 Play 或 My Earth song。' : 'Ask the Earth needs the AI helper, which is not switched on yet. Try Play or My Earth song.'); return; }
+  state.asking = true; out.textContent = zh ? '正在读你的问题…' : 'Reading your question…';
   let plan;
-  try { plan = await aiAsk(q); } catch (e) { state.asking = false; fail(e.message); return; }
+  try { plan = await aiAsk(q); } catch (e) { state.asking = false; fail(zh ? 'AI 小帮手现在有问题，请再试一次。' : e.message); return; }
   await sound.start();
   try {
     if (plan.kind === 'unsupported' || !state.tracks[plan.track]) {
-      out.textContent = plan.reason || 'I can answer questions about temperature since 1880, ocean temperature, and lightning seen from space.';
+      out.textContent = plan.reason || (zh ? '我可以回答 1880 年以来的温度、海水温度，以及从太空站看到的闪电。' : 'I can answer questions about temperature since 1880, ocean temperature, and lightning seen from space.');
       speak(out.textContent); return;
     }
     const places = (plan.places || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180)
-      .slice(0, 2).map(p => ({ name: String(p.name).slice(0, 40), lat: p.lat, lon: p.lon }));
-    if (!places.length) { fail('Which place do you mean? Try naming a town, a country or an ocean.'); return; }
+      .slice(0, 2).map(p => ({ name: String((zh && p.local_name) || p.name).slice(0, 40), lat: p.lat, lon: p.lon }));
+    if (!places.length) { fail(zh ? '你指的是哪个地方？请说一个城镇、国家或海洋的名字。' : 'Which place do you mean? Try naming a town, a country or an ocean.'); return; }
     askTrack(plan.track); state.asked = true; $('#nowBox').hidden = false;
     const T = state.track, k = kind(), last = T.years[T.years.length - 1];
     const notes = [], years = [], whens = [];
@@ -882,23 +894,35 @@ async function askEarth(question) {
       const mo = plan.months?.[i];
       if (T.kind === 'temperature' && mo >= 1 && mo <= 12) { // a month was named: NASA's monthly data
         let w = { year: y, month: mo };
-        if (!hasMonth(y, mo)) { const l = latestMonth(); if (l && y >= l.year) { notes.push(`NASA's monthly data goes up to ${MONTHS[l.month - 1]} ${l.year}, so I used that month.`); w = { year: l.year, month: l.month }; } else w = null; }
+        if (!hasMonth(y, mo)) {
+          const l = latestMonth();
+          if (l && y >= l.year) { notes.push(zh ? `NASA 的每月资料只到 ${l.year} 年 ${l.month} 月，所以我用了那个月。` : `NASA's monthly data goes up to ${MONTHS[l.month - 1]} ${l.year}, so I used that month.`); w = { year: l.year, month: l.month }; } else w = null;
+        }
         if (w) { years.push(w.year); whens.push(w); return; }
       }
       const c = nearestYear(T, y); years.push(c); whens.push(null);
-      if (c !== y) notes.push(`NASA's ${k.label.toLowerCase()} data covers ${T.years[0]}${T.years.length > 1 ? `–${last}` : ''}, so I used ${c} instead of ${y}.`);
+      if (c !== y) notes.push(zh ? `NASA 的${zhTrack[T.kind] || ''}资料是 ${T.years[0]}${T.years.length > 1 ? ` 到 ${last}` : ''} 年，所以我用了 ${c} 年，不是 ${y} 年。`
+        : `NASA's ${k.label.toLowerCase()} data covers ${T.years[0]}${T.years.length > 1 ? `–${last}` : ''}, so I used ${c} instead of ${y}.`);
     });
     await Promise.all(whens.filter(Boolean).map(w => loadYear(w.year)));
-    const whenText = i => (whens[i] ? `${MONTHS[whens[i].month - 1]} ${whens[i].year}` : String(years[i]));
+    const whenText = i => (whens[i] ? (zh ? `${whens[i].year} 年 ${whens[i].month} 月` : `${MONTHS[whens[i].month - 1]} ${whens[i].year}`) : (zh ? `${years[i]} 年` : String(years[i])));
     // monthly values are NASA's numbers, not read from the map's colors, so they are not capped at ±2 °C
-    const words = (v, w) => (v == null ? 'no data' : `${k.words(v).toLowerCase()} (${T.kind === 'lightning' ? `seen in ${Math.round(v * 100)}% of 10-day periods` : w ? `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} °C` : fmt(v)})`);
+    const num = (v, w) => (T.kind === 'lightning' ? (zh ? `10 天期间里有 ${Math.round(v * 100)}% 看到闪电` : `seen in ${Math.round(v * 100)}% of 10-day periods`)
+      : w ? `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} °C` : (zh ? zhNum(fmt(v)) : fmt(v)));
+    const words = (v, w) => (v == null ? (zh ? '没有资料' : 'no data') : zh ? `${zhFeel(v, k)}（${num(v, w)}）` : `${k.words(v).toLowerCase()} (${num(v, w)})`);
+    const diff = (a, b) => (zh ? `大约${b >= a ? '暖' : '冷'}了 ${Math.abs(b - a).toFixed(1)} °C。` : ` That is about ${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'}.`);
     const yi = y => yearIndexNear(y, T);
     let text;
     if (plan.kind === 'trend' && T.years.length > 1) {
       state.lat = places[0].lat; state.lon = places[0].lon; globe.centerOn(places[0].lat, places[0].lon); draw();
-      out.textContent = `Playing ${places[0].name} from ${T.years[0]} to ${last}…`;
-      await playHistory();
-      text = $('#desc').textContent;
+      out.textContent = zh ? `正在播放${places[0].name}，${T.years[0]} 到 ${last} 年…` : `Playing ${places[0].name} from ${T.years[0]} to ${last}…`;
+      if (zh) await speak(out.textContent);
+      await playHistory({ quiet: zh });
+      const h = state.hist;
+      text = !zh ? $('#desc').textContent
+        : h?.first == null || h?.last == null ? `NASA 在${places[0].name}附近早期没有测量，所以没办法比较以前和现在。可以试试别的地方。`
+          : T.kind === 'temperature' ? `${places[0].name}附近：1880 年代${zhFeel(h.first, k)}，最近十年${zhFeel(h.last, k)}，比 1880 年代${h.last >= h.first ? '暖' : '冷'}了大约 ${Math.abs(h.last - h.first).toFixed(1)} °C。`
+            : `${places[0].name}附近：${T.years[h.i0]} 年${zhFeel(h.first, k)}，${T.years[h.i1]} 年${zhFeel(h.last, k)}。`;
     } else if (plan.kind === 'compare_years' && new Set(years.map((y, i) => `${y}-${whens[i]?.month || 0}`)).size >= 2) {
       const order = years.map((y, i) => i).sort((i, j) => years[i] - years[j] || (whens[i]?.month || 0) - (whens[j]?.month || 0));
       const i1 = order[0], i2 = order[order.length - 1], y1 = whenText(i1), y2 = whenText(i2);
@@ -906,21 +930,24 @@ async function askEarth(question) {
       const a = await playAt(places[0], yi(years[i1]), whens[i1]); score.take(y1, 1, 'One place, two dates'); score.add(stepOf(a), places[0].name); await sleep(900);
       const b = await playAt(places[0], yi(years[i2]), whens[i2]); score.take(y2, 1, 'One place, two dates'); score.add(stepOf(b), places[0].name);
       if (a != null && b != null && T.kind === 'temperature') score.setNote(`${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'} in ${y2} than in ${y1}`);
-      text = `${places[0].name}: ${y1} was ${words(a, whens[i1])}; ${y2} was ${words(b, whens[i2])}.`
-        + (a != null && b != null && T.kind === 'temperature' ? ` That is about ${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'}.` : '');
+      const both = a != null && b != null && T.kind === 'temperature';
+      text = zh ? `${places[0].name}：${y1}${words(a, whens[i1])}；${y2}${words(b, whens[i2])}。${both ? diff(a, b) : ''}`
+        : `${places[0].name}: ${y1} was ${words(a, whens[i1])}; ${y2} was ${words(b, whens[i2])}.${both ? diff(a, b) : ''}`;
     } else if (plan.kind === 'compare_places' && places.length >= 2) {
-      const iy = years.length - 1, y = years[iy] ?? last, w = whens[iy] || null, label = iy >= 0 ? whenText(iy) : String(last);
+      const iy = years.length - 1, y = years[iy] ?? last, w = whens[iy] || null, label = iy >= 0 ? whenText(iy) : (zh ? `${last} 年` : String(last));
       score.clear(); score.take(T.years.length > 1 ? label : '', 2, 'Two places');
       const a = await playAt(places[0], yi(y), w); score.add(stepOf(a), places[0].name); await sleep(900);
       const b = await playAt(places[1], yi(y), w); score.add(stepOf(b), places[1].name);
-      text = `${T.years.length > 1 ? `In ${label}, ` : ''}${places[0].name} was ${words(a, w)} and ${places[1].name} was ${words(b, w)}.`;
+      text = zh ? `${T.years.length > 1 ? `${label}，` : ''}${places[0].name}${words(a, w)}，${places[1].name}${words(b, w)}。`
+        : `${T.years.length > 1 ? `In ${label}, ` : ''}${places[0].name} was ${words(a, w)} and ${places[1].name} was ${words(b, w)}.`;
     } else {
-      const iy = years.length - 1, y = years[iy] ?? last, w = whens[iy] || null, label = iy >= 0 ? whenText(iy) : String(last);
+      const iy = years.length - 1, y = years[iy] ?? last, w = whens[iy] || null, label = iy >= 0 ? whenText(iy) : (zh ? `${last} 年` : String(last));
       const a = await playAt(places[0], yi(y), w); score.live(stepOf(a), places[0].name, { tap: true });
-      text = `${places[0].name}${T.years.length > 1 ? ` in ${label}` : ''}: ${words(a, w)}.`;
+      text = zh ? `${places[0].name}${T.years.length > 1 ? `，${label}` : ''}：${words(a, w)}。` : `${places[0].name}${T.years.length > 1 ? ` in ${label}` : ''}: ${words(a, w)}.`;
     }
-    if (T.kind === 'temperature' && plan.kind !== 'trend') text += ` "Normal" means the 1951–1980 average${whens.some(Boolean) ? ' for that month. Monthly values come from NASA GISTEMP' : ''}.`;
-    if (notes.length) text += ' ' + notes.join(' ');
+    if (T.kind === 'temperature' && plan.kind !== 'trend') text += zh ? `“正常”是指 1951 到 1980 年的平均${whens.some(Boolean) ? '（同一个月份）。每月的数字来自 NASA GISTEMP' : ''}。`
+      : ` "Normal" means the 1951–1980 average${whens.some(Boolean) ? ' for that month. Monthly values come from NASA GISTEMP' : ''}.`;
+    if (notes.length) text += (zh ? '' : ' ') + notes.join(zh ? '' : ' ');
     out.textContent = text; $('#desc').textContent = ''; speak(text);
   } finally { state.asking = false; }
 }
@@ -933,7 +960,7 @@ function attachMic(button, field, { story = false, onDone } = {}) {
   button.addEventListener('click', () => {
     sound.start();
     if (rec) { rec.stop(); return; }
-    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.maxAlternatives = 1;
+    rec = new SR(); rec.lang = state.lang === 'zh' ? 'zh-CN' : /^en/i.test(navigator.language) ? navigator.language : 'en-US'; rec.maxAlternatives = 1;
     rec.continuous = story; rec.interimResults = story;
     const before = field.value.trim() ? field.value.trim() + ' ' : '';
     button.setAttribute('aria-pressed', 'true'); button.textContent = story ? 'Stop' : 'Listening…';
@@ -951,7 +978,46 @@ function attachMic(button, field, { story = false, onDone } = {}) {
     rec.start();
   });
 }
+// Voice guide on: whatever the mouse rests on, or the keyboard lands on, says what it is (the globe answers with notes instead).
+const SAYABLE = 'button, a[href], summary, input, select, textarea, h1, h2, h3, #nowBox, .legend';
+let sayOver = null, sayTimer = 0;
+function nameOf(el) {
+  if (el.id === 'nowBox') return [$('#rPlace').textContent, $('#rValue').textContent, $('#rDetail').textContent].filter(Boolean).join('. ');
+  if (el.classList.contains('legend')) return `Color key: ${$('#lgMin').textContent} on the left, ${$('#lgMid').textContent || 'normal'} in the middle, ${$('#lgMax').textContent} on the right.`;
+  if (el.type === 'range') return `Year bar, ${el.getAttribute('aria-valuetext') || el.value}`;
+  if (el.matches('input, textarea, select')) return `${(el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.placeholder || 'Text box').replace(/\s+/g, ' ').trim()}, ${el.tagName === 'SELECT' ? 'choice' : 'text box'}`;
+  const c = el.cloneNode(true); c.querySelectorAll('[aria-hidden="true"], kbd, img').forEach(x => x.remove());
+  let n = (el.getAttribute('aria-label') || c.textContent || '').replace(/\s+/g, ' ').trim();
+  const pressed = el.getAttribute('aria-pressed'), exp = el.getAttribute('aria-expanded');
+  if (pressed != null && el.dataset.act === 'voice') n += pressed === 'true' ? ', on' : ', off';
+  else if (pressed === 'true' && el.id !== 'issBtn' && el.id !== 'playBtn') n += ', selected';
+  if (exp != null) n += exp === 'true' ? ', open' : ', closed';
+  if (el.tagName === 'SUMMARY') n += el.parentElement.open ? ', open' : ', closed';
+  if (el.disabled) n += ', not available yet';
+  return n;
+}
+function setupSayOnHover() {
+  document.addEventListener('pointerover', e => {
+    if (!state.voice || e.pointerType !== 'mouse') return;
+    const el = e.target.closest?.(SAYABLE); if (!el || el === sayOver) return;
+    sayOver = el; clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => { if (sayOver === el && !state.playing) speak(nameOf(el)); }, 180);
+  });
+  document.addEventListener('pointerout', e => { if (sayOver && !sayOver.contains(e.relatedTarget)) { sayOver = null; clearTimeout(sayTimer); } });
+  document.addEventListener('focusin', e => {
+    if (!state.voice) return;
+    const el = e.target.closest?.(SAYABLE); if (!el || el === sayOver) return;
+    speak(nameOf(el));
+  });
+}
+function setLang(l) { // English or 中文, for speaking (Speak buttons) and for Ask the Earth's answers
+  state.lang = l; try { localStorage.setItem('ej-lang', l); } catch { /* private window */ }
+  document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === l));
+}
 function setupMic() {
+  let saved = null; try { saved = localStorage.getItem('ej-lang'); } catch { /* private window */ }
+  setLang(saved === 'zh' || saved === 'en' ? saved : /^zh/i.test(navigator.language || '') ? 'zh' : 'en');
+  document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); announce(b.dataset.lang === 'zh' ? '中文' : 'English'); }));
   attachMic($('#micBtn'), $('#askText'), { onDone: t => askEarth(t) });
   attachMic($('#storyMic'), $('#storyText'), { story: true });
 }
@@ -1282,7 +1348,7 @@ async function init() {
   $('#storyBtn').addEventListener('click', () => { sound.start(); storyToSong(); });
   $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
   $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
-  setupMic();
+  setupMic(); setupSayOnHover();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));
