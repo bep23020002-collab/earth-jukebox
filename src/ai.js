@@ -4,7 +4,7 @@
 import { findPlace, PLACE_NAMES } from './places.js';
 
 // Set after the helper is deployed, e.g. "https://earth-jukebox-ai.<account>.workers.dev". Empty = AI features offline.
-export const AI_URL = '';
+export const AI_URL = 'https://earth-jukebox-ai.yapa920.workers.dev';
 export const aiReady = () => AI_URL.startsWith('https://');
 
 async function post(path, payload) {

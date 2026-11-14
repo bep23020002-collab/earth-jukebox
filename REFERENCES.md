@@ -7,3 +7,10 @@
 
 ## Background image
 - "The atmospheric glow blankets Earth beneath a sparkling field of stars", photographed from the International Space Station on 7 Oct 2024 over the Pacific Ocean. NASA image iss072e030147, NASA Image and Video Library, https://images.nasa.gov/details/iss072e030147. We use a cropped strip showing only the airglow and stars (no spacecraft hardware or insignia).
+
+## Software and services
+- Anthropic Claude API (model claude-opus-5-5): understands typed or spoken questions and stories in the app (worker/src/index.js). It returns places and years only; all values come from NASA data.
+- Cloudflare Workers: hosts the AI helper so the API key is never sent to the browser.
+- Web Audio API, Web Speech API (speech output and speech recognition), Canvas 2D.
+- FFmpeg and Node.js (data-processing scripts), @napi-rs/canvas (demo video rendering).
+- Atkinson Hyperlegible Next typeface (Braille Institute, SIL Open Font License), via Google Fonts.
