@@ -1054,6 +1054,8 @@ function setupSayOnHover() {
     sayTimer = setTimeout(() => { if (sayOver !== el || !talking()) return; const t = nameOf(el); if (t) talk(t); }, 180); // also while music plays: words always come first
   });
   document.addEventListener('pointerout', e => { if (sayOver && !sayOver.contains(e.relatedTarget)) { sayOver = null; clearTimeout(sayTimer); } });
+  // a quick click must not be followed by the button's name, which would cut off what the click says
+  document.addEventListener('pointerdown', e => { clearTimeout(sayTimer); sayOver = sayable(e.target) || null; }, true);
   document.addEventListener('focusin', e => {
     if (!talking()) return;
     const el = sayable(e.target); if (!el || el === sayOver) return;
