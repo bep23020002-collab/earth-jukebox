@@ -19,15 +19,18 @@ mkdirSync(root + 'assets/temperature/frames', { recursive: true });
 const cube = new Uint8Array(years.length * GW * GH); // 0 = no data, 1..255 = -RANGE..+RANGE
 for (const [k, y] of years.entries()) {
   const src = `${root}data/frames/${y}.png`;
-  const raw = spawnSync('ffmpeg', ['-v', 'error', '-i', src, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 26 }).stdout;
-  const W = 720, H = 360, bx = W / GW, by = H / GH;
+  const raw = spawnSync('ffmpeg', ['-v', 'error', '-i', `${root}data/frames_px/${y}.png`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 26 }).stdout;
+  const W = 1440, H = 720, bx = W / GW, by = H / GH; // pure-color (nearest-neighbour) frames
   for (let cy = 0; cy < GH; cy++) for (let cx = 0; cx < GW; cx++) {
-    let s = 0, n = 0;
+    // Pixels that are not on the legend are either gray "no data" or dark coastline/border lines.
+    // Lines are skipped; a cell is "no data" only when gray outweighs real colors.
+    let s = 0, n = 0, gray = 0;
     for (let j = 0; j < by; j++) for (let i = 0; i < bx; i++) {
-      const p = ((cy * by + j) * W + cx * bx + i) * 3, hit = legend.lookup(raw[p], raw[p + 1], raw[p + 2]);
-      if (hit) { s += hit.value; n++; }
+      const p = ((cy * by + j) * W + cx * bx + i) * 3, r = raw[p], g = raw[p + 1], b = raw[p + 2];
+      const hit = legend.lookup(r, g, b);
+      if (hit) { s += hit.value; n++; } else if (Math.max(r, g, b) - Math.min(r, g, b) < 18 && r > 90 && r < 190) gray++;
     }
-    cube[k * GW * GH + cy * GW + cx] = n >= (bx * by) / 2 ? 1 + Math.round((s / n + RANGE) / (2 * RANGE) * 254) : 0;
+    cube[k * GW * GH + cy * GW + cx] = n > 0 && gray < n ? 1 + Math.round((s / n + RANGE) / (2 * RANGE) * 254) : 0;
   }
   spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', src, '-q:v', '3', `${root}assets/temperature/frames/${y}.jpg`]);
 }

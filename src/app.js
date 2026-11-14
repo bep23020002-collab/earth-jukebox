@@ -6,14 +6,17 @@
 import { Sound, noteName } from './audio.js';
 import { JUMPS, placeName, formatCoord } from './places.js';
 import { ImageSource, describeSpot } from './image-source.js';
+import { Globe } from './globe.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
 const src = new ImageSource();
+const globe = new Globe($('#globe'));
 const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
   voice: true, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
+  texYear: null, taps: [], lastTapAt: 0, replaying: false,
 };
 
 // ---------- track data ----------
@@ -74,7 +77,9 @@ const tOf = v => { const s = scale(); return (v - s.min) / (s.max - s.min); };
 function currentValue() { return isImage() ? src.valueAt(state.u, state.v) : trackValue(state.yi, state.lat, state.lon); }
 function currentPlace() { return isImage() ? describeSpot(state.u, state.v) : placeName(state.lat, state.lon); }
 function currentCoord() { return isImage() ? `${Math.round(state.u * 100)}% across, ${Math.round(state.v * 100)}% down` : formatCoord(state.lat, state.lon); }
-const currentPan = () => (isImage() ? state.u * 2 - 1 : state.lon / 180);
+// Left of the screen plays in the left ear.
+const panFor = (lat, lon) => { const p = globe.project(lat, lon); return Math.max(-1, Math.min(1, (p.x / globe.size - 0.5) * 2.2)); };
+const currentPan = () => (isImage() ? state.u * 2 - 1 : panFor(state.lat, state.lon));
 const year = () => state.track.years[state.yi];
 
 // ---------- words ----------
@@ -173,14 +178,13 @@ function draw() {
     g.restore();
     return;
   }
-  sizeCanvas(1440, 720);
-  const W = c.width, H = c.height;
-  let img = frameImage(state.yi);
-  for (let d = 1; d < 15 && !(img.complete && img.naturalWidth); d++) { const alt = state.images.get(state.track.years[state.yi - d]); if (alt?.complete && alt.naturalWidth) img = alt; }
-  if (img.complete && img.naturalWidth) g.drawImage(img, 0, 0, W, H); else { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
-  const x = (state.lon + 180) / 360 * W, y = (90 - state.lat) / 180 * H;
-  g.save(); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); ring(g, x, y, 18); g.restore();
+  // track mode: wrap this year's NASA frame onto the globe (or the nearest year already loaded)
+  const img = frameImage(state.yi);
+  if (img.complete && img.naturalWidth) { if (state.texYear !== year()) { globe.setTexture(img); state.texYear = year(); } }
+  else if (state.texYear == null) {
+    for (let d = 1; d < 15; d++) { const alt = state.images.get(state.track.years[state.yi - d]); if (alt?.complete && alt.naturalWidth) { globe.setTexture(alt); break; } }
+  }
+  globe.setMarker(state.lat, state.lon);
   $('#yearBig').textContent = year(); $('#yearOut').textContent = year();
   $('#year').value = state.yi; $('#year').setAttribute('aria-valuetext', String(year()));
 }
@@ -210,10 +214,46 @@ function updateReadout({ play = true, speakIt = false } = {}) {
   if (speakIt) speak(`${place}${when}. ${say(v)}.`); else announce(`${place}. ${fmt(v)}.`);
   return v;
 }
-function moveTo(lat, lon, opts) {
+function moveTo(lat, lon, opts = {}) {
   state.lat = Math.max(-89, Math.min(89, lat)); state.lon = ((lon + 540) % 360) - 180;
+  if (opts.center && !isImage()) globe.centerOn(state.lat, state.lon);
   draw(); return updateReadout(opts);
 }
+
+// ---------- play the Earth like an instrument ----------
+function tapAt(lat, lon, { record = true } = {}) {
+  state.lat = lat; state.lon = lon;
+  const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
+  if (v == null) sound.noData({ pan }); else sound.tap(tOf(v), { pan });
+  globe.ripple(lat, lon);
+  draw(); updateReadout({ play: false });
+  if (record) {
+    const now = performance.now();
+    const gap = state.taps.length ? Math.min(1200, now - state.lastTapAt) : 0;
+    state.lastTapAt = now;
+    state.taps.push({ gap, lat, lon });
+    if (state.taps.length > 32) state.taps.shift();
+    updateTapUI();
+  }
+}
+function updateTapUI() {
+  const n = state.taps.length;
+  $('#replayBtn').disabled = n === 0; $('#clearBtn').disabled = n === 0;
+  $('#tapCount').textContent = n
+    ? `Your melody: ${n} tap${n > 1 ? 's' : ''}. Replay it, then press "In 1880" to hear the same taps in a cooler world.`
+    : 'Tap a few places to make a melody. Then change the year and replay it: the same taps sound different in 1880.';
+}
+async function replayTaps() {
+  if (state.replaying || !state.taps.length) return;
+  state.replaying = true; $('#replayBtn').disabled = true;
+  announce(`Replaying your melody in ${year()}.`);
+  for (const t of state.taps) {
+    await sleep(Math.max(120, t.gap));
+    tapAt(t.lat, t.lon, { record: false });
+  }
+  state.replaying = false; updateTapUI();
+}
+function yearIndexOf(y) { return Math.max(0, state.track.years.indexOf(y)); }
 function moveUV(u, v, opts) {
   state.u = Math.max(0, Math.min(1, u)); state.v = Math.max(0, Math.min(1, v));
   draw(); return updateReadout(opts);
@@ -250,7 +290,7 @@ async function playHistory() {
     : `Around ${place}, NASA's map has gaps in the early years, so the start and the end cannot be compared.`;
   $('#desc').textContent = msg; speak(msg);
 }
-function setPlayingUI(on) { const b = $('#playBtn'); b.textContent = on ? 'Stop' : 'Play history'; b.setAttribute('aria-pressed', on); }
+function setPlayingUI(on) { const b = $('#playBtn'); b.textContent = on ? 'Stop' : 'Play 1880 → 2025'; b.setAttribute('aria-pressed', on); }
 
 async function sweep() {
   if (state.busy || (isImage() && !src.legend)) return;
@@ -266,12 +306,14 @@ async function sweep() {
     }
     state.u = u0;
   } else {
+    // one full turn of the Earth along this latitude, starting and ending where you are
     const lat = state.lat, lon0 = state.lon;
-    await speak(`Sweeping west to east along ${formatCoord(lat, 0).split(' ')[0]}.`);
-    for (let lon = -180; lon <= 180; lon += 6) {
-      state.lon = Math.min(179, lon); draw();
+    await speak(`Going once around the Earth along ${formatCoord(lat, 0).split(' ')[0]}.`);
+    for (let k = 0; k <= 60; k++) {
+      state.lon = ((lon0 + k * 6 + 540) % 360) - 180;
+      globe.centerOn(lat, state.lon, 80); draw();
       const v = trackValue(state.yi, lat, state.lon);
-      if (v == null) sound.noData({ pan: lon / 180 }); else sound.note(tOf(v), { pan: lon / 180, dur: 0.12, gain: 0.4, layers: false });
+      if (v == null) sound.noData(); else sound.note(tOf(v), { dur: 0.12, gain: 0.4, layers: false });
       await sleep(85);
     }
     state.lon = lon0;
@@ -309,11 +351,13 @@ function setMode(mode) {
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
   const img = isImage();
   $('#byo').hidden = !img;
-  $('.timeline').hidden = img; $('.jumps').hidden = img; $('.year').hidden = img;
+  $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img;
+  $('.timeline').hidden = img; $('.jumps').hidden = img; $('#playBox').hidden = img;
   $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : state.track.title;
   $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : state.track.subtitle;
   $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
-  $('#map').setAttribute('aria-label', img ? 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.' : 'Temperature map. Arrow keys move, square brackets change the year, Enter reads the spot, question mark for help.');
+  $('#map').setAttribute('aria-label', 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.');
+  if (!img) globe.request();
   draw(); drawLegend();
   if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
   else { updateReadout({ play: false }); $('#desc').textContent = describe(); }
@@ -357,14 +401,14 @@ function makeItSing() {
 }
 
 // ---------- input ----------
-const HELP = 'Arrow keys move, with shift in small steps. Square brackets, or page up and page down, change the year. Space plays history. Enter reads this spot. S sweeps across. L plays the legend. D describes the picture. B toggles the average hum. Numbers 1 to 9 jump to places. V turns the voice on or off.';
+const HELP = 'Arrow keys travel, with shift in small steps. Square brackets, or page up and page down, change the year. Space plays 1880 to 2025. T taps here, R replays your taps. Enter reads this spot. S goes once around the Earth. L plays the legend. D describes the year. B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off.';
 function onKey(e) {
   if (!state.track) return;
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Enter' && e.target.closest('#byo')) makeItSing(); return; }
   const k = e.key, img = isImage();
   if (img && !src.legend && k !== '?') return;
   const step = img ? (e.shiftKey ? 0.01 : 0.05) : (e.shiftKey ? 2 : 10);
-  const move = (dy, dx) => (img ? moveUV(state.u + dx * step, state.v + dy * step) : moveTo(state.lat - dy * step, state.lon + dx * step));
+  const move = (dy, dx) => (img ? moveUV(state.u + dx * step, state.v + dy * step) : moveTo(state.lat - dy * step, state.lon + dx * step, { center: true }));
   const map = {
     ArrowLeft: () => move(0, -1), ArrowRight: () => move(0, 1), ArrowUp: () => move(-1, 0), ArrowDown: () => move(1, 0),
     PageUp: () => setYear(state.yi + (e.shiftKey ? 10 : 1)), PageDown: () => setYear(state.yi - (e.shiftKey ? 10 : 1)),
@@ -372,52 +416,73 @@ function onKey(e) {
     Home: () => setYear(0), End: () => setYear(state.track.years.length - 1),
     Enter: () => updateReadout({ speakIt: true }), ' ': () => playHistory(),
     s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(HELP),
+    t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
   };
   let fn = map[k] || map[k.toLowerCase?.()];
-  if (!fn && !img && /^[1-9]$/.test(k)) { const p = JUMPS[+k - 1]; fn = () => { moveTo(p.lat, p.lon); speak(`${p.name}. ${say(currentValue())}.`); }; }
+  if (!fn && !img && /^[1-9]$/.test(k)) { const p = JUMPS[+k - 1]; fn = () => { moveTo(p.lat, p.lon, { center: true }); speak(`${p.name}. ${say(currentValue())}.`); }; }
   if (!fn) return;
   if (e.target.closest?.('button, summary') && (k === 'Enter' || k === ' ')) return; // let buttons work normally
   e.preventDefault(); fn();
 }
 function pointerUV(e) { const r = $('#map').getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
 let lastMove = 0;
-function onPointerMove(e) {
-  if (!state.track || state.playing || state.busy) return;
-  if (isImage() && !src.legend) return;
+// Picture mode (flat canvas)
+function onMapMove(e) {
+  if (state.busy || !src.legend) return;
   const now = performance.now(); if (now - lastMove < 60) return; lastMove = now;
-  const [u, v] = pointerUV(e);
-  if (isImage()) {
-    const cell = Math.round(u * 80) * 1000 + Math.round(v * 80);
-    if (cell !== state.lastCell) { state.lastCell = cell; moveUV(u, v); }
+  const [u, v] = pointerUV(e), cell = Math.round(u * 80) * 1000 + Math.round(v * 80);
+  if (cell !== state.lastCell) { state.lastCell = cell; moveUV(u, v); }
+}
+function onMapDown(e) {
+  sound.start();
+  if (!src.canvas) { $('#pickFile').click(); return; }
+  if (state.cal.step === 1 || state.cal.step === 2) { calibrationClick(e); return; }
+  if (!src.legend) return;
+  const [u, v] = pointerUV(e); moveUV(u, v);
+}
+function onMapUp() { if (src.legend) updateReadout({ play: false, speakIt: true }); }
+
+// Globe: tap to play, drag to spin, hover (mouse) to listen
+const drag = { on: false, x: 0, y: 0, moved: 0, id: null };
+function onGlobeDown(e) {
+  sound.start();
+  Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId });
+  $('#globe').setPointerCapture(e.pointerId);
+}
+function onGlobeMove(e) {
+  if (drag.on && e.pointerId === drag.id) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.moved > 6) globe.rotateBy(dx, dy);
     return;
   }
-  const lat = 90 - v * 180, lon = u * 360 - 180, cell = cellIndex(lat, lon);
-  if (cell !== state.lastCell) { state.lastCell = cell; moveTo(lat, lon); }
+  if (e.pointerType !== 'mouse' || state.playing || state.busy || state.replaying) return;
+  const now = performance.now(); if (now - lastMove < 70) return; lastMove = now;
+  const p = globe.pick(e.clientX, e.clientY); if (!p) return;
+  const cell = cellIndex(p.lat, p.lon);
+  if (cell !== state.lastCell) { state.lastCell = cell; moveTo(p.lat, p.lon); }
 }
-function onPointerDown(e) {
-  sound.start();
-  if (isImage()) {
-    if (!src.canvas) { $('#pickFile').click(); return; }
-    if (state.cal.step === 1 || state.cal.step === 2) { calibrationClick(e); return; }
-    if (!src.legend) return;
-    const [u, v] = pointerUV(e); moveUV(u, v); return;
-  }
-  const [u, v] = pointerUV(e); moveTo(90 - v * 180, u * 360 - 180);
+function onGlobeUp(e) {
+  if (!drag.on || e.pointerId !== drag.id) return;
+  drag.on = false;
+  if (drag.moved > 6) return; // that was a spin, not a tap
+  const p = globe.pick(e.clientX, e.clientY);
+  if (p) { $('#globeHint').hidden = true; tapAt(p.lat, p.lon); }
 }
 
 // ---------- start ----------
 async function start() {
   const ok = await sound.start();
-  $('#start').hidden = true; $('#map').focus();
+  $('#start').hidden = true; $('#globe').focus();
   draw(); updateReadout({ play: false }); preloadAll();
   if (!ok) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
-  speak(`Earth Jukebox. ${state.track.title}. You are at ${placeName(state.lat, state.lon)} in ${year()}. ${say(currentValue())}. Use the arrow keys to move, space to play history, and question mark for help.`);
+  speak(`Earth Jukebox. ${state.track.title}. You are at ${placeName(state.lat, state.lon)} in ${year()}. ${say(currentValue())}. Tap the globe, or use the arrow keys to travel. Space plays 1880 to 2025. Question mark for help.`);
 }
 function buildJumps() {
   $('#jumps').innerHTML = JUMPS.map((p, i) => `<button type="button" data-jump="${i}"><kbd>${i + 1}</kbd> ${p.name.replace(/^the /, '')}</button>`).join('');
   $('#jumps').addEventListener('click', e => {
     const b = e.target.closest('[data-jump]'); if (!b) return;
-    sound.start(); const p = JUMPS[+b.dataset.jump]; moveTo(p.lat, p.lon); speak(`${p.name}. ${say(currentValue())}.`);
+    sound.start(); const p = JUMPS[+b.dataset.jump]; moveTo(p.lat, p.lon, { center: true }); speak(`${p.name}. ${say(currentValue())}.`);
   });
 }
 
@@ -431,18 +496,30 @@ async function init() {
   document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { sound.start(); act(b.dataset.act); }));
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   document.addEventListener('keydown', onKey);
+  const g = $('#globe');
+  g.addEventListener('pointerdown', onGlobeDown);
+  g.addEventListener('pointermove', onGlobeMove);
+  g.addEventListener('pointerup', onGlobeUp);
+  g.addEventListener('pointercancel', () => { drag.on = false; });
   const m = $('#map');
-  m.addEventListener('pointermove', onPointerMove);
-  m.addEventListener('pointerdown', onPointerDown);
-  m.addEventListener('pointerup', () => { if (!isImage() || src.legend) updateReadout({ play: false, speakIt: true }); });
+  m.addEventListener('pointermove', onMapMove);
+  m.addEventListener('pointerdown', onMapDown);
+  m.addEventListener('pointerup', onMapUp);
+  // play the Earth
+  $('#replayBtn').addEventListener('click', () => { sound.start(); replayTaps(); });
+  $('#clearBtn').addEventListener('click', () => { state.taps = []; updateTapUI(); announce('Melody cleared.'); });
+  document.querySelectorAll('[data-year-jump]').forEach(b => b.addEventListener('click', () => {
+    sound.start(); state.yi = yearIndexOf(+b.dataset.yearJump); draw(); updateReadout({ play: false });
+    announce(`Year ${year()}.`); if (state.taps.length) replayTaps();
+  }));
   // your own map: pick, drop, paste
   $('#pickBtn').addEventListener('click', () => $('#pickFile').click());
   $('#pickFile').addEventListener('change', e => usePicture(e.target.files[0]));
   $('#singBtn').addEventListener('click', makeItSing);
-  const wrap = $('.mapwrap');
-  wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
-  wrap.addEventListener('dragleave', () => wrap.classList.remove('drop'));
-  wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); usePicture(e.dataTransfer.files[0]); });
+  const wrap = $('#mapWrap');
+  document.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) wrap.classList.remove('drop'); });
+  document.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); if (e.dataTransfer.files[0]) { $('#start').hidden = true; sound.start(); usePicture(e.dataTransfer.files[0]); } });
   document.addEventListener('paste', e => {
     const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
     if (item) { e.preventDefault(); $('#start').hidden = true; sound.start(); usePicture(item.getAsFile()); }

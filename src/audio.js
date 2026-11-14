@@ -39,6 +39,22 @@ export class Sound {
     if (layers && t >= 0.9) this.#voice(FREQ[i] * 2, { at: at + 0.04, dur: dur * 0.8, gain: gain * 0.22, pan: pan * 0.5, bright: 1 });
   }
 
+  // A struck, marimba-like note for tapping the Earth like an instrument.
+  tap(t, { pan = 0, gain = 0.6, when = 0 } = {}) {
+    if (!this.ctx) return;
+    const c = this.ctx, at = Math.max(this.now, when || this.now), f = FREQ[noteIndex(t)];
+    const out = this.#panner(pan);
+    [[1, 1, 0.9], [4, 0.28, 0.12], [9.2, 0.08, 0.04]].forEach(([mult, amp, decay]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f * mult;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(gain * amp, at + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + decay + 0.05);
+      o.connect(g).connect(out); o.start(at); o.stop(at + decay + 0.1);
+    });
+    if (t >= 0.75) this.#voice(FREQ[Math.min(FREQ.length - 1, noteIndex(t) + 2)], { at: at + 0.01, dur: 0.25, gain: gain * 0.25, pan: -pan * 0.5, bright: t });
+  }
+
   // A soft, pitchless tick: "there is no data here".
   noData({ pan = 0, when = 0 } = {}) {
     if (!this.ctx) return;
