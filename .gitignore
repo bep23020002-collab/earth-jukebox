@@ -9,3 +9,5 @@ worker/.wrangler/
 worker/.dev.vars
 video/node_modules/
 video/out/
+data/gistemp/*.nc
+data/gistemp/*.nc.gz

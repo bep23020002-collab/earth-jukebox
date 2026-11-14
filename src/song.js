@@ -14,17 +14,18 @@ const STEPS = 11; // notes in the scale (see audio.js)
 const RHYTHM = [0, 1, 1.5, 2, 3, 4, 5, 5.5]; // where the 8 melody notes fall inside two bars
 const RADIUS = 8; // degrees: size of the circle we walk around each place
 
-// data: { valueAt(yearIndex, lat, lon) -> °C or null, yearIndexOf(year), tOf(v) -> 0..1, localMean(yi, lat, lon) }
+// data: { valueAt(yearIndex, lat, lon, moment) -> °C or null, yearIndexOf(year), tOf(v) -> 0..1, localMean(yi, lat, lon, moment) }
+// The moment is passed along so a moment with a month can use NASA's monthly data instead of the yearly map.
 export function composeSong(moments, data) {
   const sections = moments.map((m, k) => {
     const yi = data.yearIndexOf(m.year);
-    const mean = data.localMean(yi, m.lat, m.lon);
-    const centre = mean == null ? null : Math.round(data.tOf(mean) * (STEPS - 1));
+    const mean = data.localMean(yi, m.lat, m.lon, m);
+    const centre = mean == null ? null : Math.max(0, Math.min(STEPS - 1, Math.round(data.tOf(mean) * (STEPS - 1)))); // monthly values can go past the scale
     const notes = RHYTHM.map((beat, i) => {
       const a = Math.PI - i * (2 * Math.PI / RHYTHM.length); // start west, walk clockwise
       const lat = Math.max(-85, Math.min(85, m.lat + RADIUS * Math.sin(a)));
       const lon = m.lon + RADIUS * Math.cos(a) / Math.max(0.3, Math.cos(m.lat * Math.PI / 180));
-      const v = data.valueAt(yi, lat, lon);
+      const v = data.valueAt(yi, lat, lon, m);
       if (v == null || centre == null) return { beat, step: null, lat, lon, v };
       const dev = Math.max(-3, Math.min(3, Math.round((v - mean) / 0.15))); // 0.15 °C = one scale step
       return { beat, step: Math.max(0, Math.min(STEPS - 1, centre + dev)), lat, lon, v };

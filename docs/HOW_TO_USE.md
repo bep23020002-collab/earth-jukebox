@@ -73,13 +73,15 @@
 ## 2. My Earth song（我的地球之歌）
 ### 方法一：写一段故事（最快）
 1. 在 **Tell your story** 写一两句，例如：
-   *My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching in 2006, and today I live in Sibu.*
+   *My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006, and today I live in Sibu.*
+   写到月份或生日，会用 NASA 那个月的资料
 2. 按 **Make my song from this**，自动找出年份和地点，接着直接播放
 - AI 开启时：任何语言都可以写
 - AI 没开启时：只认英文地名，句子里要有年份和地名
 
 ### 方法二：自己设定
-- 每一格填 **Year（年份）**、**Place（地点）**、**Why it matters（为什么重要，可不填）**
+- 每一格填 **Year（年份）**、**Month（月份，可不选）**、**Day（日，可不填）**、**Place（地点）**、**Why it matters（为什么重要，可不填）**
+- 选了月份（例如生日那个月），声音就用 NASA 那个月的资料（1880 年 1 月到 2026 年 10 月）；NASA 没有每天的资料，所以"日"只会显示，不会改变声音
 - 地点可以从清单选，或按 **Pick on globe** 再点地球
 - **Add a moment** 加一格（最多 6 格），**✕** 删除
 - 按 **Play my Earth song** 播放；**Copy link to share** 复制链接给朋友
@@ -98,6 +100,7 @@
 - 也可以点下面的范例问题
 - 可以问：
   - 某地某年："How warm was Sibu in 1998?"
+  - 某地某月（例如生日）："How warm was Kuching in March 2006?"
   - 比较两年："Is Sibu warmer now than in 1960?"
   - 比较两地："Compare the Arctic and Sibu in 2025"
   - 长期变化："Has Kuching got hotter since 1900?"

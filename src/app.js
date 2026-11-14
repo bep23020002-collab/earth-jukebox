@@ -11,6 +11,7 @@ import { Globe } from './globe.js';
 import { composeSong, scheduleSong, BPM, BEATS_PER_MOMENT } from './song.js';
 import { KINDS } from './tracks.js';
 import { aiReady, aiSong, aiAsk, storyWithoutAI } from './ai.js';
+import { loadMeta, hasMonth, loadYear, yearLoaded, monthValue, monthBoxMean, dateText, MON, MONTHS, latestMonth } from './monthly.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
@@ -382,6 +383,8 @@ async function playTuneIn(y) {
   await replayTaps();
 }
 function yearIndexOf(y, T = state.track) { return Math.max(0, T.years.indexOf(y)); }
+// nearest year this track has (a moment in 2026 shows the 2025 map; its sound uses NASA's monthly data)
+function yearIndexNear(y, T = state.track) { const i = T.years.indexOf(y); return i >= 0 ? i : y > T.years[T.years.length - 1] ? T.years.length - 1 : 0; }
 function moveUV(u, v, opts) {
   state.u = Math.max(0, Math.min(1, u)); state.v = Math.max(0, Math.min(1, v));
   draw(); return updateReadout(opts);
@@ -556,14 +559,19 @@ async function storyToSong() {
   let moments = [], note = '', usedAI = false;
   try {
     if (aiReady()) {
-      const r = await aiSong(text); usedAI = true; note = r.note || '';
+      const r = await aiSong(text); usedAI = true; note = String(r.note || '').replace(/^[^\p{L}\p{N}]+/u, ''); // drop stray leading symbols
       moments = (r.moments || []).filter(m => Number.isFinite(m.lat) && Number.isFinite(m.lon) && Math.abs(m.lat) <= 90 && Math.abs(m.lon) <= 180)
-        .map(m => ({ year: Math.min(2025, Math.max(1880, Math.round(m.year))), name: String(m.place).slice(0, 40), lat: m.lat, lon: m.lon, label: String(m.label || '').slice(0, 60) }))
+        .map(m => {
+          const month = m.month >= 1 && m.month <= 12 ? Math.round(m.month) : null, day = month && m.day >= 1 && m.day <= 31 ? Math.round(m.day) : null;
+          return { year: Math.min(2026, Math.max(1880, Math.round(m.year))), month, day, name: String(m.place).slice(0, 40), lat: m.lat, lon: m.lon, label: String(m.label || '').slice(0, 60) };
+        })
         .slice(0, 6);
     } else moments = storyWithoutAI(text);
   } catch (e) { moments = storyWithoutAI(text); note = `${e.message} I read your story without AI instead.`; }
   btn.disabled = false;
   if (!moments.length) { $('#storyNote').textContent = note || 'I could not find a year and a place. Try: "I was born in Sibu in 2006."'; return; }
+  await prepareMoments(moments);
+  moments.forEach(m => { if (m.year > lastMapYear() && !usesMonth(m)) { m.year = lastMapYear(); m.month = m.day = null; } }); // beyond NASA's data: use the latest year
   state.moments = moments; state.picking = null; renderMoments();
   $('#storyNote').textContent = `${usedAI ? 'AI found' : 'Found'} ${moments.length} moment${moments.length > 1 ? 's' : ''}. Check them below. ${note}`.trim();
   if (state.songPlaying) stopSong();
@@ -579,10 +587,11 @@ function askTrack(id) {
   useTrack(id); preloadAll(); drawLegend(); score.setAxis(scoreAxis());
   $('#trackEic').textContent = `From NASA's Earth Information Center: ${state.track.eic || 'EIC content'}`;
 }
-async function playAt(p, yi) {
+async function playAt(p, yi, when = null) { // when = {year, month}: use NASA's monthly data for that month
   state.yi = yi; state.lat = p.lat; state.lon = p.lon;
   globe.centerOn(p.lat, p.lon, 450); draw(); await sleep(500);
-  const v = boxMean(yi, p.lat, p.lon, 3) ?? trackValue(yi, p.lat, p.lon);
+  const v = when?.month ? monthBoxMean(when.year, when.month, p.lat, p.lon, 3) ?? monthValue(when.year, when.month, p.lat, p.lon)
+    : boxMean(yi, p.lat, p.lon, 3) ?? trackValue(yi, p.lat, p.lon);
   if (v == null) sound.noData(); else playValue(tOf(v));
   globe.ripple(p.lat, p.lon); showValue(v, p.name);
   return v;
@@ -606,39 +615,50 @@ async function askEarth(question) {
     if (!places.length) { fail('Which place do you mean? Try naming a town, a country or an ocean.'); return; }
     askTrack(plan.track); state.asked = true; $('#nowBox').hidden = false;
     const T = state.track, k = kind(), last = T.years[T.years.length - 1];
-    const notes = [], years = [];
-    for (const y of plan.years || []) {
-      const c = nearestYear(T, y); years.push(c);
+    const notes = [], years = [], whens = [];
+    await loadMeta();
+    (plan.years || []).forEach((y, i) => {
+      const mo = plan.months?.[i];
+      if (T.kind === 'temperature' && mo >= 1 && mo <= 12) { // a month was named: NASA's monthly data
+        let w = { year: y, month: mo };
+        if (!hasMonth(y, mo)) { const l = latestMonth(); if (l && y >= l.year) { notes.push(`NASA's monthly data goes up to ${MONTHS[l.month - 1]} ${l.year}, so I used that month.`); w = { year: l.year, month: l.month }; } else w = null; }
+        if (w) { years.push(w.year); whens.push(w); return; }
+      }
+      const c = nearestYear(T, y); years.push(c); whens.push(null);
       if (c !== y) notes.push(`NASA's ${k.label.toLowerCase()} data covers ${T.years[0]}${T.years.length > 1 ? `–${last}` : ''}, so I used ${c} instead of ${y}.`);
-    }
-    const words = v => (v == null ? 'no data' : `${k.words(v).toLowerCase()} (${T.kind === 'lightning' ? `seen in ${Math.round(v * 100)}% of 10-day periods` : fmt(v)})`);
-    const yi = y => yearIndexOf(y, T);
+    });
+    await Promise.all(whens.filter(Boolean).map(w => loadYear(w.year)));
+    const whenText = i => (whens[i] ? `${MONTHS[whens[i].month - 1]} ${whens[i].year}` : String(years[i]));
+    // monthly values are NASA's numbers, not read from the map's colors, so they are not capped at ±2 °C
+    const words = (v, w) => (v == null ? 'no data' : `${k.words(v).toLowerCase()} (${T.kind === 'lightning' ? `seen in ${Math.round(v * 100)}% of 10-day periods` : w ? `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} °C` : fmt(v)})`);
+    const yi = y => yearIndexNear(y, T);
     let text;
     if (plan.kind === 'trend' && T.years.length > 1) {
       state.lat = places[0].lat; state.lon = places[0].lon; globe.centerOn(places[0].lat, places[0].lon); draw();
       out.textContent = `Playing ${places[0].name} from ${T.years[0]} to ${last}…`;
       await playHistory();
       text = $('#desc').textContent;
-    } else if (plan.kind === 'compare_years' && new Set(years).size >= 2) {
-      const y1 = Math.min(...years), y2 = Math.max(...years);
+    } else if (plan.kind === 'compare_years' && new Set(years.map((y, i) => `${y}-${whens[i]?.month || 0}`)).size >= 2) {
+      const order = years.map((y, i) => i).sort((i, j) => years[i] - years[j] || (whens[i]?.month || 0) - (whens[j]?.month || 0));
+      const i1 = order[0], i2 = order[order.length - 1], y1 = whenText(i1), y2 = whenText(i2);
       score.clear();
-      const a = await playAt(places[0], yi(y1)); score.take(String(y1), 1, 'One place, two years'); score.add(stepOf(a), places[0].name); await sleep(900);
-      const b = await playAt(places[0], yi(y2)); score.take(String(y2), 1, 'One place, two years'); score.add(stepOf(b), places[0].name);
+      const a = await playAt(places[0], yi(years[i1]), whens[i1]); score.take(y1, 1, 'One place, two dates'); score.add(stepOf(a), places[0].name); await sleep(900);
+      const b = await playAt(places[0], yi(years[i2]), whens[i2]); score.take(y2, 1, 'One place, two dates'); score.add(stepOf(b), places[0].name);
       if (a != null && b != null && T.kind === 'temperature') score.setNote(`${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'} in ${y2} than in ${y1}`);
-      text = `${places[0].name}: ${y1} was ${words(a)}; ${y2} was ${words(b)}.`
+      text = `${places[0].name}: ${y1} was ${words(a, whens[i1])}; ${y2} was ${words(b, whens[i2])}.`
         + (a != null && b != null && T.kind === 'temperature' ? ` That is about ${Math.abs(b - a).toFixed(1)} °C ${b >= a ? 'warmer' : 'cooler'}.` : '');
     } else if (plan.kind === 'compare_places' && places.length >= 2) {
-      const y = years[years.length - 1] ?? last;
-      score.clear(); score.take(T.years.length > 1 ? String(y) : '', 2, 'Two places');
-      const a = await playAt(places[0], yi(y)); score.add(stepOf(a), places[0].name); await sleep(900);
-      const b = await playAt(places[1], yi(y)); score.add(stepOf(b), places[1].name);
-      text = `${T.years.length > 1 ? `In ${y}, ` : ''}${places[0].name} was ${words(a)} and ${places[1].name} was ${words(b)}.`;
+      const iy = years.length - 1, y = years[iy] ?? last, w = whens[iy] || null, label = iy >= 0 ? whenText(iy) : String(last);
+      score.clear(); score.take(T.years.length > 1 ? label : '', 2, 'Two places');
+      const a = await playAt(places[0], yi(y), w); score.add(stepOf(a), places[0].name); await sleep(900);
+      const b = await playAt(places[1], yi(y), w); score.add(stepOf(b), places[1].name);
+      text = `${T.years.length > 1 ? `In ${label}, ` : ''}${places[0].name} was ${words(a, w)} and ${places[1].name} was ${words(b, w)}.`;
     } else {
-      const y = years[years.length - 1] ?? last;
-      const a = await playAt(places[0], yi(y)); score.live(stepOf(a), places[0].name, { tap: true });
-      text = `${places[0].name}${T.years.length > 1 ? ` in ${y}` : ''}: ${words(a)}.`;
+      const iy = years.length - 1, y = years[iy] ?? last, w = whens[iy] || null, label = iy >= 0 ? whenText(iy) : String(last);
+      const a = await playAt(places[0], yi(y), w); score.live(stepOf(a), places[0].name, { tap: true });
+      text = `${places[0].name}${T.years.length > 1 ? ` in ${label}` : ''}: ${words(a, w)}.`;
     }
-    if (T.kind === 'temperature' && plan.kind !== 'trend') text += ' "Normal" means the 1951–1980 average.';
+    if (T.kind === 'temperature' && plan.kind !== 'trend') text += ` "Normal" means the 1951–1980 average${whens.some(Boolean) ? ' for that month. Monthly values come from NASA GISTEMP' : ''}.`;
     if (notes.length) text += ' ' + notes.join(' ');
     out.textContent = text; $('#desc').textContent = ''; speak(text);
   } finally { state.asking = false; }
@@ -786,7 +806,7 @@ function switchTrack(id) {
 const DEFAULT_MOMENTS = [
   { year: 1900, name: 'Sibu, Sarawak', label: 'Long before I was born' },
   { year: 1965, name: 'Sibu, Sarawak', label: 'When my grandparents were young' },
-  { year: 2000, name: 'Kuching', label: 'The year 2000' },
+  { year: 2006, month: 3, day: 15, name: 'Kuching', label: 'The day I was born' },
   { year: 2025, name: 'Sibu, Sarawak', label: 'Today' },
 ];
 function resolveMoment(m) {
@@ -794,19 +814,36 @@ function resolveMoment(m) {
   const p = findPlace(m.name || '');
   return p ? { ...m, lat: p.lat, lon: p.lon, name: m.name } : m;
 }
+// A moment with a month uses NASA's monthly data (GISTEMP v4) for that month; otherwise the yearly map.
+const lastMapYear = () => temp().years[temp().years.length - 1];
+const usesMonth = m => m.month >= 1 && m.month <= 12 && hasMonth(m.year, m.month);
+const validMoment = m => m.year >= 1880 && (m.year <= lastMapYear() || usesMonth(m));
+function momentMean(m, r = 6) {
+  if (usesMonth(m)) return monthBoxMean(m.year, m.month, m.lat, m.lon, r);
+  const T = temp(); return boxMean(yearIndexOf(m.year, T), m.lat, m.lon, r, T);
+}
+async function prepareMoments(ms) { await loadMeta(); await Promise.all([...new Set(ms.filter(usesMonth).map(m => m.year))].map(loadYear)); }
+function limitsText() { const l = latestMonth(); return `Choose a year from 1880 to ${lastMapYear()}${l ? `, or a month up to ${MONTHS[l.month - 1]} ${l.year}` : ''}.`; }
 function momentFeeling(m) {
   const r = resolveMoment(m);
-  if (r.lat == null || !(m.year >= 1880 && m.year <= 2025)) return '';
-  const T = temp(), v = boxMean(yearIndexOf(m.year, T), r.lat, r.lon, 6, T);
-  return v == null ? 'NASA has no data here for that year.' : `${KINDS.temperature.words(v)} (${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} °C)`;
+  if (r.lat == null || !m.year) return '';
+  if (!validMoment(m)) return limitsText();
+  if (usesMonth(m) && !yearLoaded(m.year)) { loadYear(m.year).then(refreshFeelings); return 'Loading NASA monthly data…'; }
+  const v = momentMean(r), when = usesMonth(m) ? `${MONTHS[m.month - 1]} ${m.year}` : String(m.year);
+  if (v == null) return `NASA has no data here for ${when}.`;
+  return `${when}: ${KINDS.temperature.words(v).toLowerCase()} (${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} °C)`
+    + (usesMonth(m) ? `. From NASA's monthly data${m.day ? ', for the whole month' : ''}.` : '.');
 }
+function refreshFeelings() { document.querySelectorAll('#moments .moment').forEach(li => { const m = state.moments[+li.dataset.i]; if (m) li.querySelector('.m-feel').textContent = momentFeeling(m); }); }
 function renderMoments() {
   const ol = $('#moments');
   ol.innerHTML = state.moments.map((m, i) => `
     <li class="moment${state.picking === i ? ' picking' : ''}" data-i="${i}">
-      <label class="m-f"><span>Year</span><input class="m-year" type="number" min="1880" max="2025" value="${m.year ?? ''}" inputmode="numeric"></label>
-      <label class="m-f"><span>Place</span><input class="m-place" list="placeList" value="${(m.name || '').replace(/"/g, '&quot;')}" placeholder="Town or city"></label>
+      <label class="m-f"><span>Year</span><input class="m-year" type="number" min="1880" max="2026" value="${m.year ?? ''}" inputmode="numeric"></label>
+      <label class="m-f"><span>Month</span><select class="m-month"><option value="">All year</option>${MONTHS.map((n, k) => `<option value="${k + 1}"${m.month === k + 1 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label class="m-f"><span>Day</span><input class="m-day" type="number" min="1" max="31" value="${m.day ?? ''}" placeholder="—" inputmode="numeric"></label>
       <button type="button" class="m-remove" aria-label="Remove moment ${i + 1}">✕</button>
+      <label class="m-f m-placef"><span>Place</span><input class="m-place" list="placeList" value="${(m.name || '').replace(/"/g, '&quot;')}" placeholder="Town or city"></label>
       <label class="m-f m-labelf"><span>Why it matters</span><input class="m-label" value="${(m.label || '').replace(/"/g, '&quot;')}" placeholder="optional"></label>
       <button type="button" class="m-pick" aria-pressed="${state.picking === i}">${state.picking === i ? 'Tap the globe…' : 'Pick on globe'}</button>
       <p class="m-feel">${momentFeeling(m)}</p>
@@ -824,6 +861,8 @@ function onMomentsInput(e) {
   const li = e.target.closest('.moment'); if (!li) return;
   const m = state.moments[+li.dataset.i];
   if (e.target.matches('.m-year')) m.year = parseInt(e.target.value, 10);
+  if (e.target.matches('.m-month')) m.month = parseInt(e.target.value, 10) || null;
+  if (e.target.matches('.m-day')) { const d = parseInt(e.target.value, 10); m.day = d >= 1 && d <= 31 ? d : null; }
   if (e.target.matches('.m-place')) { m.name = e.target.value; m.lat = m.lon = null; }
   if (e.target.matches('.m-label')) m.label = e.target.value;
   if (e.type === 'change') { li.querySelector('.m-feel').textContent = momentFeeling(m); }
@@ -847,18 +886,20 @@ async function playSong() {
   if (state.songPlaying) { stopSong(); return; }
   await sound.start();
   const moments = state.moments.map(resolveMoment);
-  const bad = moments.findIndex(m => m.lat == null || !(m.year >= 1880 && m.year <= 2025));
   if (!moments.length) { $('#songStatus').textContent = 'Add at least one moment.'; return; }
-  if (bad >= 0) { $('#songStatus').textContent = `Moment ${bad + 1}: choose a year from 1880 to 2025 and a place from the list, or pick it on the globe.`; return; }
+  await prepareMoments(moments);
+  const bad = moments.findIndex(m => m.lat == null || !validMoment(m));
+  if (bad >= 0) { $('#songStatus').textContent = `Moment ${bad + 1}: ${limitsText()} Then choose a place from the list, or pick it on the globe.`; return; }
   const T = temp();
   const song = composeSong(moments, {
-    yearIndexOf: y => yearIndexOf(y, T), tOf: v => (v - T.min) / (T.max - T.min),
-    localMean: (yi, lat, lon) => boxMean(yi, lat, lon, 6, T),
-    valueAt: (yi, lat, lon) => trackValue(yi, lat, lon, T) ?? boxMean(yi, lat, lon, 4, T),
+    yearIndexOf: y => yearIndexNear(y, T), tOf: v => (v - T.min) / (T.max - T.min),
+    localMean: (yi, lat, lon, m) => (usesMonth(m) ? monthBoxMean(m.year, m.month, lat, lon, 6) : boxMean(yi, lat, lon, 6, T)),
+    valueAt: (yi, lat, lon, m) => (usesMonth(m) ? monthValue(m.year, m.month, lat, lon) ?? monthBoxMean(m.year, m.month, lat, lon, 4)
+      : trackValue(yi, lat, lon, T) ?? boxMean(yi, lat, lon, 4, T)),
     extra: songLayers,
   });
   state.songPlaying = true; $('#playSong').textContent = 'Stop';
-  score.song(song.sections.map(sec => ({ label: `${sec.moment.year} ${shortPlace(sec.moment.name)}`, notes: sec.notes.map(n => n.step) })));
+  score.song(song.sections.map(sec => ({ label: `${usesMonth(sec.moment) ? MON[sec.moment.month - 1] + ' ' : ''}${sec.moment.year} ${shortPlace(sec.moment.name)}`, notes: sec.notes.map(n => n.step) })));
   sound.beginSong();
   const t0 = scheduleSong(song, sound), spb = 60 / BPM, lead = (t0 - sound.now) * 1000;
   const at = (beat, fn) => songTimers.push(setTimeout(fn, lead + beat * spb * 1000));
@@ -869,9 +910,9 @@ async function playSong() {
       state.yi = sec.yearIndex; state.lat = m.lat; state.lon = m.lon;
       globe.centerOn(m.lat, m.lon, 500); draw(); $('#nowBox').hidden = false;
       $('#rPlace').textContent = m.name; $('#rValue').textContent = sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean);
-      $('#rDetail').textContent = sec.layers ? sec.layers.text : '';
-      $('#desc').textContent = `${m.year}, ${m.name}${m.label ? `: ${m.label}` : ''}.`;
-      announce(`${m.year}, ${m.name}. ${sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean)}.`);
+      $('#rDetail').textContent = [usesMonth(m) ? `${MONTHS[m.month - 1]} ${m.year}, NASA monthly data` : '', sec.layers?.text].filter(Boolean).join('. ');
+      $('#desc').textContent = `${dateText(m, true)}, ${m.name}${m.label ? `: ${m.label}` : ''}.`;
+      announce(`${dateText(m, true)}, ${m.name}. ${sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean)}.`);
     });
     sec.notes.forEach((n, i) => at(sec.startBeat + n.beat, () => { globe.ripple(n.lat, n.lon); score.hit(k, i); }));
   });
@@ -879,10 +920,10 @@ async function playSong() {
     stopSong();
     const first = song.sections[0], last = song.sections[song.sections.length - 1];
     const msg = song.sections.length > 1 && first.mean != null && last.mean != null
-      ? `Your Earth song starts in ${first.moment.year} (${KINDS.temperature.words(first.mean).toLowerCase()}) and ends in ${last.moment.year} (${KINDS.temperature.words(last.mean).toLowerCase()}).`
+      ? `Your Earth song starts in ${dateText(first.moment, true)} (${KINDS.temperature.words(first.mean).toLowerCase()}) and ends in ${dateText(last.moment, true)} (${KINDS.temperature.words(last.mean).toLowerCase()}).`
       : 'That was your Earth song.';
     $('#desc').textContent = msg; $('#songStatus').textContent = 'Change a year or a place and play it again.';
-    if (song.sections.length > 1 && first.mean != null && last.mean != null) score.setNote(`${first.moment.year} → ${last.moment.year}: ${last.mean >= first.mean ? '+' : '−'}${Math.abs(last.mean - first.mean).toFixed(1)} °C`);
+    if (song.sections.length > 1 && first.mean != null && last.mean != null) score.setNote(`${dateText(first.moment)} → ${dateText(last.moment)}: ${last.mean >= first.mean ? '+' : '−'}${Math.abs(last.mean - first.mean).toFixed(1)} °C`);
     speak(msg);
   });
 }
@@ -895,13 +936,14 @@ function songLayers(m) {
   return out;
 }
 function songLink() {
-  const data = state.moments.map(m => [m.year, m.name, m.label || '', m.lat == null ? null : +m.lat.toFixed(2), m.lon == null ? null : +m.lon.toFixed(2)]);
+  const data = state.moments.map(m => [m.year, m.name, m.label || '', m.lat == null ? null : +m.lat.toFixed(2), m.lon == null ? null : +m.lon.toFixed(2), m.month || 0, m.day || 0]);
   return `${location.origin}${location.pathname}#song=${encodeURIComponent(JSON.stringify(data))}`;
 }
 function readSongLink() {
   const m = location.hash.match(/^#song=(.+)$/); if (!m) return null;
   try {
-    return JSON.parse(decodeURIComponent(m[1])).slice(0, 6).map(([year, name, label, lat, lon]) => ({ year: +year, name: String(name || ''), label: String(label || ''), lat: lat ?? null, lon: lon ?? null }));
+    return JSON.parse(decodeURIComponent(m[1])).slice(0, 6).map(([year, name, label, lat, lon, month, day]) => ({ year: +year, name: String(name || ''), label: String(label || ''), lat: lat ?? null, lon: lon ?? null,
+      month: month >= 1 && month <= 12 ? +month : null, day: month && day >= 1 && day <= 31 ? +day : null }));
   } catch { return null; }
 }
 async function shareSong() {
@@ -929,6 +971,7 @@ function buildJumps() {
 }
 
 async function init() {
+  loadMeta(); // NASA monthly data index (small)
   await loadTrack('temperature');
   useTrack('temperature');
   // Other EIC tracks listed in assets/tracks.json are loaded in the background.

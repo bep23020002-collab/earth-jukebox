@@ -114,13 +114,13 @@
         <p>Pick years and places that mean something to you. Each one becomes part of a song.</p>
         <div class="story">
           <label for="storyText"><strong>Tell your story</strong>, in any language</label>
-          <textarea id="storyText" rows="3" placeholder="My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching in 2006."></textarea>
+          <textarea id="storyText" rows="3" placeholder="My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006."></textarea>
           <div class="row"><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
           <p class="small" id="storyNote">AI reads your story and finds the years and places. The music itself comes only from NASA data.</p>
         </div>
         <p class="small">Or set the moments yourself:</p>
         <ol class="howto">
-          <li>Change the <strong>year</strong> and <strong>place</strong> in each box (or keep our example).</li>
+          <li>Change the <strong>year</strong> (and, if you like, the <strong>month</strong> and day) and the <strong>place</strong> in each box, or keep our example.</li>
           <li>Press <strong>Play my Earth song</strong>.</li>
           <li>Send the link to a friend.</li>
         </ol>
@@ -133,7 +133,7 @@
         <p id="songStatus" class="byo-status" role="status"></p>
         <details class="small">
           <summary>How your song is made</summary>
-          <p>Each moment gets two bars. Its main note is how warm that place was that year: warmer is higher. The melody walks in a small circle around the place, rising and falling with the temperature. When a place is warmer than normal, the drums get busier.</p>
+          <p>Each moment gets two bars. Its main note is how warm that place was that year: warmer is higher. Give a month, such as a birthday, and the note uses NASA's monthly data for that month instead (January 1880 to the latest month NASA has published). NASA has no daily maps, so a day changes the label, not the sound. The melody walks in a small circle around the place, rising and falling with the temperature. When a place is warmer than normal, the drums get busier.</p>
         </details>
       </section>
       <datalist id="placeList"></datalist>
@@ -150,6 +150,7 @@
         <div class="ask-examples" id="askExamples">
           <button type="button" class="chip">Is Sibu warmer now than in 1960?</button>
           <button type="button" class="chip">Compare the Arctic and Sibu in 2025</button>
+          <button type="button" class="chip">How warm was Kuching in March 2006?</button>
           <button type="button" class="chip">Has Kuching got hotter since 1900?</button>
           <button type="button" class="chip">Does Sibu get a lot of lightning?</button>
           <button type="button" class="chip">How warm is the sea near Borneo?</button>
@@ -258,6 +259,7 @@
           <summary>More detail for scientists</summary>
           <p>Temperature: the equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published yearly means: the area-weighted global mean we read differs from GISTEMP by 0.07 °C on average (RMSE 0.085 °C, r = 0.98, 146 years) and fits the yearly series better than a 5-year running mean (0.08 °C), so the frames are single years. By latitude band the average gap is 0.07–0.12 °C between 64° S and 44° N, 0.21 °C at 44–64° N, and about 0.35 °C poleward of 64°, where colors saturate at ±2 °C and there are few cells. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
           <p>Ocean: one frame of the ECCO2 model (19 June 2007), read against NASA's 0–32 °C color bar by hue, so the light and shadow of the flow lines do not change the number.</p>
+          <p>Months: when a moment or a question names a month, Earth Jukebox uses NASA GISS GISTEMP v4 monthly anomalies (1200 km smoothing, 2° grid, vs 1951–1980), the numbers behind the temperature map, read directly instead of from colors, so they are not capped at ±2 °C. Our stored grid's global mean is within 0.012 °C of NASA's published monthly global means on average (1,762 months).</p>
           <p>Lightning: the sensor on the Space Station only sees between about 56° north and 56° south, so places outside that band stay silent instead of claiming "no lightning". Values are the share of 10-day periods in which lightning was seen.</p>
         </details>
         <p class="small">Built during the 2026 NASA Space Apps Challenge by Team Happy Squad (Sibu, Sarawak), with help from an AI coding assistant.</p>

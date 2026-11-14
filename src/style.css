@@ -188,11 +188,12 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .byo-status { font-weight: 500; min-height: 1.5em; }
 
 /* inputs: recessed into the body */
-.byo-fields input, .story textarea, .ask-form input, .moment input {
+.byo-fields input, .story textarea, .ask-form input, .moment input, .moment select {
   background: var(--paper); color: var(--ink); border: 1px solid var(--line-2); border-radius: 6px; padding: 10px 12px; font: inherit; min-width: 0;
   transition: border-color .1s linear; }
 .byo-fields input { width: 6.5em; }
-.byo-fields input:focus, .story textarea:focus, .moment input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+.moment select { padding: 10px 4px 10px 8px; width: 100%; }
+.byo-fields input:focus, .story textarea:focus, .moment input:focus, .moment select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
 ::placeholder { color: #85817A; }
 
 /* AI: story and questions */
@@ -213,13 +214,13 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 /* my Earth song */
 .song { display: grid; gap: 14px; padding: 22px; }
 .moments { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.moment { display: grid; grid-template-columns: 5.4em minmax(0, 1fr) 40px; align-items: end; gap: 8px; padding: 12px; border-radius: 10px;
+.moment { display: grid; grid-template-columns: 5.4em minmax(0, 1fr) 4.4em 40px; align-items: end; gap: 8px; padding: 12px; border-radius: 10px;
   background: var(--body); border: 1px solid var(--line); transition: border-color .1s linear; }
 .moment.playing { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
 .moment.picking { border-color: var(--ink); }
 .m-f { display: grid; gap: 3px; min-width: 0; }
 .m-f span { font-family: var(--mono); font-size: .74rem; color: var(--gray); }
-.moment .m-labelf { grid-column: 1 / -1; }
+.moment .m-labelf, .moment .m-placef { grid-column: 1 / -1; }
 .moment .m-remove { width: 40px; height: 44px; padding: 0; background: var(--key); border: 0; border-radius: 6px; color: var(--gray); cursor: pointer; box-shadow: var(--press); }
 .moment .m-remove:hover { color: var(--ink); background: var(--key-hover); }
 .moment .m-pick { grid-column: 1 / -1; justify-self: start; background: transparent; border: 0; color: var(--ink); cursor: pointer; padding: 2px 0; font-size: .88rem; font-weight: 500;
