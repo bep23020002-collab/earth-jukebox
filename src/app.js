@@ -235,7 +235,19 @@ function updateReadout({ play = true, speakIt = false } = {}) {
   if (speakIt) speak(`${place}${when}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
   return v;
 }
+// The "now hearing" card glows from ice blue (low) to ember (high), like NASA's colour bar.
+function toneFor(v) {
+  if (v == null) return '#6F8299';
+  const t = Math.max(0, Math.min(1, tOf(v)));
+  const stops = [[0, [110, 166, 214]], [0.5, [233, 227, 214]], [0.75, [232, 131, 74]], [1, [196, 71, 31]]];
+  for (let i = 1; i < stops.length; i++) if (t <= stops[i][0]) {
+    const [a, ca] = stops[i - 1], [b, cb] = stops[i], k = (t - a) / (b - a);
+    return `rgb(${ca.map((c, j) => Math.round(c + (cb[j] - c) * k)).join(',')})`;
+  }
+  return 'rgb(196,71,31)';
+}
 function showValue(v, place) {
+  $('#nowBox').style.setProperty('--tone', toneFor(v));
   if (place) $('#rPlace').textContent = place;
   $('#rValue').textContent = feeling(v);
   $('#rDetail').textContent = v == null ? (isImage() ? 'Not a color on the color bar' : kind().noData) : isImage() ? fmt(v) : kind().detail(v, fmt(v));
@@ -477,7 +489,7 @@ function setMode(mode) {
 function clearReadout() { ['#rPlace', '#rValue', '#rDetail'].forEach(s => { $(s).textContent = '—'; }); $('#desc').textContent = ''; }
 function updateSteps() {
   const step = !src.canvas ? 0 : state.cal.step; // 0 no picture, 1 low end, 2 high end, 3 values, 4 ready
-  [['#st1', 1], ['#st2', 2], ['#st3', 3]].forEach(([id, n]) => { const li = $(id); li.classList.toggle('now', step === n); li.classList.toggle('done', step > n); });
+  [['#st1', 1], ['#st2', 2], ['#st3', 3]].forEach(([id, n]) => { const li = $(id); li.classList.toggle('current', step === n); li.classList.toggle('done', step > n); });
   $('#singBtn').disabled = step !== 3;
   if (step === 0) $('#byoStatus').textContent = 'Waiting for a picture.';
   else if (step === 1) $('#byoStatus').textContent = 'Click the low end of the color bar.';
