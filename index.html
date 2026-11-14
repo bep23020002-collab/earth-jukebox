@@ -1,0 +1,122 @@
+<!doctype html>
+<!-- AI-assisted (Anthropic Claude). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earth Jukebox</title>
+  <meta name="description" content="Listen to NASA Earth visualizations. Every NASA Earth map, made audible.">
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <a class="skip" href="#map">Skip to the map</a>
+
+  <header class="top">
+    <div class="brand">
+      <h1>Earth Jukebox</h1>
+      <p>Every NASA Earth map, made audible.</p>
+    </div>
+    <nav class="tracks" aria-label="Choose what to listen to">
+      <button type="button" class="track-btn" data-track="temperature" aria-pressed="true">Global temperature</button>
+    </nav>
+  </header>
+
+  <div id="start" class="start" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+    <div class="start-card">
+      <p class="eyebrow">NASA Earth Information Center · made audible</p>
+      <h2 id="startTitle">Put on headphones.</h2>
+      <p>Higher notes mean warmer. Move around the map and listen to how the planet has changed since 1880.</p>
+      <button type="button" id="startBtn" class="primary">Start listening</button>
+      <p class="hint" id="startHint">On iPhone, turn off silent mode if you hear nothing.</p>
+    </div>
+  </div>
+
+  <main id="main" class="layout">
+    <section class="stage" aria-labelledby="trackTitle">
+      <div class="stage-head">
+        <div>
+          <h2 id="trackTitle">Global temperature, 1880–2025</h2>
+          <p id="trackSub" class="sub"></p>
+        </div>
+        <p class="year" aria-hidden="true"><span id="yearBig">2025</span></p>
+      </div>
+
+      <div class="mapwrap">
+        <canvas id="map" width="1440" height="720" tabindex="0" role="application"
+          aria-roledescription="sound map"
+          aria-label="Temperature map. Arrow keys move, square brackets change the year, Enter reads the spot, question mark for help."></canvas>
+      </div>
+
+      <div class="legend" aria-hidden="true">
+        <canvas id="legend" width="1200" height="28"></canvas>
+        <div class="legend-labels"><span id="lgMin"></span><span id="lgMid"></span><span id="lgMax"></span></div>
+        <div class="legend-notes"><span>low note</span><span>middle note</span><span>high note</span></div>
+      </div>
+
+      <div class="timeline">
+        <button type="button" id="playBtn" class="primary">Play history</button>
+        <label class="year-range">
+          <span class="sr-only">Year</span>
+          <input type="range" id="year" min="0" max="145" step="1" value="145">
+        </label>
+        <output id="yearOut" for="year">2025</output>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="What you are hearing">
+      <dl class="readout">
+        <div><dt>Place</dt><dd id="rPlace">—</dd></div>
+        <div><dt>Position</dt><dd id="rCoord">—</dd></div>
+        <div><dt>Value</dt><dd id="rValue">—</dd></div>
+        <div><dt>Note</dt><dd id="rNote">—</dd></div>
+      </dl>
+
+      <p id="desc" class="desc"></p>
+
+      <div class="actions">
+        <button type="button" data-act="legend">Hear the legend <kbd>L</kbd></button>
+        <button type="button" data-act="sweep">Sweep this latitude <kbd>S</kbd></button>
+        <button type="button" data-act="describe">Describe this year <kbd>D</kbd></button>
+        <button type="button" data-act="ref" aria-pressed="false">Average hum <kbd>B</kbd></button>
+        <button type="button" data-act="voice" aria-pressed="true">Voice <kbd>V</kbd></button>
+      </div>
+
+      <div class="jumps">
+        <h3>Go to</h3>
+        <div id="jumps" class="jump-list"></div>
+      </div>
+
+      <details class="keys">
+        <summary>Keyboard</summary>
+        <ul>
+          <li><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> move 10° (hold <kbd>Shift</kbd> for 2°)</li>
+          <li><kbd>]</kbd> / <kbd>[</kbd> or <kbd>Page Up</kbd> / <kbd>Page Down</kbd> next or previous year (<kbd>Shift</kbd> for 10 years)</li>
+          <li><kbd>Space</kbd> play or stop history</li>
+          <li><kbd>Enter</kbd> read this spot</li>
+          <li><kbd>1</kbd>–<kbd>9</kbd> jump to a place</li>
+          <li><kbd>?</kbd> hear these keys</li>
+        </ul>
+      </details>
+    </aside>
+
+    <section class="about" aria-labelledby="howTitle">
+      <h2 id="howTitle">How it works</h2>
+      <ol class="steps">
+        <li><strong>Read the legend.</strong> We sample the color bar printed on NASA's map, so every color has a number.</li>
+        <li><strong>Read every pixel.</strong> Each spot on the map is matched to the nearest legend color. Gray "no data" areas and coastlines are left silent.</li>
+        <li><strong>Turn numbers into music.</strong> Higher values play higher, brighter notes on a pentatonic scale. Above +1.0 °C a second voice joins in.</li>
+        <li><strong>Say it out loud.</strong> Every spot and every year can be read aloud for people who cannot see the map.</li>
+      </ol>
+      <div class="credits">
+        <h3>Data</h3>
+        <p id="credit"></p>
+        <p class="small">Values are read from the colors of NASA's visualization, so they are approximate and capped at the ends of the color scale. The equirectangular video has no printed legend; its colors match NASA's labelled map over −2 to +2 °C, which we checked against GISTEMP's published global averages.</p>
+        <p class="small">Built during the 2026 NASA Space Apps Challenge by Team Happy Squad (Sibu, Sarawak), with help from an AI coding assistant.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="live" class="sr-only" aria-live="polite"></div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
