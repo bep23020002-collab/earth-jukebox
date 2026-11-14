@@ -996,7 +996,7 @@ function nameOf(el) {
     if (el.tagName === 'SELECT') return `${name}, choice: ${el.selectedOptions[0]?.text || 'none'}`;
     return `${name}, text box${el.value.trim() ? `: ${el.value.trim()}` : ', empty'}`;
   }
-  const c = el.cloneNode(true); c.querySelectorAll('[aria-hidden="true"], img').forEach(x => x.remove()); // key hints hidden from screen readers are skipped; visible key names (Space, I) are read
+  const c = el.cloneNode(true); c.querySelectorAll('[aria-hidden="true"], img').forEach(x => x.remove()); c.querySelectorAll('br').forEach(b => b.replaceWith(' ')); // key hints hidden from screen readers are skipped; visible key names (Space, I) are read
   let n = (el.getAttribute('aria-label') || c.textContent || '').replace(/\s+/g, ' ').trim();
   const pressed = el.getAttribute('aria-pressed'), exp = el.getAttribute('aria-expanded');
   if (pressed != null && el.dataset.act === 'voice') n += pressed === 'true' ? ', on' : ', off';
@@ -1006,18 +1006,43 @@ function nameOf(el) {
   if (el.disabled) n += ', not available yet';
   return n;
 }
+// The first screen talks too. Browsers only allow speech after the first key press or click, so the first one
+// says hello and explains the two buttons; after that, whatever the mouse or the Tab key lands on is read.
+const startOpen = () => !$('#start').hidden;
+let welcomed = false;
+function talk(text, opts) { const v = state.voice; state.voice = true; const p = speak(text, opts); state.voice = v; return p; } // speak even before Voice guide is on
+const talking = () => state.voice || (welcomed && startOpen());
+function welcome(byKey) {
+  welcomed = true;
+  talk('Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
+    + (byKey ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
+      : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.'));
+}
+function setupStartTalk() {
+  $('#startVoiceBtn').focus({ preventScroll: true }); // Enter right away starts the voice guide
+  document.addEventListener('keydown', e => {
+    if (!startOpen()) return;
+    const onKeyButton = e.target.closest?.('#start button, #start a') && (e.key === 'Enter' || e.key === ' ');
+    if (!welcomed && !onKeyButton) { e.preventDefault(); welcome(true); return; }
+    if (e.key === 'Tab') { // keep Tab inside the first screen
+      const f = [...$('#start').querySelectorAll('button, a[href]')], i = f.indexOf(document.activeElement);
+      e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    }
+  }, true);
+  document.addEventListener('pointerdown', e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(false); }, true);
+}
 function setupSayOnHover() {
   document.addEventListener('pointerover', e => {
-    if (!state.voice || e.pointerType !== 'mouse') return;
+    if (!talking() || e.pointerType !== 'mouse') return;
     const el = sayable(e.target); if (!el || el === sayOver || el.closest('#globeWrap')) return;
     sayOver = el; clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => { if (sayOver !== el) return; const t = nameOf(el); if (t) speak(t); }, 180); // also while music plays: words always come first
+    sayTimer = setTimeout(() => { if (sayOver !== el || !talking()) return; const t = nameOf(el); if (t) talk(t); }, 180); // also while music plays: words always come first
   });
   document.addEventListener('pointerout', e => { if (sayOver && !sayOver.contains(e.relatedTarget)) { sayOver = null; clearTimeout(sayTimer); } });
   document.addEventListener('focusin', e => {
-    if (!state.voice) return;
+    if (!talking()) return;
     const el = sayable(e.target); if (!el || el === sayOver) return;
-    const t = nameOf(el); if (t) speak(t);
+    const t = nameOf(el); if (t) talk(t);
   });
 }
 function setLang(l) { // English or 中文, for speaking (Speak buttons) and for Ask the Earth's answers
@@ -1043,7 +1068,7 @@ function help() { // spoken key help; the year keys only matter when the track h
 }
 const runKey = key => onKey({ key, shiftKey: false, target: document.body, preventDefault() {} });
 function onKey(e) {
-  if (!state.track) return;
+  if (!state.track || startOpen()) return; // the first screen handles its own keys
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Enter' && e.target.closest('#byo')) makeItSing(); return; }
   const k = e.key, img = isImage();
   if (img && !src.legend && k !== '?') return;
@@ -1358,7 +1383,7 @@ async function init() {
   $('#storyBtn').addEventListener('click', () => { sound.start(); storyToSong(); });
   $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
   $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
-  setupMic(); setupSayOnHover();
+  setupMic(); setupSayOnHover(); setupStartTalk();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));
