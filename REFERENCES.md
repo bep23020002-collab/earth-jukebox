@@ -8,6 +8,13 @@
 ## Background image
 - "The atmospheric glow blankets Earth beneath a sparkling field of stars", photographed from the International Space Station on 7 Oct 2024 over the Pacific Ocean. NASA image iss072e030147, NASA Image and Video Library, https://images.nasa.gov/details/iss072e030147. We use a cropped strip showing only the airglow and stars (no spacecraft hardware or insignia).
 
+## Facts quoted on the website ("Why we built it")
+- 43.3 million people were blind in 2020: GBD 2019 Blindness and Vision Impairment Collaborators, "Trends in prevalence of blindness and distance and near vision impairment over 30 years", The Lancet Global Health 9(2), e130–e143, 2021. https://pubmed.ncbi.nlm.nih.gov/33275950/
+- At least 2.2 billion people have a near or distance vision impairment: World Health Organization, Blindness and vision impairment fact sheet. https://www.who.int/news-room/fact-sheets/detail/blindness-and-visual-impairment
+
+## Style
+- Visual design follows the "dieter-rams-braun" style recipe of the web-design-engineer skill (ConardLi/garden-skills, MIT license).
+
 ## Software and services
 - Anthropic Claude API (model claude-opus-5-5): understands typed or spoken questions and stories in the app (worker/src/index.js). It returns places and years only; all values come from NASA data.
 - Cloudflare Workers: hosts the AI helper so the API key is never sent to the browser.
