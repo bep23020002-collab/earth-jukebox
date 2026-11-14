@@ -37,6 +37,11 @@
       <div class="stage-head">
         <h2 id="trackTitle">Global temperature, 1880–2025</h2>
         <p id="trackSub" class="sub"></p>
+        <div class="track-picker" id="trackPicker" role="group" aria-label="Choose a NASA visualization to listen to">
+          <button type="button" data-track="temperature" aria-pressed="true">Temperature</button>
+          <button type="button" data-track="ocean" aria-pressed="false" hidden>Ocean</button>
+          <button type="button" data-track="lightning" aria-pressed="false" hidden>Lightning</button>
+        </div>
       </div>
 
       <div class="globe-wrap" id="globeWrap">

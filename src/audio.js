@@ -90,6 +90,38 @@ export class Sound {
     if (t >= 0.75) this.#voice(FREQ[Math.min(FREQ.length - 1, noteIndex(t) + 2)], { at: at + 0.01, dur: 0.25, gain: gain * 0.25, pan: -pan * 0.5, bright: t });
   }
 
+  // Ocean: a plucked, harp-like note with a short shimmer above it (warmer water = higher, brighter).
+  harp(t, { pan = 0, gain = 0.5, when = 0 } = {}) {
+    if (!this.ctx) return;
+    const c = this.ctx, at = Math.max(this.now, when || this.now), f = FREQ[noteIndex(t)], out = this.#panner(pan);
+    [[f, 1, 1.4], [f * 2, 0.35, 0.8], [f * 3, 0.12 + 0.2 * t, 0.5]].forEach(([fr, amp, decay], k) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = k ? 'sine' : 'triangle'; o.frequency.value = fr;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(gain * amp, at + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+      o.connect(g).connect(out); o.start(at); o.stop(at + decay + 0.05);
+    });
+    // a second, softer pluck a fifth up a moment later, like water moving on
+    const o2 = c.createOscillator(), g2 = c.createGain(); o2.type = 'sine'; o2.frequency.value = FREQ[Math.min(FREQ.length - 1, noteIndex(t) + 3)];
+    g2.gain.setValueAtTime(0.0001, at + 0.11); g2.gain.exponentialRampToValueAtTime(gain * 0.3, at + 0.115); g2.gain.exponentialRampToValueAtTime(0.0001, at + 0.9);
+    o2.connect(g2).connect(out); o2.start(at + 0.1); o2.stop(at + 1);
+  }
+
+  // Lightning: drum hits. More lightning = more hits in a quick roll, and a sharper crack on top.
+  drum(t, { pan = 0, gain = 0.6, when = 0 } = {}) {
+    if (!this.ctx) return;
+    const at = Math.max(this.now, when || this.now);
+    const hits = t < 0.02 ? 0 : t < 0.15 ? 1 : t < 0.4 ? 2 : t < 0.7 ? 3 : 4;
+    if (!hits) { this.hat({ when: at, gain: 0.03, pan }); return; }
+    for (let i = 0; i < hits; i++) {
+      const w = at + i * 0.09, c = this.ctx, o = c.createOscillator(), g = c.createGain();
+      o.frequency.setValueAtTime(180 - i * 15, w); o.frequency.exponentialRampToValueAtTime(70, w + 0.15);
+      g.gain.setValueAtTime(gain * (1 - i * 0.12), w); g.gain.exponentialRampToValueAtTime(0.0001, w + 0.22);
+      o.connect(g).connect(this.#panner(pan)); o.start(w); o.stop(w + 0.25);
+    }
+    if (t >= 0.4) this.hat({ when: at, gain: 0.08 + 0.1 * t, pan }); // the "crack"
+  }
+
   // A soft, pitchless tick: "there is no data here".
   noData({ pan = 0, when = 0 } = {}) {
     if (!this.ctx) return;

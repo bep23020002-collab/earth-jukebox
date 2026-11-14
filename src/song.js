@@ -3,7 +3,9 @@
 //   - centre note  = how warm that place was that year (warmer -> higher)
 //   - melody shape = how warmth changes as we walk a small circle around the place
 //   - chord        = sits on the centre note, so warmer moments sound brighter
-//   - drums        = busier when the place is warmer than normal
+//   - drums        = how much lightning NASA's space station saw near the place (EIC: ISS lightning)
+//                    (falls back to "busier when warmer" if lightning data is not loaded)
+//   - harp         = how warm the nearest ocean is (EIC: sea surface currents and temperature)
 // The rules are fixed and explained to the listener, so the music stays honest to the data.
 
 export const BPM = 92;
@@ -27,8 +29,10 @@ export function composeSong(moments, data) {
       const dev = Math.max(-3, Math.min(3, Math.round((v - mean) / 0.15))); // 0.15 °C = one scale step
       return { beat, step: Math.max(0, Math.min(STEPS - 1, centre + dev)), lat, lon, v };
     });
-    const busy = mean == null ? 0 : mean < 0 ? 0 : mean < 1 ? 1 : 2; // drum pattern level
-    return { moment: m, yearIndex: yi, mean, centre, notes, busy, startBeat: k * BEATS_PER_MOMENT };
+    const layers = data.extra ? data.extra(m) : null;
+    const busy = layers?.lightning != null ? (layers.lightning < 0.15 ? 0 : layers.lightning < 0.4 ? 1 : 2)
+      : mean == null ? 0 : mean < 0 ? 0 : mean < 1 ? 1 : 2; // drum pattern level
+    return { moment: m, yearIndex: yi, mean, centre, notes, busy, layers, startBeat: k * BEATS_PER_MOMENT };
   });
   return { sections, totalBeats: sections.length * BEATS_PER_MOMENT + 4 };
 }
@@ -46,6 +50,10 @@ export function scheduleSong(song, sound) {
     for (const n of sec.notes) {
       const when = at + n.beat * spb;
       if (n.step == null) sound.noData({ when }); else sound.note(stepT(n.step), { when, dur: n.beat % 1 ? spb * 0.4 : spb * 0.8, gain: 0.42, layers: false });
+    }
+    if (sec.layers?.ocean != null) { // the sea: a rippling harp figure, higher and brighter over warmer water
+      const base = Math.round(sec.layers.ocean * (STEPS - 1));
+      [0.5, 2.5, 4.5, 6.5].forEach((b, i) => sound.harp(stepT(Math.max(0, Math.min(STEPS - 1, base + [0, 2, 1, 3][i]))), { when: at + b * spb, gain: 0.22, pan: i % 2 ? 0.4 : -0.4 }));
     }
     for (let b = 0; b < BEATS_PER_MOMENT; b++) {
       if (b % 2 === 0) sound.kick({ when: at + b * spb, gain: 0.55 });

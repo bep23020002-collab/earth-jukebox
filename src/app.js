@@ -8,6 +8,7 @@ import { JUMPS, placeName, formatCoord, PLACE_NAMES, findPlace } from './places.
 import { ImageSource, describeSpot } from './image-source.js';
 import { Globe } from './globe.js';
 import { composeSong, scheduleSong, BPM, BEATS_PER_MOMENT } from './song.js';
+import { KINDS } from './tracks.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
@@ -17,36 +18,48 @@ const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
   voice: true, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
-  texYear: null, taps: [], lastTapAt: 0, replaying: false,
+  texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {},
 };
 
 // ---------- track data ----------
 async function loadTrack(id) {
-  const track = await (await fetch(`assets/${id}/track.json`)).json();
-  const cube = new Uint8Array(await (await fetch(`assets/${id}/cube.bin`)).arrayBuffer());
-  Object.assign(state, { track, cube, yi: track.years.length - 1 });
-  const yr = $('#year'); yr.max = track.years.length - 1; yr.value = state.yi;
+  if (state.tracks[id]) return state.tracks[id];
+  const res = await fetch(`assets/${id}/track.json`);
+  if (!res.ok) return null;
+  const track = await res.json();
+  track.cube = new Uint8Array(await (await fetch(`assets/${id}/cube.bin`)).arrayBuffer());
+  track.kind = track.kind || id;
+  state.tracks[id] = track;
+  return track;
 }
-const grid = () => state.track.grid;
-function cellIndex(lat, lon) {
-  const { width: W, height: H, cellDegrees: d } = grid();
+const temp = () => state.tracks.temperature;
+function useTrack(id) {
+  const track = state.tracks[id]; if (!track) return;
+  Object.assign(state, { track, cube: track.cube, yi: track.years.length - 1, texYear: null });
+  const yr = $('#year'); yr.max = track.years.length - 1; yr.value = state.yi;
+  document.querySelectorAll('[data-track]').forEach(b => b.setAttribute('aria-pressed', b.dataset.track === id));
+}
+const kind = () => KINDS[state.track?.kind] || KINDS.temperature;
+const grid = (T = state.track) => T.grid;
+function cellIndex(lat, lon, T = state.track) {
+  const { width: W, height: H, cellDegrees: d } = grid(T);
   const cx = ((Math.floor((lon + 180) / d) % W) + W) % W;
   const cy = Math.max(0, Math.min(H - 1, Math.floor((90 - lat) / d)));
   return cy * W + cx;
 }
-function decode(code) {
+function decode(code, T = state.track) {
   if (!code) return null;
-  const { min, max } = state.track;
+  const { min, max } = T;
   return min + (code - 1) / 254 * (max - min);
 }
-function trackValue(yi, lat, lon) { const { width: W, height: H } = grid(); return decode(state.cube[yi * W * H + cellIndex(lat, lon)]); }
-function boxMean(yi, lat, lon, r = 6) { // area-weighted average around a point
-  const d = grid().cellDegrees;
+function trackValue(yi, lat, lon, T = state.track) { const { width: W, height: H } = grid(T); return decode(T.cube[yi * W * H + cellIndex(lat, lon, T)], T); }
+function boxMean(yi, lat, lon, r = 6, T = state.track) { // area-weighted average around a point
+  const d = grid(T).cellDegrees;
   let s = 0, w = 0;
   for (let la = lat - r + d / 2; la <= lat + r; la += d) {
     if (la < -90 || la > 90) continue;
     const k = Math.cos(la * Math.PI / 180);
-    for (let lo = lon - r + d / 2; lo <= lon + r; lo += d) { const v = trackValue(yi, la, lo); if (v != null) { s += v * k; w += k; } }
+    for (let lo = lon - r + d / 2; lo <= lon + r; lo += d) { const v = trackValue(yi, la, lo, T); if (v != null) { s += v * k; w += k; } }
   }
   return w ? s / w : null;
 }
@@ -113,11 +126,13 @@ function describe() {
     return `The highest values are at the ${describeSpot(st.hiAt.u, st.hiAt.v)} (${fmt(st.hi)}). The lowest are at the ${describeSpot(st.loAt.u, st.loAt.v)} (${fmt(st.lo)}).`;
   }
   const st = yearStats(state.yi);
-  const warm = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
+  const top = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
+  const here = boxMean(state.yi, state.lat, state.lon, 4), near = placeName(state.lat, state.lon);
+  if (state.track.kind === 'ocean') return `The warmest water is in ${top.name}. The coldest is near the poles. Near ${near}: ${feeling(here).toLowerCase()}.`;
+  if (state.track.kind === 'lightning') return `In ${year()}, NASA saw the most lightning in ${top.name}. Near ${near}: ${feeling(here).toLowerCase()}.`;
   const overall = st.mean < -0.3 ? 'most of the world was colder than normal' : st.mean < 0.3 ? 'the world as a whole was about normal'
     : st.mean < 1 ? 'most of the world was warmer than normal' : 'most of the world was much warmer than normal';
-  const here = boxMean(state.yi, state.lat, state.lon, 4);
-  return `In ${year()}, ${overall}. The warmest part was ${warm.name}. Near ${placeName(state.lat, state.lon)}, it was ${feeling(here).toLowerCase()}.`;
+  return `In ${year()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.`;
 }
 
 // ---------- speech ----------
@@ -145,14 +160,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---------- drawing ----------
 function frameImage(yi) {
-  const y = state.track.years[yi];
-  if (!state.images.has(y)) {
+  const y = state.track.years[yi], key = `${state.track.id}/${y}`;
+  if (!state.images.has(key)) {
     const img = new Image(); img.decoding = 'async';
     img.src = `assets/${state.track.id}/frames/${y}.jpg`;
-    img.onload = () => { if (!isImage() && year() === y) draw(); };
-    state.images.set(y, img);
+    img.onload = () => { if (!isImage() && `${state.track.id}/${year()}` === key) draw(); };
+    state.images.set(key, img);
   }
-  return state.images.get(y);
+  return state.images.get(key);
 }
 function preloadAll() { state.track.years.forEach((_, i) => setTimeout(() => frameImage(i), i * 40)); }
 
@@ -180,9 +195,10 @@ function draw() {
   }
   // track mode: wrap this year's NASA frame onto the globe (or the nearest year already loaded)
   const img = frameImage(state.yi);
-  if (img.complete && img.naturalWidth) { if (state.texYear !== year()) { globe.setTexture(img); state.texYear = year(); } }
-  else if (state.texYear == null) {
-    for (let d = 1; d < 15; d++) { const alt = state.images.get(state.track.years[state.yi - d]); if (alt?.complete && alt.naturalWidth) { globe.setTexture(alt); break; } }
+  const texKey = `${state.track.id}/${year()}`;
+  if (img.complete && img.naturalWidth) { if (state.texYear !== texKey) { globe.setTexture(img); state.texYear = texKey; } }
+  else if (state.texYear == null || !state.texYear.startsWith(state.track.id)) {
+    for (let d = 1; d < 15; d++) { const alt = state.images.get(`${state.track.id}/${state.track.years[state.yi - d]}`); if (alt?.complete && alt.naturalWidth) { globe.setTexture(alt); break; } }
   }
   globe.setMarker(state.lat, state.lon);
   $('#yearBig').textContent = year(); $('#yearOut').textContent = year();
@@ -198,9 +214,10 @@ function drawLegend() {
   stops.forEach((s, i) => grad.addColorStop(i / (stops.length - 1), `rgb(${s.rgb.join(',')})`));
   g.fillStyle = grad; g.fillRect(0, 0, c.width, c.height);
   const { min, max } = scale();
-  $('#lgMin').textContent = isImage() ? `Low: ${fmt(min)}` : 'Colder than normal';
-  $('#lgMid').textContent = isImage() ? '' : 'Normal';
-  $('#lgMax').textContent = isImage() ? `High: ${fmt(max)}` : 'Hotter than normal';
+  const L = kind().legend;
+  $('#lgMin').textContent = isImage() ? `Low: ${fmt(min)}` : L[0];
+  $('#lgMid').textContent = isImage() ? '' : L[1];
+  $('#lgMax').textContent = isImage() ? `High: ${fmt(max)}` : L[2];
 }
 
 // ---------- readout ----------
@@ -208,7 +225,7 @@ function updateReadout({ play = true, speakIt = false } = {}) {
   if (isImage() && !src.legend) return null;
   const v = currentValue(), place = currentPlace();
   showValue(v, place);
-  if (play) { if (v == null) sound.noData({ pan: currentPan() }); else sound.note(tOf(v), { pan: currentPan() }); }
+  if (play) { if (v == null) sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true }); }
   const when = isImage() ? '' : ` in ${year()}`;
   if (speakIt) speak(`${place}${when}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else announce(`${place}. ${feeling(v)}.`);
   return v;
@@ -216,17 +233,23 @@ function updateReadout({ play = true, speakIt = false } = {}) {
 function showValue(v, place) {
   if (place) $('#rPlace').textContent = place;
   $('#rValue').textContent = feeling(v);
-  $('#rDetail').textContent = v == null ? 'NASA has no measurement here' : isImage() ? fmt(v) : `${fmt(v)} compared with normal`;
+  $('#rDetail').textContent = v == null ? (isImage() ? 'Not a color on the color bar' : kind().noData) : isImage() ? fmt(v) : kind().detail(v, fmt(v));
 }
 // Plain words first; the number is shown smaller underneath.
-function feeling(v) {
+function feeling(v, k = isImage() ? null : kind()) {
   if (v == null) return 'No data';
-  if (isImage()) {
+  if (!k) {
     const t = tOf(v);
     return t < 0.15 ? 'Very low' : t < 0.4 ? 'Low' : t < 0.6 ? 'In the middle' : t < 0.85 ? 'High' : 'Very high';
   }
-  return v <= -1 ? 'Much colder than normal' : v <= -0.3 ? 'Colder than normal' : v < 0.3 ? 'About normal'
-    : v < 1 ? 'Warmer than normal' : v < 1.6 ? 'Much warmer than normal' : 'Extremely warm';
+  return k.words(v);
+}
+// Each track has its own instrument (see tracks.js).
+function playValue(t, { pan = 0, soft = false } = {}) {
+  const inst = isImage() ? 'mallet' : kind().instrument;
+  if (inst === 'harp') sound.harp(t, { pan });
+  else if (inst === 'drum') sound.drum(t, { pan });
+  else if (soft) sound.note(t, { pan }); else sound.tap(t, { pan });
 }
 function moveTo(lat, lon, opts = {}) {
   $('#nowBox').hidden = false;
@@ -240,7 +263,7 @@ function tapAt(lat, lon, { record = true, fromDraw = false } = {}) {
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
-  if (v == null) sound.noData({ pan }); else sound.tap(tOf(v), { pan });
+  if (v == null) sound.noData({ pan }); else playValue(tOf(v), { pan });
   globe.ripple(lat, lon);
   draw(); updateReadout({ play: false });
   if (record) {
@@ -285,7 +308,7 @@ function resetGuide() {
   setGuide({ label: 'Step 1 of 3', title: 'Tap the Earth, or draw a line on it', text: 'Every place plays a note. Warmer places play higher notes. A line you draw becomes a tune.' });
 }
 function guideAfterTap(v) {
-  if (state.mode !== 'track' || guide.step !== 1) return;
+  if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
     setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}. You can also draw a line across the Earth.` });
@@ -307,7 +330,7 @@ function guideStep3() {
   });
 }
 function guideDone() {
-  guide.step = 4; guide.done = true; $('.timeline').hidden = false;
+  guide.step = 4; guide.done = true; $('.timeline').hidden = state.track.years.length < 2;
   const avg = y => { const yi = yearIndexOf(y); const vs = state.taps.map(t => boxMean(yi, t.lat, t.lon, 4)).filter(v => v != null); return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null; };
   const a = avg(1880), b = avg(2025), d = a != null && b != null ? b - a : null;
   const text = d == null ? 'NASA has no 1880 data for some of your places, so try places with more history, like Europe or the USA.'
@@ -325,7 +348,7 @@ async function playTuneIn(y) {
   $('#guideTitle').textContent = `Playing your tune in ${y}…`;
   await replayTaps();
 }
-function yearIndexOf(y) { return Math.max(0, state.track.years.indexOf(y)); }
+function yearIndexOf(y, T = state.track) { return Math.max(0, T.years.indexOf(y)); }
 function moveUV(u, v, opts) {
   state.u = Math.max(0, Math.min(1, u)); state.v = Math.max(0, Math.min(1, v));
   draw(); return updateReadout(opts);
@@ -358,7 +381,9 @@ async function playHistory() {
   const avg = (a, b) => { let s = 0, n = 0; for (let i = a; i <= b; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
   const L = years.length, first = avg(0, 9), last = avg(L - 10, L - 1);
   const msg = first != null && last != null
-    ? `Near ${place}: the 1880s were ${feeling(first).toLowerCase()}. Today it is ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
+    ? (state.track.kind === 'temperature'
+      ? `Near ${place}: the 1880s were ${feeling(first).toLowerCase()}. Today it is ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
+      : `Near ${place}: ${feeling(first).toLowerCase()} at the start, ${feeling(last).toLowerCase()} at the end.`)
     : `NASA has no measurements near ${place} in the early years, so we can't compare then and now. Try another place.`;
   $('#desc').textContent = msg; speak(msg);
 }
@@ -425,7 +450,8 @@ function setMode(mode) {
   const img = isImage(), song = mode === 'song';
   $('#byo').hidden = !img; $('#songBox').hidden = !song;
   $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img;
-  $('.timeline').hidden = img || song || !guide.done;
+  $('.timeline').hidden = img || song || !guide.done || state.track.years.length < 2;
+  $('#trackPicker').hidden = img || song;
   $('#guide').hidden = img || song; $('#moreBox').hidden = img || song;
   if (!img && !song) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
   $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : song ? 'My Earth song' : state.track.title;
@@ -583,6 +609,17 @@ function onGlobeUp(e) {
   tapAt(p.lat, p.lon, { record: state.mode !== 'song' });
 }
 
+// ---------- choosing a NASA visualization (track) ----------
+function switchTrack(id) {
+  if (!state.tracks[id] || state.track.id === id) return;
+  state.playing = false; stopSong();
+  useTrack(id); preloadAll();
+  setMode('track');
+  if (id === 'temperature') { if (!guide.done) resetGuide(); else setGuide({ label: 'Temperature, 1880–2025', title: 'Tap or draw on the Earth', text: KINDS.temperature.hint }); }
+  else setGuide({ label: state.track.title, title: id === 'ocean' ? 'Tap or draw across the ocean' : 'Tap or draw anywhere', text: kind().hint });
+  $('#desc').textContent = describe();
+}
+
 // ---------- my Earth song ----------
 const DEFAULT_MOMENTS = [
   { year: 1900, name: 'Sibu, Sarawak', label: 'Long before I was born' },
@@ -598,8 +635,8 @@ function resolveMoment(m) {
 function momentFeeling(m) {
   const r = resolveMoment(m);
   if (r.lat == null || !(m.year >= 1880 && m.year <= 2025)) return '';
-  const v = boxMean(yearIndexOf(m.year), r.lat, r.lon, 6);
-  return v == null ? 'NASA has no data here for that year.' : `${feeling(v)} (${fmt(v)})`;
+  const T = temp(), v = boxMean(yearIndexOf(m.year, T), r.lat, r.lon, 6, T);
+  return v == null ? 'NASA has no data here for that year.' : `${KINDS.temperature.words(v)} (${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} °C)`;
 }
 function renderMoments() {
   const ol = $('#moments');
@@ -651,10 +688,12 @@ async function playSong() {
   const bad = moments.findIndex(m => m.lat == null || !(m.year >= 1880 && m.year <= 2025));
   if (!moments.length) { $('#songStatus').textContent = 'Add at least one moment.'; return; }
   if (bad >= 0) { $('#songStatus').textContent = `Moment ${bad + 1}: choose a year from 1880 to 2025 and a place from the list, or pick it on the globe.`; return; }
+  const T = temp();
   const song = composeSong(moments, {
-    yearIndexOf, tOf,
-    localMean: (yi, lat, lon) => boxMean(yi, lat, lon, 6),
-    valueAt: (yi, lat, lon) => trackValue(yi, lat, lon) ?? boxMean(yi, lat, lon, 4),
+    yearIndexOf: y => yearIndexOf(y, T), tOf: v => (v - T.min) / (T.max - T.min),
+    localMean: (yi, lat, lon) => boxMean(yi, lat, lon, 6, T),
+    valueAt: (yi, lat, lon) => trackValue(yi, lat, lon, T) ?? boxMean(yi, lat, lon, 4, T),
+    extra: songLayers,
   });
   state.songPlaying = true; $('#playSong').textContent = 'Stop';
   sound.beginSong();
@@ -665,9 +704,11 @@ async function playSong() {
     at(sec.startBeat, () => {
       document.querySelectorAll('.moment').forEach((li, j) => li.classList.toggle('playing', j === k));
       state.yi = sec.yearIndex; state.lat = m.lat; state.lon = m.lon;
-      globe.centerOn(m.lat, m.lon, 500); draw(); $('#nowBox').hidden = false; showValue(sec.mean, m.name);
+      globe.centerOn(m.lat, m.lon, 500); draw(); $('#nowBox').hidden = false;
+      $('#rPlace').textContent = m.name; $('#rValue').textContent = sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean);
+      $('#rDetail').textContent = sec.layers ? sec.layers.text : '';
       $('#desc').textContent = `${m.year}, ${m.name}${m.label ? `: ${m.label}` : ''}.`;
-      announce(`${m.year}, ${m.name}. ${feeling(sec.mean)}.`);
+      announce(`${m.year}, ${m.name}. ${sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean)}.`);
     });
     sec.notes.forEach(n => at(sec.startBeat + n.beat, () => globe.ripple(n.lat, n.lon)));
   });
@@ -675,11 +716,19 @@ async function playSong() {
     stopSong();
     const first = song.sections[0], last = song.sections[song.sections.length - 1];
     const msg = song.sections.length > 1 && first.mean != null && last.mean != null
-      ? `Your Earth song starts in ${first.moment.year} (${feeling(first.mean).toLowerCase()}) and ends in ${last.moment.year} (${feeling(last.mean).toLowerCase()}).`
+      ? `Your Earth song starts in ${first.moment.year} (${KINDS.temperature.words(first.mean).toLowerCase()}) and ends in ${last.moment.year} (${KINDS.temperature.words(last.mean).toLowerCase()}).`
       : 'That was your Earth song.';
     $('#desc').textContent = msg; $('#songStatus').textContent = 'Change a year or a place and play it again.';
     speak(msg);
   });
+}
+// Extra instruments for a moment, from the other EIC tracks (when they are loaded).
+function songLayers(m) {
+  const O = state.tracks.ocean, L = state.tracks.lightning, out = { ocean: null, lightning: null, text: '' };
+  if (O) { let v = null; for (const r of [4, 8, 14]) { v = boxMean(0, m.lat, m.lon, r, O); if (v != null) break; } if (v != null) out.ocean = (v - O.min) / (O.max - O.min), out.oceanWords = KINDS.ocean.words(v); }
+  if (L) { let s = 0, n = 0; L.years.forEach((_, yi) => { const v = boxMean(yi, m.lat, m.lon, 4, L); if (v != null) { s += v; n++; } }); if (n) out.lightning = s / n / L.max, out.lightningWords = KINDS.lightning.words(s / n); }
+  out.text = [out.oceanWords && `Nearest sea: ${out.oceanWords.toLowerCase()}`, out.lightningWords && `${out.lightningWords}`].filter(Boolean).join('. ');
+  return out;
 }
 function songLink() {
   const data = state.moments.map(m => [m.year, m.name, m.label || '', m.lat == null ? null : +m.lat.toFixed(2), m.lon == null ? null : +m.lon.toFixed(2)]);
@@ -716,6 +765,8 @@ function buildJumps() {
 
 async function init() {
   await loadTrack('temperature');
+  useTrack('temperature');
+  for (const id of ['ocean', 'lightning']) loadTrack(id).then(t => { if (t) $(`[data-track="${id}"]`).hidden = false; });
   buildJumps();
   const shared = readSongLink();
   state.moments = shared || DEFAULT_MOMENTS.map(m => ({ ...m }));
@@ -747,7 +798,8 @@ async function init() {
   // play the Earth
   $('#replayBtn').addEventListener('click', () => { sound.start(); replayTaps(); });
   $('#clearBtn').addEventListener('click', () => resetGuide());
-  $('#moreBox').addEventListener('toggle', () => { if ($('#moreBox').open) { guide.done = true; $('.timeline').hidden = false; } });
+  $('#moreBox').addEventListener('toggle', () => { if ($('#moreBox').open) { guide.done = true; $('.timeline').hidden = state.track.years.length < 2; } });
+  document.querySelectorAll('[data-track]').forEach(b => b.addEventListener('click', () => { sound.start(); switchTrack(b.dataset.track); }));
   // your own map: pick, drop, paste
   $('#pickBtn').addEventListener('click', () => $('#pickFile').click());
   $('#pickFile').addEventListener('change', e => usePicture(e.target.files[0]));
