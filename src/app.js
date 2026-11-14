@@ -979,18 +979,24 @@ function attachMic(button, field, { story = false, onDone } = {}) {
   });
 }
 // Voice guide on: whatever the mouse rests on, or the keyboard lands on, says what it is (the globe answers with notes instead).
-const SAYABLE = 'button, a[href], summary, input, select, textarea, #nowBox, #scoreBox, .legend, #yearOut, #yearBig, h1, h2, h3, h4, p, li, label, figcaption, cite, .big, .ask-answer';
+const SAYABLE = 'button, a[href], summary, input, select, textarea, #nowBox, #scoreBox, .legend, #yearOut, #yearBig, h1, h2, h3, h4, p, li, label, figcaption, .ask-answer, .lang-row .small, img[alt]:not([alt=""])';
 const CARDS = '#nowBox, #scoreBox, .legend, .ask-answer'; // read as a whole, not line by line
 const sayable = t => t.closest?.(CARDS) || t.closest?.(SAYABLE);
 let sayOver = null, sayTimer = 0;
 function nameOf(el) {
   if (el.id === 'nowBox') return [$('#rPlace').textContent, $('#rValue').textContent, $('#rDetail').textContent].filter(Boolean).join('. ');
   if (el.id === 'scoreBox') return score.describe();
+  if (el.tagName === 'IMG') return el.alt;
   if (el.id === 'yearOut' || el.id === 'yearBig') return `Year: ${$('#yearOut').textContent}`;
   if (el.classList.contains('legend')) return `Color key: ${$('#lgMin').textContent} on the left, ${$('#lgMid').textContent || 'normal'} in the middle, ${$('#lgMax').textContent} on the right.`;
   if (el.type === 'range') return `Year bar, ${el.getAttribute('aria-valuetext') || el.value}`;
-  if (el.matches('input, textarea, select')) return `${(el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.placeholder || 'Text box').replace(/\s+/g, ' ').trim()}, ${el.tagName === 'SELECT' ? 'choice' : 'text box'}`;
-  const c = el.cloneNode(true); c.querySelectorAll('[aria-hidden="true"], kbd, img').forEach(x => x.remove());
+  if (el.matches('input, textarea, select')) {
+    let lab = ''; if (el.labels?.[0]) { const c = el.labels[0].cloneNode(true); c.querySelectorAll('input, select, textarea').forEach(x => x.remove()); lab = c.textContent; } // the label without the menu's own options
+    const name = (el.getAttribute('aria-label') || lab || el.placeholder || 'Text box').replace(/\s+/g, ' ').trim();
+    if (el.tagName === 'SELECT') return `${name}, choice: ${el.selectedOptions[0]?.text || 'none'}`;
+    return `${name}, text box${el.value.trim() ? `: ${el.value.trim()}` : ', empty'}`;
+  }
+  const c = el.cloneNode(true); c.querySelectorAll('[aria-hidden="true"], img').forEach(x => x.remove()); // key hints hidden from screen readers are skipped; visible key names (Space, I) are read
   let n = (el.getAttribute('aria-label') || c.textContent || '').replace(/\s+/g, ' ').trim();
   const pressed = el.getAttribute('aria-pressed'), exp = el.getAttribute('aria-expanded');
   if (pressed != null && el.dataset.act === 'voice') n += pressed === 'true' ? ', on' : ', off';
@@ -1005,7 +1011,7 @@ function setupSayOnHover() {
     if (!state.voice || e.pointerType !== 'mouse') return;
     const el = sayable(e.target); if (!el || el === sayOver || el.closest('#globeWrap')) return;
     sayOver = el; clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => { if (sayOver !== el || state.playing) return; const t = nameOf(el); if (t) speak(t); }, 180);
+    sayTimer = setTimeout(() => { if (sayOver !== el) return; const t = nameOf(el); if (t) speak(t); }, 180); // also while music plays: words always come first
   });
   document.addEventListener('pointerout', e => { if (sayOver && !sayOver.contains(e.relatedTarget)) { sayOver = null; clearTimeout(sayTimer); } });
   document.addEventListener('focusin', e => {
