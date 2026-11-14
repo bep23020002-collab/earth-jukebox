@@ -766,7 +766,9 @@ function buildJumps() {
 async function init() {
   await loadTrack('temperature');
   useTrack('temperature');
-  for (const id of ['ocean', 'lightning']) loadTrack(id).then(t => { if (t) $(`[data-track="${id}"]`).hidden = false; });
+  // Other EIC tracks listed in assets/tracks.json are loaded in the background.
+  fetch('assets/tracks.json').then(r => (r.ok ? r.json() : [])).catch(() => []).then(ids => ids.filter(id => id !== 'temperature')
+    .forEach(id => loadTrack(id).then(t => { if (t) $(`[data-track="${id}"]`).hidden = false; })));
   buildJumps();
   const shared = readSongLink();
   state.moments = shared || DEFAULT_MOMENTS.map(m => ({ ...m }));
