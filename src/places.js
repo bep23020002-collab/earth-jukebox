@@ -50,6 +50,32 @@ export function placeName(lat, lon) {
   return d < 400 ? best.name : `near ${best.name}`;
 }
 
+// Extra towns and cities people may want in their Earth song.
+const MORE = [
+  ['Bintulu', 3.17, 113.03], ['Mukah', 2.9, 112.1], ['Kapit', 2.02, 112.93], ['Sarikei', 2.13, 111.52], ['Limbang', 4.75, 115.0],
+  ['Sandakan', 5.84, 118.12], ['Tawau', 4.24, 117.89], ['George Town, Penang', 5.41, 100.33], ['Johor Bahru', 1.49, 103.74],
+  ['Ipoh', 4.6, 101.08], ['Melaka', 2.19, 102.25], ['Kota Bharu', 6.13, 102.24], ['Kuantan', 3.81, 103.33], ['Brunei', 4.9, 114.94],
+  ['Pontianak', -0.03, 109.33], ['Hanoi', 21.03, 105.85], ['Ho Chi Minh City', 10.82, 106.63], ['Yangon', 16.87, 96.2],
+  ['Fuzhou', 26.07, 119.3], ['Guangzhou', 23.13, 113.26], ['Hong Kong', 22.32, 114.17], ['Taipei', 25.03, 121.57],
+  ['Shanghai', 31.23, 121.47], ['Seoul', 37.57, 126.98], ['Dhaka', 23.81, 90.41], ['Mumbai', 19.08, 72.88], ['Chennai', 13.08, 80.27],
+  ['Karachi', 24.86, 67.0], ['Dubai', 25.2, 55.27], ['Mecca', 21.39, 39.86], ['Istanbul', 41.01, 28.98], ['Cairo', 30.04, 31.24],
+  ['Lagos', 6.52, 3.38], ['Nairobi', -1.29, 36.82], ['Johannesburg', -26.2, 28.05], ['London', 51.51, -0.13], ['Paris', 48.86, 2.35],
+  ['Berlin', 52.52, 13.4], ['Moscow', 55.76, 37.62], ['Reykjavik', 64.15, -21.94], ['New York', 40.71, -74.0], ['Los Angeles', 34.05, -118.24],
+  ['Mexico City', 19.43, -99.13], ['Sao Paulo', -23.55, -46.63], ['Buenos Aires', -34.6, -58.38], ['Lima', -12.05, -77.04],
+  ['Sydney', -33.87, 151.21], ['Perth', -31.95, 115.86], ['Auckland', -36.85, 174.76], ['Anchorage', 61.22, -149.9],
+  ['the North Pole', 89, 0], ['the South Pole', -89, 0],
+].map(([name, lat, lon]) => ({ name, lat, lon }));
+PLACES.push(...MORE);
+
+// Names for a search box, without "the" so they sort naturally.
+export const PLACE_NAMES = [...new Set(PLACES.map(p => p.name.replace(/^the /, '')))].sort((a, b) => a.localeCompare(b));
+export function findPlace(text) {
+  const q = text.trim().toLowerCase().replace(/^the /, '');
+  if (!q) return null;
+  return PLACES.find(p => p.name.toLowerCase().replace(/^the /, '') === q)
+    || PLACES.find(p => p.name.toLowerCase().replace(/^the /, '').startsWith(q)) || null;
+}
+
 export function formatCoord(lat, lon) {
   const la = `${Math.abs(Math.round(lat))}°${lat >= 0 ? 'N' : 'S'}`;
   const lo = `${Math.abs(Math.round(lon))}°${lon >= 0 ? 'E' : 'W'}`;

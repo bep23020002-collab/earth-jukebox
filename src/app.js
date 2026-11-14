@@ -4,9 +4,10 @@
 //   track - a prepared NASA time series (Global temperature 1880–2025)
 //   image - any NASA picture with a color bar, calibrated on the spot
 import { Sound } from './audio.js';
-import { JUMPS, placeName, formatCoord } from './places.js';
+import { JUMPS, placeName, formatCoord, PLACE_NAMES, findPlace } from './places.js';
 import { ImageSource, describeSpot } from './image-source.js';
 import { Globe } from './globe.js';
+import { composeSong, scheduleSong, BPM, BEATS_PER_MOMENT } from './song.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
@@ -228,6 +229,7 @@ function feeling(v) {
     : v < 1 ? 'Warmer than normal' : v < 1.6 ? 'Much warmer than normal' : 'Extremely warm';
 }
 function moveTo(lat, lon, opts = {}) {
+  $('#nowBox').hidden = false;
   state.lat = Math.max(-89, Math.min(89, lat)); state.lon = ((lon + 540) % 360) - 180;
   if (opts.center && !isImage()) globe.centerOn(state.lat, state.lon);
   draw(); return updateReadout(opts);
@@ -235,6 +237,7 @@ function moveTo(lat, lon, opts = {}) {
 
 // ---------- play the Earth like an instrument ----------
 function tapAt(lat, lon, { record = true } = {}) {
+  $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
   if (v == null) sound.noData({ pan }); else sound.tap(tOf(v), { pan });
@@ -247,25 +250,80 @@ function tapAt(lat, lon, { record = true } = {}) {
     state.taps.push({ gap, lat, lon });
     if (state.taps.length > 32) state.taps.shift();
     updateTapUI();
+    guideAfterTap(v);
   }
 }
 function updateTapUI() {
   const n = state.taps.length;
   $('#replayBtn').disabled = n === 0; $('#clearBtn').disabled = n === 0;
-  document.querySelectorAll('[data-year-jump]').forEach(b => { b.disabled = n === 0; });
-  $('#tapCount').textContent = n === 0 ? 'Tap 3 to 5 places on the globe. Then hear your tune in 1880 and in 2025.'
-    : n < 3 ? `${n} note${n > 1 ? 's' : ''} so far. Tap a few more places.`
-    : `Your tune has ${n} notes. Now hear it in 1880, then in 2025. Can you hear the difference?`;
 }
 async function replayTaps() {
   if (state.replaying || !state.taps.length) return;
   state.replaying = true; $('#replayBtn').disabled = true;
-  announce(`Replaying your melody in ${year()}.`);
+  announce(`Playing your tune in ${year()}.`);
   for (const t of state.taps) {
-    await sleep(Math.max(120, t.gap));
+    await sleep(Math.max(250, Math.min(700, t.gap)));
     tapAt(t.lat, t.lon, { record: false });
   }
+  await sleep(500);
   state.replaying = false; updateTapUI();
+}
+
+// ---------- step-by-step guide (first visit) ----------
+const guide = { step: 1, done: false };
+function setGuide({ label, title, text, btn, alt }) {
+  $('#guideStep').textContent = label || '';
+  $('#guideTitle').textContent = title; $('#guideText').textContent = text || '';
+  for (const [id, b] of [['#guideBtn', btn], ['#guideAlt', alt]]) {
+    const el = $(id); el.hidden = !b; el.disabled = false;
+    if (b) { el.textContent = b[0]; el.onclick = async () => { sound.start(); el.disabled = true; await b[1](); }; }
+  }
+  speak(`${title}. ${text || ''}`);
+}
+function resetGuide() {
+  state.taps = []; updateTapUI(); guide.step = 1;
+  setGuide({ label: 'Step 1 of 3', title: 'Tap anywhere on the Earth', text: 'Every place plays a note. Warmer places play higher notes.' });
+}
+function guideAfterTap(v) {
+  if (state.mode !== 'track' || guide.step !== 1) return;
+  const n = state.taps.length, place = placeName(state.lat, state.lon);
+  if (n < 3) {
+    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.` });
+    return;
+  }
+  guide.step = 2;
+  setGuide({
+    label: 'Step 2 of 3', title: 'Now go back in time',
+    text: 'Your 3 taps are a little tune. Let\'s hear the same tune in 1880, before the Earth warmed up.',
+    btn: ['Play my tune in 1880', async () => { await playTuneIn(1880); guideStep3(); }],
+  });
+}
+function guideStep3() {
+  guide.step = 3;
+  setGuide({
+    label: 'Step 3 of 3', title: 'Now hear it today',
+    text: 'Same places, same tune. This time in 2025. Listen: is it higher?',
+    btn: ['Play my tune in 2025', async () => { await playTuneIn(2025); guideDone(); }],
+  });
+}
+function guideDone() {
+  guide.step = 4; guide.done = true; $('.timeline').hidden = false;
+  const avg = y => { const yi = yearIndexOf(y); const vs = state.taps.map(t => boxMean(yi, t.lat, t.lon, 4)).filter(v => v != null); return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null; };
+  const a = avg(1880), b = avg(2025), d = a != null && b != null ? b - a : null;
+  const text = d == null ? 'NASA has no 1880 data for some of your places, so try places with more history, like Europe or the USA.'
+    : d > 0.2 ? `Your tune went higher. The places you chose are about ${d.toFixed(1)} °C warmer than in 1880. That is what climate change sounds like.`
+      : d < -0.2 ? `Your tune went lower. The places you chose were cooler in 2025 than in 1880, which is rare. Most of the world got warmer.`
+        : 'Your tune stayed about the same. These places changed less than most of the world. Try tapping the Arctic.';
+  setGuide({
+    label: 'You did it', title: d != null && d > 0.2 ? 'Did you hear it go higher?' : 'What did you hear?', text,
+    btn: ['Make my own Earth song', async () => setMode('song')],
+    alt: ['Try other places', async () => resetGuide()],
+  });
+}
+async function playTuneIn(y) {
+  state.yi = yearIndexOf(y); draw(); updateReadout({ play: false });
+  $('#guideTitle').textContent = `Playing your tune in ${y}…`;
+  await replayTaps();
 }
 function yearIndexOf(y) { return Math.max(0, state.track.years.indexOf(y)); }
 function moveUV(u, v, opts) {
@@ -361,20 +419,24 @@ function act(name) {
 // ---------- your own map ----------
 function setMode(mode) {
   if (state.playing) state.playing = false;
+  stopSong();
   state.mode = mode;
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
-  const img = isImage();
-  $('#byo').hidden = !img;
+  const img = isImage(), song = mode === 'song';
+  $('#byo').hidden = !img; $('#songBox').hidden = !song;
   $('#globeWrap').hidden = img; $('#mapWrap').hidden = !img;
-  $('.timeline').hidden = img; $('.jumps').hidden = img; $('#playBox').hidden = img;
-  $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : state.track.title;
-  $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : state.track.subtitle;
+  $('.timeline').hidden = img || song || !guide.done;
+  $('#guide').hidden = img || song; $('#moreBox').hidden = img || song;
+  if (!img && !song) $('#nowBox').hidden = state.taps.length === 0 && !guide.done;
+  $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : song ? 'My Earth song' : state.track.title;
+  $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : song ? 'Years and places that matter to you, played as music' : state.track.subtitle;
+  if (song) renderMoments();
   $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
   $('#map').setAttribute('aria-label', 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.');
   if (!img) globe.request();
   draw(); drawLegend();
   if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
-  else { updateReadout({ play: false }); $('#desc').textContent = describe(); }
+  else { updateReadout({ play: false }); $('#desc').textContent = song || guide.done ? describe() : ''; }
 }
 function clearReadout() { ['#rPlace', '#rValue', '#rDetail'].forEach(s => { $(s).textContent = '—'; }); $('#desc').textContent = ''; }
 function updateSteps() {
@@ -481,16 +543,134 @@ function onGlobeUp(e) {
   drag.on = false;
   if (drag.moved > 6) return; // that was a spin, not a tap
   const p = globe.pick(e.clientX, e.clientY);
-  if (p) { $('#globeHint').hidden = true; tapAt(p.lat, p.lon); }
+  if (!p) return;
+  $('#globeHint').hidden = true;
+  if (state.mode === 'song' && state.picking != null) { setMomentPlace(state.picking, p.lat, p.lon); return; }
+  tapAt(p.lat, p.lon, { record: state.mode !== 'song' });
+}
+
+// ---------- my Earth song ----------
+const DEFAULT_MOMENTS = [
+  { year: 1900, name: 'Sibu, Sarawak', label: 'Long before I was born' },
+  { year: 1965, name: 'Sibu, Sarawak', label: 'When my grandparents were young' },
+  { year: 2000, name: 'Kuching', label: 'The year 2000' },
+  { year: 2025, name: 'Sibu, Sarawak', label: 'Today' },
+];
+function resolveMoment(m) {
+  if (m.lat != null && m.lon != null) return m;
+  const p = findPlace(m.name || '');
+  return p ? { ...m, lat: p.lat, lon: p.lon, name: m.name } : m;
+}
+function momentFeeling(m) {
+  const r = resolveMoment(m);
+  if (r.lat == null || !(m.year >= 1880 && m.year <= 2025)) return '';
+  const v = boxMean(yearIndexOf(m.year), r.lat, r.lon, 6);
+  return v == null ? 'NASA has no data here for that year.' : `${feeling(v)} (${fmt(v)})`;
+}
+function renderMoments() {
+  const ol = $('#moments');
+  ol.innerHTML = state.moments.map((m, i) => `
+    <li class="moment${state.picking === i ? ' picking' : ''}" data-i="${i}">
+      <label class="m-f"><span>Year</span><input class="m-year" type="number" min="1880" max="2025" value="${m.year ?? ''}" inputmode="numeric"></label>
+      <label class="m-f"><span>Place</span><input class="m-place" list="placeList" value="${(m.name || '').replace(/"/g, '&quot;')}" placeholder="Town or city"></label>
+      <button type="button" class="m-remove" aria-label="Remove moment ${i + 1}">✕</button>
+      <label class="m-f m-labelf"><span>Why it matters</span><input class="m-label" value="${(m.label || '').replace(/"/g, '&quot;')}" placeholder="optional"></label>
+      <button type="button" class="m-pick" aria-pressed="${state.picking === i}">${state.picking === i ? 'Tap the globe…' : 'Pick on globe'}</button>
+      <p class="m-feel">${momentFeeling(m)}</p>
+    </li>`).join('');
+  $('#addMoment').disabled = state.moments.length >= 6;
+}
+function setMomentPlace(i, lat, lon) {
+  const name = placeName(lat, lon);
+  Object.assign(state.moments[i], { lat, lon, name });
+  state.picking = null; renderMoments();
+  moveTo(lat, lon, { center: true });
+  $('#songStatus').textContent = `Moment ${i + 1}: ${name}.`;
+}
+function onMomentsInput(e) {
+  const li = e.target.closest('.moment'); if (!li) return;
+  const m = state.moments[+li.dataset.i];
+  if (e.target.matches('.m-year')) m.year = parseInt(e.target.value, 10);
+  if (e.target.matches('.m-place')) { m.name = e.target.value; m.lat = m.lon = null; }
+  if (e.target.matches('.m-label')) m.label = e.target.value;
+  if (e.type === 'change') { li.querySelector('.m-feel').textContent = momentFeeling(m); }
+}
+function onMomentsClick(e) {
+  const li = e.target.closest('.moment'); if (!li) return;
+  const i = +li.dataset.i;
+  if (e.target.matches('.m-remove')) { state.moments.splice(i, 1); state.picking = null; renderMoments(); }
+  if (e.target.matches('.m-pick')) { state.picking = state.picking === i ? null : i; renderMoments(); if (state.picking != null) speak('Tap the place on the globe.'); }
+}
+
+let songTimers = [];
+function stopSong() {
+  songTimers.forEach(clearTimeout); songTimers = [];
+  sound.stopSong?.();
+  document.querySelectorAll('.moment.playing').forEach(li => li.classList.remove('playing'));
+  if ($('#playSong')) $('#playSong').textContent = 'Play my Earth song';
+  state.songPlaying = false;
+}
+async function playSong() {
+  if (state.songPlaying) { stopSong(); return; }
+  await sound.start();
+  const moments = state.moments.map(resolveMoment);
+  const bad = moments.findIndex(m => m.lat == null || !(m.year >= 1880 && m.year <= 2025));
+  if (!moments.length) { $('#songStatus').textContent = 'Add at least one moment.'; return; }
+  if (bad >= 0) { $('#songStatus').textContent = `Moment ${bad + 1}: choose a year from 1880 to 2025 and a place from the list, or pick it on the globe.`; return; }
+  const song = composeSong(moments, {
+    yearIndexOf, tOf,
+    localMean: (yi, lat, lon) => boxMean(yi, lat, lon, 6),
+    valueAt: (yi, lat, lon) => trackValue(yi, lat, lon) ?? boxMean(yi, lat, lon, 4),
+  });
+  state.songPlaying = true; $('#playSong').textContent = 'Stop';
+  sound.beginSong();
+  const t0 = scheduleSong(song, sound), spb = 60 / BPM, lead = (t0 - sound.now) * 1000;
+  const at = (beat, fn) => songTimers.push(setTimeout(fn, lead + beat * spb * 1000));
+  song.sections.forEach((sec, k) => {
+    const m = sec.moment;
+    at(sec.startBeat, () => {
+      document.querySelectorAll('.moment').forEach((li, j) => li.classList.toggle('playing', j === k));
+      state.yi = sec.yearIndex; state.lat = m.lat; state.lon = m.lon;
+      globe.centerOn(m.lat, m.lon, 500); draw(); $('#nowBox').hidden = false; showValue(sec.mean, m.name);
+      $('#desc').textContent = `${m.year}, ${m.name}${m.label ? `: ${m.label}` : ''}.`;
+      announce(`${m.year}, ${m.name}. ${feeling(sec.mean)}.`);
+    });
+    sec.notes.forEach(n => at(sec.startBeat + n.beat, () => globe.ripple(n.lat, n.lon)));
+  });
+  at(song.sections.length * BEATS_PER_MOMENT + 3.5, () => {
+    stopSong();
+    const first = song.sections[0], last = song.sections[song.sections.length - 1];
+    const msg = song.sections.length > 1 && first.mean != null && last.mean != null
+      ? `Your Earth song starts in ${first.moment.year} (${feeling(first.mean).toLowerCase()}) and ends in ${last.moment.year} (${feeling(last.mean).toLowerCase()}).`
+      : 'That was your Earth song.';
+    $('#desc').textContent = msg; $('#songStatus').textContent = 'Change a year or a place and play it again.';
+    speak(msg);
+  });
+}
+function songLink() {
+  const data = state.moments.map(m => [m.year, m.name, m.label || '', m.lat == null ? null : +m.lat.toFixed(2), m.lon == null ? null : +m.lon.toFixed(2)]);
+  return `${location.origin}${location.pathname}#song=${encodeURIComponent(JSON.stringify(data))}`;
+}
+function readSongLink() {
+  const m = location.hash.match(/^#song=(.+)$/); if (!m) return null;
+  try {
+    return JSON.parse(decodeURIComponent(m[1])).slice(0, 6).map(([year, name, label, lat, lon]) => ({ year: +year, name: String(name || ''), label: String(label || ''), lat: lat ?? null, lon: lon ?? null }));
+  } catch { return null; }
+}
+async function shareSong() {
+  const url = songLink();
+  try { await navigator.clipboard.writeText(url); $('#songStatus').textContent = 'Link copied. Send it to a friend so they can hear your Earth song.'; }
+  catch { $('#songStatus').textContent = url; }
 }
 
 // ---------- start ----------
 async function start() {
   const ok = await sound.start();
   $('#start').hidden = true; $('#globe').focus();
-  draw(); updateReadout({ play: false }); preloadAll();
+  draw(); preloadAll();
   if (!ok) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
-  speak(`Earth Jukebox. ${state.track.title}. You are at ${placeName(state.lat, state.lon)} in ${year()}. ${say(currentValue())}. Tap the globe, or use the arrow keys to travel. Space plays 1880 to 2025. Question mark for help.`);
+  if (state.mode === 'song') { speak('Someone shared their Earth song with you. Press Play my Earth song to hear it.'); $('#playSong').focus(); return; }
+  resetGuide(); // step 1: "Tap anywhere on the Earth" (also read aloud)
 }
 function buildJumps() {
   $('#jumps').innerHTML = JUMPS.map((p, i) => `<button type="button" data-jump="${i}"><kbd>${i + 1}</kbd> ${p.name.replace(/^the /, '')}</button>`).join('');
@@ -503,7 +683,17 @@ function buildJumps() {
 async function init() {
   await loadTrack('temperature');
   buildJumps();
-  setMode('track');
+  const shared = readSongLink();
+  state.moments = shared || DEFAULT_MOMENTS.map(m => ({ ...m }));
+  state.picking = null;
+  $('#placeList').innerHTML = PLACE_NAMES.map(n => `<option value="${n}"></option>`).join('');
+  $('#moments').addEventListener('input', onMomentsInput);
+  $('#moments').addEventListener('change', onMomentsInput);
+  $('#moments').addEventListener('click', onMomentsClick);
+  $('#addMoment').addEventListener('click', () => { state.moments.push({ year: 2025, name: '', label: '' }); renderMoments(); $('#moments li:last-child .m-place').focus(); });
+  $('#playSong').addEventListener('click', playSong);
+  $('#shareSong').addEventListener('click', shareSong);
+  setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', start);
   $('#playBtn').addEventListener('click', () => { sound.start(); playHistory(); });
   $('#year').addEventListener('input', e => { sound.start(); setYear(+e.target.value); });
@@ -521,11 +711,8 @@ async function init() {
   m.addEventListener('pointerup', onMapUp);
   // play the Earth
   $('#replayBtn').addEventListener('click', () => { sound.start(); replayTaps(); });
-  $('#clearBtn').addEventListener('click', () => { state.taps = []; updateTapUI(); announce('Melody cleared.'); });
-  document.querySelectorAll('[data-year-jump]').forEach(b => b.addEventListener('click', () => {
-    sound.start(); state.yi = yearIndexOf(+b.dataset.yearJump); draw(); updateReadout({ play: false });
-    announce(`Year ${year()}.`); if (state.taps.length) replayTaps();
-  }));
+  $('#clearBtn').addEventListener('click', () => resetGuide());
+  $('#moreBox').addEventListener('toggle', () => { if ($('#moreBox').open) { guide.done = true; $('.timeline').hidden = false; } });
   // your own map: pick, drop, paste
   $('#pickBtn').addEventListener('click', () => $('#pickFile').click());
   $('#pickFile').addEventListener('change', e => usePicture(e.target.files[0]));

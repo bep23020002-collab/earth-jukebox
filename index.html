@@ -17,8 +17,9 @@
   <header class="top">
     <p class="wordmark">Earth Jukebox</p>
     <nav class="modes" aria-label="Choose what to listen to">
-      <button type="button" class="mode-btn" data-mode="track" aria-pressed="true">Global temperature</button>
-      <button type="button" class="mode-btn" data-mode="image" aria-pressed="false">Your own NASA map</button>
+      <button type="button" class="mode-btn" data-mode="track" aria-pressed="true">Play</button>
+      <button type="button" class="mode-btn" data-mode="song" aria-pressed="false">My Earth song</button>
+      <button type="button" class="mode-btn" data-mode="image" aria-pressed="false">Use any NASA map</button>
     </nav>
   </header>
 
@@ -89,7 +90,39 @@
         <p id="byoStatus" class="byo-status" role="status"></p>
       </section>
 
-      <section class="now" aria-label="Now hearing">
+      <section id="songBox" class="song" hidden aria-labelledby="songTitle">
+        <h3 id="songTitle">My Earth song</h3>
+        <p>Pick years and places that mean something to you. Each one becomes part of a song.</p>
+        <ol class="howto">
+          <li>Change the <strong>year</strong> and <strong>place</strong> in each box (or keep our example).</li>
+          <li>Press <strong>Play my Earth song</strong>.</li>
+          <li>Send the link to a friend.</li>
+        </ol>
+        <ol id="moments" class="moments"></ol>
+        <button type="button" id="addMoment" class="ghost">Add a moment</button>
+        <div class="row">
+          <button type="button" id="playSong" class="primary big">Play my Earth song</button>
+          <button type="button" id="shareSong" class="ghost">Copy link to share</button>
+        </div>
+        <p id="songStatus" class="byo-status" role="status"></p>
+        <details class="small">
+          <summary>How your song is made</summary>
+          <p>Each moment gets two bars. Its main note is how warm that place was that year: warmer is higher. The melody walks in a small circle around the place, rising and falling with the temperature. When a place is warmer than normal, the drums get busier.</p>
+        </details>
+      </section>
+      <datalist id="placeList"></datalist>
+
+      <section id="guide" class="guide" aria-labelledby="guideTitle">
+        <p id="guideStep" class="guide-step">Step 1 of 3</p>
+        <h3 id="guideTitle">Tap anywhere on the Earth</h3>
+        <p id="guideText">Every place plays a note. Warmer places play higher notes.</p>
+        <div class="row">
+          <button type="button" id="guideBtn" class="primary big" hidden></button>
+          <button type="button" id="guideAlt" class="ghost" hidden></button>
+        </div>
+      </section>
+
+      <section class="now" id="nowBox" aria-label="Now hearing" hidden>
         <p id="rPlace" class="now-place">—</p>
         <p id="rValue" class="now-value">—</p>
         <p id="rDetail" class="now-meta">—</p>
@@ -97,43 +130,34 @@
 
       <p id="desc" class="desc"></p>
 
-      <section class="play" id="playBox" aria-labelledby="playTitle">
-        <h3 id="playTitle">Make a tune with the Earth</h3>
-        <p class="small" id="tapCount">Tap 3 to 5 places on the globe. Then hear your tune in 1880 and in 2025.</p>
-        <div class="row">
-          <button type="button" class="primary" data-year-jump="1880" disabled>Hear it in 1880</button>
-          <button type="button" class="primary" data-year-jump="2025" disabled>Hear it in 2025</button>
+      <details class="more" id="moreBox">
+        <summary>More ways to listen</summary>
+        <div class="more-body">
+          <div class="actions">
+            <button type="button" data-act="legend">What do the sounds mean?</button>
+            <button type="button" data-act="sweep">Spin the Earth</button>
+            <button type="button" data-act="describe">Tell me about this year</button>
+            <button type="button" data-act="voice" aria-pressed="true">Read aloud</button>
+            <button type="button" id="replayBtn" disabled>Play my tune again</button>
+            <button type="button" id="clearBtn" disabled>Clear my tune</button>
+          </div>
+          <div class="jumps">
+            <h3>Go to a place</h3>
+            <div id="jumps" class="jump-list"></div>
+          </div>
+          <div class="keys">
+            <h3>Use it without a mouse</h3>
+            <ul>
+              <li><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move around the Earth</li>
+              <li><kbd>[</kbd> <kbd>]</kbd> earlier or later year</li>
+              <li><kbd>Space</kbd> play 1880 to 2025</li>
+              <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
+              <li><kbd>Enter</kbd> say where I am</li>
+              <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
+              <li><kbd>?</kbd> hear these keys</li>
+            </ul>
+          </div>
         </div>
-        <div class="row">
-          <button type="button" id="replayBtn" class="ghost" disabled>Play again</button>
-          <button type="button" id="clearBtn" class="ghost" disabled>Start over</button>
-        </div>
-      </section>
-
-      <div class="actions">
-        <button type="button" data-act="legend">What do the sounds mean?</button>
-        <button type="button" data-act="sweep">Spin the Earth</button>
-        <button type="button" data-act="describe">Tell me about this year</button>
-        <button type="button" data-act="voice" aria-pressed="true">Read aloud</button>
-      </div>
-
-      <div class="jumps">
-        <h3>Go to</h3>
-        <div id="jumps" class="jump-list"></div>
-      </div>
-
-      <details class="keys">
-        <summary>Use it without a mouse</summary>
-        <ul>
-          <li><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move around the Earth</li>
-          <li><kbd>[</kbd> <kbd>]</kbd> earlier or later year</li>
-          <li><kbd>Space</kbd> play 1880 to 2025</li>
-          <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
-          <li><kbd>Enter</kbd> say where I am</li>
-          <li><kbd>1</kbd> to <kbd>9</kbd> go to a place</li>
-          <li><kbd>L</kbd> what the sounds mean, <kbd>S</kbd> spin, <kbd>D</kbd> about this year</li>
-          <li><kbd>?</kbd> hear these keys</li>
-        </ul>
       </details>
     </aside>
 

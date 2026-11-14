@@ -27,6 +27,41 @@ export class Sound {
   }
 
   get now() { return this.ctx ? this.ctx.currentTime : 0; }
+  // Everything scheduled for a song goes through its own bus, so Stop can silence it at once.
+  get dest() { return this.songBus || this.master; }
+  beginSong() { this.stopSong(); this.songBus = this.ctx.createGain(); this.songBus.connect(this.master); return this.songBus; }
+  stopSong() {
+    if (!this.songBus) return;
+    const b = this.songBus; this.songBus = null;
+    b.gain.setValueAtTime(b.gain.value, this.now); b.gain.linearRampToValueAtTime(0, this.now + 0.15);
+    setTimeout(() => b.disconnect(), 300);
+  }
+
+  // Drum kit and pad for songs.
+  kick({ when = 0, gain = 0.7 } = {}) {
+    const c = this.ctx, at = Math.max(this.now, when), o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(130, at); o.frequency.exponentialRampToValueAtTime(42, at + 0.18);
+    g.gain.setValueAtTime(gain, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.32);
+    o.connect(g).connect(this.dest); o.start(at); o.stop(at + 0.35);
+  }
+  hat({ when = 0, gain = 0.12, pan = 0 } = {}) {
+    const c = this.ctx, at = Math.max(this.now, when), len = 0.05;
+    const buf = c.createBuffer(1, Math.floor(c.sampleRate * len), c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = buf; f.type = 'highpass'; f.frequency.value = 7000; g.gain.value = gain;
+    s.connect(f).connect(g).connect(this.#panner(pan)); s.start(at);
+  }
+  pad(ts, { when = 0, dur = 4, gain = 0.12 } = {}) {
+    const c = this.ctx, at = Math.max(this.now, when), g = c.createGain(), f = c.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 1400;
+    g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(gain, at + 0.6); g.gain.setValueAtTime(gain, at + dur - 0.6); g.gain.linearRampToValueAtTime(0.0001, at + dur);
+    f.connect(g).connect(this.dest);
+    ts.forEach((t, k) => [0, 1].forEach(det => {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = FREQ[noteIndex(t)] / 2 * (1 + (det ? 0.004 : -0.004));
+      const og = c.createGain(); og.gain.value = 0.5 / ts.length; o.connect(og).connect(f); o.start(at); o.stop(at + dur + 0.05);
+    }));
+  }
   setVolume(v) { if (this.master) this.master.gain.value = v; }
 
   // Play the note for a normalised value t (0 = coldest on the legend, 1 = hottest).
@@ -74,7 +109,7 @@ export class Sound {
     const at = Math.max(this.now, when || this.now);
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
     o.frequency.value = 1760; g.gain.setValueAtTime(gain, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
-    o.connect(g).connect(this.master); o.start(at); o.stop(at + 0.06);
+    o.connect(g).connect(this.dest); o.start(at); o.stop(at + 0.06);
   }
 
   // A quiet steady hum on the note that means "average" (0 on the legend), to compare against.
@@ -95,8 +130,8 @@ export class Sound {
 
   #panner(pan) {
     const p = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-    if (!p) return this.master;
-    p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(this.master); return p;
+    if (!p) return this.dest;
+    p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(this.dest); return p;
   }
 
   #voice(freq, { at, dur, gain, pan, bright }) {

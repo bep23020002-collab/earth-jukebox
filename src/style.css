@@ -80,6 +80,7 @@ kbd { font: inherit; font-size: .78em; border: 1px solid var(--line); border-bot
 .actions button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
 .actions button:hover { border-color: var(--muted); }
 .actions button[aria-pressed="true"] { border-color: var(--ice); color: var(--ice); }
+.actions button:disabled { opacity: .45; cursor: default; }
 
 .jumps h3, .keys summary { font-size: .95rem; color: var(--muted); font-weight: 600; }
 .jumps h3 { margin-bottom: 8px; }
@@ -101,6 +102,35 @@ kbd { font: inherit; font-size: .78em; border: 1px solid var(--line); border-bot
 .byo-fields label { display: grid; gap: 2px; font-size: .85rem; color: var(--muted); }
 .byo-fields input { width: 6.5em; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; }
 .byo-status { font-weight: 600; color: var(--ice); min-height: 1.5em; }
+
+/* guide */
+.guide { display: grid; gap: 8px; padding: 18px; border-radius: 18px; background: linear-gradient(160deg, #13213A, #0D1524); border: 1px solid #2A3D5E; }
+.guide-step { color: var(--ice); font-weight: 600; font-size: .9rem; }
+.guide h3 { font-size: clamp(1.5rem, 2.6vw, 1.9rem); font-weight: 800; }
+.guide p:not(.guide-step) { color: var(--ink); }
+.guide .row { margin-top: 6px; }
+.more summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.more-body { display: grid; gap: 18px; margin-top: 14px; }
+.more h3 { font-size: .95rem; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.howto { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+
+/* my Earth song */
+.song { display: grid; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.song h3 { font-size: 1.25rem; }
+.moments { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: m; }
+.moment { display: grid; grid-template-columns: 5.2em minmax(0, 1fr) auto; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.moment.playing { border-color: var(--warm); box-shadow: 0 0 0 1px var(--warm) inset; }
+.moment.picking { border-color: var(--ice); }
+.moment input { min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: inherit; }
+.moment .m-labelf { grid-column: 1 / 3; }
+.m-f { display: grid; gap: 2px; min-width: 0; }
+.m-f span { font-size: .78rem; color: var(--muted); }
+.moment .m-remove { align-self: end; height: 38px; }
+.moment .m-pick { align-self: end; height: 38px; }
+.moment .m-remove { background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); cursor: pointer; padding: 0 10px; }
+.moment .m-pick { grid-column: 3; grid-row: 2; background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); cursor: pointer; padding: 0 10px; font-size: .85rem; }
+.moment .m-feel { grid-column: 1 / -1; font-size: .88rem; color: var(--muted); }
+.moment .m-feel:empty { display: none; }
 
 /* about */
 .about { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px 48px; border-top: 1px solid var(--line); padding-top: 32px; }
