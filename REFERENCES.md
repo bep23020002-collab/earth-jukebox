@@ -5,7 +5,7 @@
 - Global Sea Surface Currents and Temperature, NASA Scientific Visualization Studio, https://svs.gsfc.nasa.gov/3912/ (ECCO2 ocean model, MIT/JPL). Frame flat_global_ecco2_2028x1024.25000.jpg (19 June 2007) and color bar sst_ecco2_cbar.png (0 to 32 °C). Listed in the challenge's Resources tab.
 - Lightning Events Detected from the International Space Station (ISS) 2017-2023, NASA Scientific Visualization Studio, https://svs.gsfc.nasa.gov/5011/ (Lightning Imaging Sensor on the ISS). Movie iss_lightning_sos_yearly_07312023_2048p60.mp4 and labels.txt. The label file reads "2003" after "31 Dec 2022"; we read it as 2023, matching the movie's July 2023 end. The sensor only sees between about 56°N and 56°S; places outside that band are stored as "no data". Listed in the challenge's Resources tab.
 
-- GISTEMP v4 monthly temperature anomalies, NASA GISS, gistemp1200_GHCNv4_ERSSTv5.nc (2° grid, 1200 km smoothing, January 1880 to October 2026), https://data.giss.nasa.gov/gistemp/ . The analysis behind SVS 5603; used for moments and questions that name a month (scripts/build-monthly.mjs, assets/temperature/monthly/).
+- GISTEMP v4 monthly temperature anomalies, NASA GISS, gistemp1200_GHCNv4_ERSSTv5.nc (2° grid, 1200 km smoothing, January 1880 to October 2026), https://data.giss.nasa.gov/gistemp/ . The analysis behind SVS 5603; used for moments and questions that name a month, and for playing a place month by month (scripts/build-monthly.mjs, assets/temperature/monthly/).
 
 - Lightning by month: the same SVS 5011 movie frames, grouped by the month in their date label (scripts/build-lightning-monthly.mjs, assets/lightning/monthly/).
 

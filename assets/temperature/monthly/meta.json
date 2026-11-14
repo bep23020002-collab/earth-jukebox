@@ -16,6 +16,7 @@
  "firstYear": 1880,
  "lastYear": 2026,
  "lastMonth": 10,
+ "monthsPerCell": 1762,
  "check": {
   "comparedMonths": 1762,
   "meanAbsDiffFromPublishedGlobalMean": 0.012,

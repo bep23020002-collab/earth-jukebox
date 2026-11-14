@@ -1,7 +1,8 @@
 {
  "source": "NASA SVS 5011, Lightning Events Detected from the ISS (frames grouped by the month of their date label)",
  "firstYear": 2017,
- "lastYear": 2023,
+ "firstMonth": 3,
+ "monthsPerCell": 78,
  "months": {
   "2017": [
    3,

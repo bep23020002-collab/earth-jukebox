@@ -122,7 +122,6 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 #year::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -10px; border-radius: 50%; background: var(--ink); border: 4px solid var(--plate); }
 #year::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-2); }
 #year::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--ink); border: 4px solid var(--plate); }
-.month-pick select { font: inherit; font-family: var(--mono); font-size: .88rem; color: var(--ink); background: var(--paper); border: 1px solid var(--line-2); border-radius: 6px; padding: 7px 6px; cursor: pointer; }
 #yearOut { min-width: 5ch; white-space: nowrap; text-align: center; font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; padding: 7px 10px; border-radius: 6px;
   background: var(--lcd); color: var(--lcd-ink); }
 

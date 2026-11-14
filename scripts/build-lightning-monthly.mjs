@@ -1,8 +1,8 @@
 // AI-assisted (Anthropic Claude).
-// Lightning by month, for "pick a month" in Play. Same source and method as build-lightning.mjs
+// Lightning by month, for playing one place month by month. Same source and method as build-lightning.mjs
 // (NASA SVS 5011 Science On a Sphere movie: each frame shows the lightning the ISS sensor saw in a 10-day window),
 // but the frames are grouped by the calendar month of their date label instead of by year.
-//   assets/lightning/monthly/m01..m12.bin  for each calendar month: 7 years (2017 first) x 90 rows x 180 columns, 1 byte per cell
+//   assets/lightning/monthly/by-cell.bin   for each cell (north first, 180°W first): every month from March 2017, 1 byte per month
 //   assets/lightning/monthly/meta.json     months covered and encoding
 // Byte 0 = no data (outside the sensor's band, or a month the movie does not cover); otherwise share = (byte - 1) / 254
 // of the sampled 10-day windows dated in that month in which lightning was seen in the cell.
@@ -52,19 +52,18 @@ ff.stdout.on('data', chunk => {
 ff.on('close', () => {
   const dir = root + 'assets/lightning/monthly/';
   mkdirSync(dir, { recursive: true });
-  const months = {};
-  for (let m = 1; m <= 12; m++) {
-    const out = new Uint8Array(YEARS.length * GW * GH);
-    YEARS.forEach((y, yi) => {
-      const key = `${y}-${m}`, c = counts.get(key), nw = windows.get(key);
-      if (!c || !nw) return;
-      (months[y] ||= []).push(m);
-      for (let i = 0; i < GW * GH; i++) if (observedRow[Math.floor(i / GW)]) out[yi * GW * GH + i] = 1 + Math.round(c[i] / nw * 254);
-    });
-    writeFileSync(dir + `m${String(m).padStart(2, '0')}.bin`, out);
+  // months in order from the first to the last month the movie covers
+  const keys = [...counts.keys()].map(k => k.split('-').map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const [fy, fm] = keys[0], [ly, lm] = keys[keys.length - 1], nMonths = (ly - fy) * 12 + (lm - fm) + 1;
+  const byCell = new Uint8Array(GW * GH * nMonths), months = {};
+  for (let k = 0; k < nMonths; k++) {
+    const y = fy + Math.floor((fm - 1 + k) / 12), m = (fm - 1 + k) % 12 + 1, c = counts.get(`${y}-${m}`), nw = windows.get(`${y}-${m}`);
+    if (!c || !nw) continue;
+    (months[y] ||= []).push(m);
+    for (let i = 0; i < GW * GH; i++) if (observedRow[Math.floor(i / GW)]) byCell[i * nMonths + k] = 1 + Math.round(c[i] / nw * 254);
   }
-  Object.values(months).forEach(a => a.sort((p, q) => p - q));
-  const meta = { source: 'NASA SVS 5011, Lightning Events Detected from the ISS (frames grouped by the month of their date label)', firstYear: YEARS[0], lastYear: YEARS[YEARS.length - 1], months,
+  writeFileSync(dir + 'by-cell.bin', byCell);
+  const meta = { source: 'NASA SVS 5011, Lightning Events Detected from the ISS (frames grouped by the month of their date label)', firstYear: fy, firstMonth: fm, monthsPerCell: nMonths, months,
     windowsPerMonth: Object.fromEntries([...windows].sort()), encoding: { type: 'share', noData: 0, note: 'share = (byte - 1) / 254' } };
   writeFileSync(dir + 'meta.json', JSON.stringify(meta, null, 1));
   console.log('months covered:', JSON.stringify(months), 'windows per month (min/max):', Math.min(...windows.values()), Math.max(...windows.values()));

@@ -133,6 +133,7 @@ export class Score {
   }
   line(title, length, first, last) { this.#show({ type: 'line', length, notes: new Array(length), at: -1, first, last }, title); }
   put(i, step) { if (this.view?.type !== 'line') return; this.view.notes[i] = step; this.view.at = i; this.render(); }
+  putMany(list) { if (this.view?.type !== 'line' || !list.length) return; for (const [i, step] of list) this.view.notes[i] = step; this.view.at = list[list.length - 1][0]; this.render(); }
   song(sections) { this.#show({ type: 'song', sections, hits: new Set(), section: -1 }, 'Your Earth song'); }
   hit(si, ni) { if (this.view?.type !== 'song') return; this.view.section = si; this.view.hits.add(`${si}:${ni}`); this.render(); }
   render() {
