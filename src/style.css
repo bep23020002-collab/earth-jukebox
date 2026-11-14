@@ -7,6 +7,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.55; }
 h1, h2, h3 { line-height: 1.2; margin: 0; text-wrap: balance; }
 p { margin: 0; }
@@ -61,6 +62,18 @@ kbd { font-family: var(--mono); font-size: .78em; border: 1px solid var(--line);
 .jumps h3 { font-size: .9rem; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
 .jump-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .jump-list button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: .88rem; cursor: pointer; }
+.byo { display: grid; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.byo h3 { font-size: 1.05rem; }
+.byo-row button, .byo-steps button:not(.primary) { background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.byo-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.byo-steps li { color: var(--muted); }
+.byo-steps li.now { color: var(--ink); }
+.byo-steps li.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+.byo-fields { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.byo-fields label { display: grid; gap: 2px; font-size: .82rem; color: var(--muted); }
+.byo-fields input { width: 6.5em; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+.byo-status { font-weight: 600; color: var(--ice); min-height: 1.5em; }
+.mapwrap.drop { outline: 3px dashed var(--ice); outline-offset: 4px; }
 .keys summary { cursor: pointer; color: var(--muted); }
 .keys ul { padding-left: 18px; margin: 8px 0 0; display: grid; gap: 4px; font-size: .9rem; }
 

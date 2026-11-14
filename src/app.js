@@ -1,27 +1,28 @@
 // AI-assisted (Anthropic Claude).
 // Earth Jukebox: explore a NASA visualization by ear.
+// Two modes share one interface:
+//   track - a prepared NASA time series (Global temperature 1880–2025)
+//   image - any NASA picture with a color bar, calibrated on the spot
 import { Sound, noteName } from './audio.js';
 import { JUMPS, placeName, formatCoord } from './places.js';
+import { ImageSource, describeSpot } from './image-source.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
+const src = new ImageSource();
 const state = {
-  track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
+  mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
+  u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
   voice: true, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
 };
 
-// ---------- data ----------
+// ---------- track data ----------
 async function loadTrack(id) {
   const track = await (await fetch(`assets/${id}/track.json`)).json();
   const cube = new Uint8Array(await (await fetch(`assets/${id}/cube.bin`)).arrayBuffer());
   Object.assign(state, { track, cube, yi: track.years.length - 1 });
-  $('#trackTitle').textContent = track.title;
-  $('#trackSub').textContent = track.subtitle;
-  $('#credit').innerHTML = `${track.credit}. <a href="${track.sourceUrl}">${track.sourceUrl}</a>`;
   const yr = $('#year'); yr.max = track.years.length - 1; yr.value = state.yi;
-  drawLegend();
 }
-
 const grid = () => state.track.grid;
 function cellIndex(lat, lon) {
   const { width: W, height: H, cellDegrees: d } = grid();
@@ -34,26 +35,17 @@ function decode(code) {
   const { min, max } = state.track;
   return min + (code - 1) / 254 * (max - min);
 }
-function valueAt(yi, lat, lon) {
-  const { width: W, height: H } = grid();
-  return decode(state.cube[yi * W * H + cellIndex(lat, lon)]);
-}
-// Area-weighted average of a box around a point (smoother, used for playing history).
-function boxMean(yi, lat, lon, r = 6) {
+function trackValue(yi, lat, lon) { const { width: W, height: H } = grid(); return decode(state.cube[yi * W * H + cellIndex(lat, lon)]); }
+function boxMean(yi, lat, lon, r = 6) { // area-weighted average around a point
   const d = grid().cellDegrees;
   let s = 0, w = 0;
   for (let la = lat - r + d / 2; la <= lat + r; la += d) {
     if (la < -90 || la > 90) continue;
     const k = Math.cos(la * Math.PI / 180);
-    for (let lo = lon - r + d / 2; lo <= lon + r; lo += d) {
-      const v = valueAt(yi, la, lo);
-      if (v != null) { s += v * k; w += k; }
-    }
+    for (let lo = lon - r + d / 2; lo <= lon + r; lo += d) { const v = trackValue(yi, la, lo); if (v != null) { s += v * k; w += k; } }
   }
   return w ? s / w : null;
 }
-const tOf = v => (v - state.track.min) / (state.track.max - state.track.min);
-
 const BANDS = [['the Arctic', 66, 90], ['the northern mid-latitudes', 30, 66], ['the tropics', -30, 30], ['the southern mid-latitudes', -66, -30], ['Antarctica', -90, -66]];
 function yearStats(yi) {
   const { width: W, height: H, cellDegrees: d } = grid();
@@ -66,48 +58,68 @@ function yearStats(yi) {
       const v = decode(state.cube[yi * W * H + cy * W + cx]);
       if (v == null) continue;
       s += v * k; w += k;
-      const b = bands.find(b => lat >= b.lo && lat < b.hi) || bands[0];
-      b.s += v * k; b.w += k;
+      const b = bands.find(b => lat >= b.lo && lat < b.hi) || bands[0]; b.s += v * k; b.w += k;
     }
   }
-  const withData = bands.filter(b => b.w > 0).map(b => ({ name: b.name, mean: b.s / b.w }));
-  return { mean: s / w, coverage: w / all, bands: withData };
+  return { mean: s / w, coverage: w / all, bands: bands.filter(b => b.w > 0).map(b => ({ name: b.name, mean: b.s / b.w })) };
 }
 
-// ---------- words ----------
-function fmt(v, digits = 1) {
-  if (v == null) return 'no data';
-  const { min, max, unit } = state.track;
-  const s = `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)} ${unit}`;
-  if (v >= max - 0.03) return `${s} or more`;
-  if (v <= min + 0.03) return `${s} or less`;
-  return s;
+// ---------- what the cursor is on, in either mode ----------
+const isImage = () => state.mode === 'image';
+function scale() {
+  if (isImage()) return src.legend ? { min: src.legend.min, max: src.legend.max, unit: src.unit } : null;
+  return { min: state.track.min, max: state.track.max, unit: state.track.unit };
 }
-function say(v) { // spoken form
-  if (v == null) return 'no data here';
-  const { min, max } = state.track, a = Math.abs(v).toFixed(1);
-  let s = `${v >= 0 ? 'plus' : 'minus'} ${a} degrees`;
-  if (v >= max - 0.03) s += ' or more'; else if (v <= min + 0.03) s += ' or less';
-  return s;
-}
+const tOf = v => { const s = scale(); return (v - s.min) / (s.max - s.min); };
+function currentValue() { return isImage() ? src.valueAt(state.u, state.v) : trackValue(state.yi, state.lat, state.lon); }
+function currentPlace() { return isImage() ? describeSpot(state.u, state.v) : placeName(state.lat, state.lon); }
+function currentCoord() { return isImage() ? `${Math.round(state.u * 100)}% across, ${Math.round(state.v * 100)}% down` : formatCoord(state.lat, state.lon); }
+const currentPan = () => (isImage() ? state.u * 2 - 1 : state.lon / 180);
 const year = () => state.track.years[state.yi];
 
-function describeYear() {
+// ---------- words ----------
+function nice(x) { // decimals follow the size of the color scale
+  const s = scale(), span = s ? s.max - s.min : 10;
+  return x.toFixed(span <= 2 ? 2 : span <= 40 ? 1 : 0);
+}
+function fmt(v) {
+  if (v == null) return 'no data';
+  const { min, max, unit } = scale();
+  const signed = min < 0 && max > 0;
+  const s = `${signed ? (v >= 0 ? '+' : '−') : (v < 0 ? '−' : '')}${nice(Math.abs(v))} ${unit}`.trim();
+  const span = max - min;
+  if (v >= max - span * 0.008) return `${s} or more`;
+  if (v <= min + span * 0.008) return `${s} or less`;
+  return s;
+}
+function say(v) {
+  if (v == null) return 'no data here';
+  const { min, max, unit } = scale(), span = max - min;
+  const unitWord = unit === '°C' ? 'degrees' : unit;
+  let s = `${v < 0 ? 'minus ' : (min < 0 ? 'plus ' : '')}${nice(Math.abs(v))} ${unitWord}`;
+  if (v >= max - span * 0.008) s += ' or more'; else if (v <= min + span * 0.008) s += ' or less';
+  return s;
+}
+function describe() {
+  if (isImage()) {
+    if (!src.legend) return 'Mark the color bar first.';
+    const st = src.stats();
+    if (st.mean == null) return 'No colors on this picture match the color bar. Try marking the bar again, closer to its middle.';
+    return `${Math.round(st.coverage * 100)}% of this picture matches the color bar. Average ${fmt(st.mean)}. Highest ${fmt(st.hi)}, at the ${describeSpot(st.hiAt.u, st.hiAt.v)}. Lowest ${fmt(st.lo)}, at the ${describeSpot(st.loAt.u, st.loAt.v)}.`;
+  }
   const st = yearStats(state.yi);
   const warm = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
   const cool = st.bands.reduce((a, b) => (b.mean < a.mean ? b : a));
-  const here = boxMean(state.yi, state.lat, state.lon, 4);
   return `${year()}. Compared with 1951–1980, the parts of the map with data (${Math.round(st.coverage * 100)}% of Earth's area) average about ${fmt(st.mean)}. ` +
     `Warmest: ${warm.name}, ${fmt(warm.mean)}. Coolest: ${cool.name}, ${fmt(cool.mean)}. ` +
-    `Around ${placeName(state.lat, state.lon)}: ${fmt(here)}.`;
+    `Around ${placeName(state.lat, state.lon)}: ${fmt(boxMean(state.yi, state.lat, state.lon, 4))}.`;
 }
 
 // ---------- speech ----------
 let voicePick = null;
 function pickVoice() {
   const vs = speechSynthesis.getVoices();
-  voicePick = vs.find(v => /en-(US|GB|AU)/i.test(v.lang) && /Samantha|Google|Natural|Daniel|Karen/i.test(v.name))
-    || vs.find(v => /^en/i.test(v.lang)) || null;
+  voicePick = vs.find(v => /en-(US|GB|AU)/i.test(v.lang) && /Samantha|Google|Natural|Daniel|Karen/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null;
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 function announce(text) { const el = $('#live'); el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
@@ -130,79 +142,92 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 function frameImage(yi) {
   const y = state.track.years[yi];
   if (!state.images.has(y)) {
-    const img = new Image();
-    img.decoding = 'async';
+    const img = new Image(); img.decoding = 'async';
     img.src = `assets/${state.track.id}/frames/${y}.jpg`;
-    img.onload = () => { if (state.track.years[state.yi] === y) draw(); };
+    img.onload = () => { if (!isImage() && year() === y) draw(); };
     state.images.set(y, img);
   }
   return state.images.get(y);
 }
 function preloadAll() { state.track.years.forEach((_, i) => setTimeout(() => frameImage(i), i * 40)); }
 
+function sizeCanvas(w, h) {
+  const c = $('#map');
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.style.aspectRatio = `${w} / ${h}`; }
+}
+function ring(g, x, y, r) {
+  g.lineWidth = 5; g.strokeStyle = '#0A0F18'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 2.5; g.strokeStyle = '#FFFFFF'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
+}
 function draw() {
-  const c = $('#map'), g = c.getContext('2d'), W = c.width, H = c.height;
-  let img = frameImage(state.yi);
-  if (!img.complete || !img.naturalWidth) { // show the nearest year already loaded
-    for (let d = 1; d < 15 && !(img.complete && img.naturalWidth); d++) {
-      const alt = state.images.get(state.track.years[state.yi - d]);
-      if (alt?.complete && alt.naturalWidth) img = alt;
-    }
+  const c = $('#map'), g = c.getContext('2d');
+  if (isImage()) {
+    if (!src.canvas) { sizeCanvas(1440, 720); g.fillStyle = '#05080F'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#A9B5C8'; g.font = '36px system-ui'; g.textAlign = 'center'; g.fillText('Paste or drop a NASA picture with a color bar', c.width / 2, c.height / 2); return; }
+    sizeCanvas(src.width, src.height);
+    g.drawImage(src.canvas, 0, 0);
+    const { p0, p1 } = state.cal, r = Math.max(8, src.width / 120);
+    g.save();
+    if (p0 && p1) { g.setLineDash([10, 7]); g.lineWidth = 3; g.strokeStyle = '#FFFFFF'; g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.stroke(); g.setLineDash([]); }
+    [p0, p1].forEach(p => p && ring(g, p.x, p.y, r));
+    if (src.legend) { const x = state.u * src.width, y = state.v * src.height; g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, src.height); g.stroke(); ring(g, x, y, r * 1.4); }
+    g.restore();
+    return;
   }
+  sizeCanvas(1440, 720);
+  const W = c.width, H = c.height;
+  let img = frameImage(state.yi);
+  for (let d = 1; d < 15 && !(img.complete && img.naturalWidth); d++) { const alt = state.images.get(state.track.years[state.yi - d]); if (alt?.complete && alt.naturalWidth) img = alt; }
   if (img.complete && img.naturalWidth) g.drawImage(img, 0, 0, W, H); else { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
   const x = (state.lon + 180) / 360 * W, y = (90 - state.lat) / 180 * H;
-  g.save();
-  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
-  g.lineWidth = 5; g.strokeStyle = '#0A0F18'; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.stroke();
-  g.lineWidth = 2.5; g.strokeStyle = '#FFFFFF'; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.stroke();
-  g.restore();
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); ring(g, x, y, 18); g.restore();
   $('#yearBig').textContent = year(); $('#yearOut').textContent = year();
   $('#year').value = state.yi; $('#year').setAttribute('aria-valuetext', String(year()));
 }
 
 function drawLegend() {
-  const c = $('#legend'), g = c.getContext('2d'), stops = state.track.stops;
+  const c = $('#legend'), g = c.getContext('2d');
+  const stops = isImage() ? src.legend?.stops : state.track.stops;
+  g.clearRect(0, 0, c.width, c.height);
+  if (!stops) { $('#lgMin').textContent = $('#lgMid').textContent = $('#lgMax').textContent = ''; return; }
   const grad = g.createLinearGradient(0, 0, c.width, 0);
   stops.forEach((s, i) => grad.addColorStop(i / (stops.length - 1), `rgb(${s.rgb.join(',')})`));
   g.fillStyle = grad; g.fillRect(0, 0, c.width, c.height);
-  const { min, max, unit } = state.track;
-  $('#lgMin').textContent = `${min} ${unit} or less`;
-  $('#lgMid').textContent = `0 = 1951–1980 average`;
-  $('#lgMax').textContent = `+${max} ${unit} or more`;
+  const { min, max } = scale();
+  $('#lgMin').textContent = `${fmt(min)}`;
+  $('#lgMid').textContent = isImage() ? fmt((min + max) / 2) : '0 = 1951–1980 average';
+  $('#lgMax').textContent = `${fmt(max)}`;
 }
 
 // ---------- readout ----------
-function updateReadout({ play = true, speakIt = false, pan } = {}) {
-  const v = valueAt(state.yi, state.lat, state.lon);
-  const place = placeName(state.lat, state.lon);
-  $('#rPlace').textContent = place;
-  $('#rCoord').textContent = formatCoord(state.lat, state.lon);
-  $('#rValue').textContent = fmt(v);
-  $('#rNote').textContent = v == null ? 'silent' : noteName(tOf(v));
-  const p = pan ?? state.lon / 180;
-  if (play) { if (v == null) sound.noData({ pan: p }); else sound.note(tOf(v), { pan: p }); }
-  if (speakIt) speak(`${place}, ${year()}. ${say(v)}.`);
-  else announce(`${place}. ${fmt(v)}.`);
+function updateReadout({ play = true, speakIt = false } = {}) {
+  if (isImage() && !src.legend) return null;
+  const v = currentValue(), place = currentPlace();
+  $('#rPlace').textContent = place; $('#rCoord').textContent = currentCoord();
+  $('#rValue').textContent = fmt(v); $('#rNote').textContent = v == null ? 'silent' : noteName(tOf(v));
+  if (play) { if (v == null) sound.noData({ pan: currentPan() }); else sound.note(tOf(v), { pan: currentPan() }); }
+  const when = isImage() ? '' : `, ${year()}`;
+  if (speakIt) speak(`${place}${when}. ${say(v)}.`); else announce(`${place}. ${fmt(v)}.`);
   return v;
 }
-
 function moveTo(lat, lon, opts) {
-  state.lat = Math.max(-89, Math.min(89, lat));
-  state.lon = ((lon + 540) % 360) - 180;
-  draw();
-  return updateReadout(opts);
+  state.lat = Math.max(-89, Math.min(89, lat)); state.lon = ((lon + 540) % 360) - 180;
+  draw(); return updateReadout(opts);
 }
-function setYear(yi, opts = {}) {
+function moveUV(u, v, opts) {
+  state.u = Math.max(0, Math.min(1, u)); state.v = Math.max(0, Math.min(1, v));
+  draw(); return updateReadout(opts);
+}
+function setYear(yi) {
+  if (isImage()) return;
   state.yi = Math.max(0, Math.min(state.track.years.length - 1, yi));
-  draw();
-  if (opts.quiet) return;
-  updateReadout({ play: true, speakIt: false });
-  announce(`${year()}. ${placeName(state.lat, state.lon)}: ${fmt(valueAt(state.yi, state.lat, state.lon))}.`);
+  draw(); updateReadout({ play: true });
+  announce(`${year()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`);
 }
 
-// ---------- modes ----------
+// ---------- actions ----------
 async function playHistory() {
+  if (isImage()) return;
   if (state.playing) { state.playing = false; return; }
   state.playing = true; setPlayingUI(true);
   const place = placeName(state.lat, state.lon), years = state.track.years;
@@ -217,62 +242,131 @@ async function playHistory() {
   }
   const finished = state.playing;
   state.playing = false; setPlayingUI(false);
-  if (finished) {
-    const avg = (from, to) => { let s = 0, n = 0; for (let i = from; i <= to; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
-    const first = avg(0, 9), last = avg(years.length - 10, years.length - 1);
-    const msg = first != null && last != null
-      ? `Around ${place}, ${years[0]} to ${years[9]} averaged ${fmt(first)}. ${years[years.length - 10]} to ${years[years.length - 1]} averaged ${fmt(last)}. That is ${Math.abs(last - first).toFixed(1)} degrees ${last >= first ? 'warmer' : 'cooler'}.`
-      : `Around ${place}, NASA's map has gaps in the early years, so we cannot compare the start and the end.`;
-    $('#desc').textContent = msg;
-    speak(msg);
-  }
+  if (!finished) return;
+  const avg = (a, b) => { let s = 0, n = 0; for (let i = a; i <= b; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
+  const L = years.length, first = avg(0, 9), last = avg(L - 10, L - 1);
+  const msg = first != null && last != null
+    ? `Around ${place}, ${years[0]} to ${years[9]} averaged ${fmt(first)}. ${years[L - 10]} to ${years[L - 1]} averaged ${fmt(last)}. That is ${Math.abs(last - first).toFixed(1)} degrees ${last >= first ? 'warmer' : 'cooler'}.`
+    : `Around ${place}, NASA's map has gaps in the early years, so the start and the end cannot be compared.`;
+  $('#desc').textContent = msg; speak(msg);
 }
 function setPlayingUI(on) { const b = $('#playBtn'); b.textContent = on ? 'Stop' : 'Play history'; b.setAttribute('aria-pressed', on); }
 
 async function sweep() {
-  if (state.busy) return; state.busy = true;
-  const lat = state.lat, lon0 = state.lon;
-  await speak(`Sweeping west to east along ${formatCoord(lat, 0).split(' ')[0]}.`);
-  for (let lon = -180; lon <= 180; lon += 6) {
-    state.lon = Math.min(179, lon); draw();
-    const v = valueAt(state.yi, lat, state.lon);
-    if (v == null) sound.noData({ pan: lon / 180 }); else sound.note(tOf(v), { pan: lon / 180, dur: 0.12, gain: 0.4, layers: false });
-    await sleep(85);
+  if (state.busy || (isImage() && !src.legend)) return;
+  state.busy = true;
+  if (isImage()) {
+    const u0 = state.u;
+    await speak('Sweeping left to right.');
+    for (let u = 0; u <= 1.0001; u += 1 / 60) {
+      state.u = Math.min(1, u); draw();
+      const v = src.valueAt(state.u, state.v);
+      if (v == null) sound.noData({ pan: u * 2 - 1 }); else sound.note(tOf(v), { pan: u * 2 - 1, dur: 0.12, gain: 0.4, layers: false });
+      await sleep(85);
+    }
+    state.u = u0;
+  } else {
+    const lat = state.lat, lon0 = state.lon;
+    await speak(`Sweeping west to east along ${formatCoord(lat, 0).split(' ')[0]}.`);
+    for (let lon = -180; lon <= 180; lon += 6) {
+      state.lon = Math.min(179, lon); draw();
+      const v = trackValue(state.yi, lat, state.lon);
+      if (v == null) sound.noData({ pan: lon / 180 }); else sound.note(tOf(v), { pan: lon / 180, dur: 0.12, gain: 0.4, layers: false });
+      await sleep(85);
+    }
+    state.lon = lon0;
   }
-  state.lon = lon0; draw(); updateReadout({ play: false });
-  state.busy = false;
+  draw(); updateReadout({ play: false }); state.busy = false;
 }
 
 async function hearLegend() {
-  if (state.busy) return; state.busy = true;
-  const { min, max, unit } = state.track;
-  const parts = [[0, `Low note: ${min} degrees or colder than the 1951 to 1980 average.`], [0.5, 'Middle note: the same as the average.'], [1, `High note: plus ${max} degrees or warmer. Above plus 1, a second voice joins.`]];
+  if (state.busy || !scale()) return;
+  state.busy = true;
+  const { min, max } = scale();
+  const parts = isImage()
+    ? [[0, `Low note: ${say(min)}.`], [0.5, `Middle note: ${say((min + max) / 2)}.`], [1, `High note: ${say(max)}.`]]
+    : [[0, `Low note: ${min} degrees, colder than the 1951 to 1980 average.`], [0.5, 'Middle note: the same as the average.'], [1, `High note: plus ${max} degrees or warmer. Above plus 1, a second voice joins.`]];
   for (const [t, text] of parts) { await speak(text); sound.note(t, { dur: 0.6 }); await sleep(900); }
   state.busy = false;
 }
 
 function toggle(act) {
   if (act === 'voice') { state.voice = !state.voice; if (!state.voice) speechSynthesis?.cancel(); announce(state.voice ? 'Voice on' : 'Voice off'); }
-  if (act === 'ref') { state.ref = !state.ref; sound.reference(state.ref, tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
+  if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
   document.querySelector(`[data-act="${act}"]`).setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
-
 function act(name) {
   if (name === 'legend') hearLegend();
   if (name === 'sweep') sweep();
-  if (name === 'describe') { const t = describeYear(); $('#desc').textContent = t; speak(t); }
+  if (name === 'describe') { const t = describe(); $('#desc').textContent = t; speak(t); }
   if (name === 'voice' || name === 'ref') toggle(name);
 }
 
-const HELP = 'Arrow keys move ten degrees, with shift two degrees. Square brackets, or page up and page down, change the year; with shift, ten years. Space plays history. Enter reads this spot. S sweeps across. L plays the legend. D describes the year. B toggles the average hum. Numbers 1 to 9 jump to places. V turns the voice on or off.';
+// ---------- your own map ----------
+function setMode(mode) {
+  if (state.playing) state.playing = false;
+  state.mode = mode;
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+  const img = isImage();
+  $('#byo').hidden = !img;
+  $('.timeline').hidden = img; $('.jumps').hidden = img; $('.year').hidden = img;
+  $('#trackTitle').textContent = img ? (src.canvas ? `Your map: ${src.name}` : 'Your own NASA map') : state.track.title;
+  $('#trackSub').textContent = img ? 'Any NASA picture with a color bar' : state.track.subtitle;
+  $('#credit').innerHTML = img ? 'Picture supplied by you. Please credit its source, for example the NASA Scientific Visualization Studio page you copied it from.' : `${state.track.credit}. <a href="${state.track.sourceUrl}">${state.track.sourceUrl}</a>`;
+  $('#map').setAttribute('aria-label', img ? 'Your picture. After the color bar is marked, arrow keys move and Enter reads the spot.' : 'Temperature map. Arrow keys move, square brackets change the year, Enter reads the spot, question mark for help.');
+  draw(); drawLegend();
+  if (img) { updateSteps(); if (src.legend) updateReadout({ play: false }); else clearReadout(); }
+  else { updateReadout({ play: false }); $('#desc').textContent = describe(); }
+}
+function clearReadout() { ['#rPlace', '#rCoord', '#rValue', '#rNote'].forEach(s => { $(s).textContent = '—'; }); $('#desc').textContent = ''; }
+function updateSteps() {
+  const step = !src.canvas ? 0 : state.cal.step; // 0 no picture, 1 low end, 2 high end, 3 values, 4 ready
+  [['#st1', 1], ['#st2', 2], ['#st3', 3]].forEach(([id, n]) => { const li = $(id); li.classList.toggle('now', step === n); li.classList.toggle('done', step > n); });
+  $('#singBtn').disabled = step !== 3;
+  if (step === 0) $('#byoStatus').textContent = 'Waiting for a picture.';
+  else if (step === 1) $('#byoStatus').textContent = 'Click the low end of the color bar.';
+  else if (step === 2) $('#byoStatus').textContent = 'Now click the high end.';
+  else if (step === 3) $('#byoStatus').textContent = 'Check the two numbers, then press Make it sing.';
+}
+async function usePicture(blob) {
+  if (!blob || !/^image\//.test(blob.type)) { $('#byoStatus').textContent = 'That is not a picture. Copy or drop an image file.'; return; }
+  try { await src.load(blob); } catch (e) { $('#byoStatus').textContent = e.message; return; }
+  state.cal = { step: 1, p0: null, p1: null }; state.u = 0.5; state.v = 0.4;
+  if (!isImage()) setMode('image'); else setMode('image');
+  speak('Picture loaded. A sighted helper now marks the color bar: click its low end, then its high end.');
+}
+function calibrationClick(e) {
+  const r = $('#map').getBoundingClientRect();
+  const p = { x: (e.clientX - r.left) / r.width * src.width, y: (e.clientY - r.top) / r.height * src.height };
+  if (state.cal.step === 1) state.cal = { step: 2, p0: p, p1: null };
+  else if (state.cal.step === 2) { state.cal.p1 = p; state.cal.step = 3; $('#vMin').focus(); $('#vMin').select(); }
+  draw(); updateSteps();
+}
+function makeItSing() {
+  const vmin = parseFloat($('#vMin').value), vmax = parseFloat($('#vMax').value), unit = $('#vUnit').value.trim();
+  if (!Number.isFinite(vmin) || !Number.isFinite(vmax) || vmin === vmax) { $('#byoStatus').textContent = 'Type two different numbers for the low and high ends.'; return; }
+  sound.start();
+  src.calibrate(state.cal.p0, state.cal.p1, vmin, vmax, unit);
+  state.cal.step = 4; updateSteps(); drawLegend();
+  const secs = Math.round((src.readyAt - src.loadedAt) / 1000);
+  const msg = `Ready. From picture to sound in ${secs} seconds. Move around to listen.`;
+  $('#byoStatus').textContent = msg;
+  $('#desc').textContent = describe();
+  $('#map').focus();
+  draw(); speak(msg).then(() => sweep());
+}
 
 // ---------- input ----------
+const HELP = 'Arrow keys move, with shift in small steps. Square brackets, or page up and page down, change the year. Space plays history. Enter reads this spot. S sweeps across. L plays the legend. D describes the picture. B toggles the average hum. Numbers 1 to 9 jump to places. V turns the voice on or off.';
 function onKey(e) {
-  if (!state.track || e.target.tagName === 'INPUT' && e.key !== 'PageUp' && e.key !== 'PageDown') return;
-  const step = e.shiftKey ? 2 : 10, k = e.key;
+  if (!state.track) return;
+  if (e.target.matches?.('input, textarea')) { if (e.key === 'Enter' && e.target.closest('#byo')) makeItSing(); return; }
+  const k = e.key, img = isImage();
+  if (img && !src.legend && k !== '?') return;
+  const step = img ? (e.shiftKey ? 0.01 : 0.05) : (e.shiftKey ? 2 : 10);
+  const move = (dy, dx) => (img ? moveUV(state.u + dx * step, state.v + dy * step) : moveTo(state.lat - dy * step, state.lon + dx * step));
   const map = {
-    ArrowLeft: () => moveTo(state.lat, state.lon - step), ArrowRight: () => moveTo(state.lat, state.lon + step),
-    ArrowUp: () => moveTo(state.lat + step, state.lon), ArrowDown: () => moveTo(state.lat - step, state.lon),
+    ArrowLeft: () => move(0, -1), ArrowRight: () => move(0, 1), ArrowUp: () => move(-1, 0), ArrowDown: () => move(1, 0),
     PageUp: () => setYear(state.yi + (e.shiftKey ? 10 : 1)), PageDown: () => setYear(state.yi - (e.shiftKey ? 10 : 1)),
     ']': () => setYear(state.yi + 1), '[': () => setYear(state.yi - 1), '}': () => setYear(state.yi + 10), '{': () => setYear(state.yi - 10),
     Home: () => setYear(0), End: () => setYear(state.track.years.length - 1),
@@ -280,59 +374,78 @@ function onKey(e) {
     s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(HELP),
   };
   let fn = map[k] || map[k.toLowerCase?.()];
-  if (!fn && /^[1-9]$/.test(k)) { const p = JUMPS[+k - 1]; fn = () => { moveTo(p.lat, p.lon, { play: true }); speak(`${p.name}. ${say(valueAt(state.yi, state.lat, state.lon))}.`); }; }
+  if (!fn && !img && /^[1-9]$/.test(k)) { const p = JUMPS[+k - 1]; fn = () => { moveTo(p.lat, p.lon); speak(`${p.name}. ${say(currentValue())}.`); }; }
   if (!fn) return;
-  if (e.target.closest?.('button') && (k === 'Enter' || k === ' ')) return; // let buttons work normally
+  if (e.target.closest?.('button, summary') && (k === 'Enter' || k === ' ')) return; // let buttons work normally
   e.preventDefault(); fn();
 }
-
-function pointToLatLon(e) {
-  const r = $('#map').getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-  return [90 - y * 180, x * 360 - 180];
-}
+function pointerUV(e) { const r = $('#map').getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
 let lastMove = 0;
 function onPointerMove(e) {
   if (!state.track || state.playing || state.busy) return;
+  if (isImage() && !src.legend) return;
   const now = performance.now(); if (now - lastMove < 60) return; lastMove = now;
-  const [lat, lon] = pointToLatLon(e);
-  const cell = cellIndex(lat, lon);
-  if (cell === state.lastCell) return; state.lastCell = cell;
-  moveTo(lat, lon, { play: true });
+  const [u, v] = pointerUV(e);
+  if (isImage()) {
+    const cell = Math.round(u * 80) * 1000 + Math.round(v * 80);
+    if (cell !== state.lastCell) { state.lastCell = cell; moveUV(u, v); }
+    return;
+  }
+  const lat = 90 - v * 180, lon = u * 360 - 180, cell = cellIndex(lat, lon);
+  if (cell !== state.lastCell) { state.lastCell = cell; moveTo(lat, lon); }
+}
+function onPointerDown(e) {
+  sound.start();
+  if (isImage()) {
+    if (!src.canvas) { $('#pickFile').click(); return; }
+    if (state.cal.step === 1 || state.cal.step === 2) { calibrationClick(e); return; }
+    if (!src.legend) return;
+    const [u, v] = pointerUV(e); moveUV(u, v); return;
+  }
+  const [u, v] = pointerUV(e); moveTo(90 - v * 180, u * 360 - 180);
 }
 
 // ---------- start ----------
 async function start() {
   const ok = await sound.start();
-  $('#start').hidden = true;
-  $('#map').focus();
-  draw(); updateReadout({ play: false });
-  preloadAll();
+  $('#start').hidden = true; $('#map').focus();
+  draw(); updateReadout({ play: false }); preloadAll();
   if (!ok) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
-  speak(`Earth Jukebox. ${state.track.title}. You are at ${placeName(state.lat, state.lon)} in ${year()}. ${say(valueAt(state.yi, state.lat, state.lon))}. Use the arrow keys to move, space to play history, and question mark for help.`);
+  speak(`Earth Jukebox. ${state.track.title}. You are at ${placeName(state.lat, state.lon)} in ${year()}. ${say(currentValue())}. Use the arrow keys to move, space to play history, and question mark for help.`);
 }
-
 function buildJumps() {
   $('#jumps').innerHTML = JUMPS.map((p, i) => `<button type="button" data-jump="${i}"><kbd>${i + 1}</kbd> ${p.name.replace(/^the /, '')}</button>`).join('');
   $('#jumps').addEventListener('click', e => {
     const b = e.target.closest('[data-jump]'); if (!b) return;
-    const p = JUMPS[+b.dataset.jump]; moveTo(p.lat, p.lon); speak(`${p.name}. ${say(valueAt(state.yi, state.lat, state.lon))}.`);
+    sound.start(); const p = JUMPS[+b.dataset.jump]; moveTo(p.lat, p.lon); speak(`${p.name}. ${say(currentValue())}.`);
   });
 }
 
 async function init() {
   await loadTrack('temperature');
   buildJumps();
-  draw(); updateReadout({ play: false });
-  $('#desc').textContent = describeYear();
+  setMode('track');
   $('#startBtn').addEventListener('click', start);
   $('#playBtn').addEventListener('click', () => { sound.start(); playHistory(); });
-  $('#year').addEventListener('input', e => setYear(+e.target.value));
+  $('#year').addEventListener('input', e => { sound.start(); setYear(+e.target.value); });
   document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { sound.start(); act(b.dataset.act); }));
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   document.addEventListener('keydown', onKey);
   const m = $('#map');
   m.addEventListener('pointermove', onPointerMove);
-  m.addEventListener('pointerdown', e => { sound.start(); const [lat, lon] = pointToLatLon(e); state.lastCell = cellIndex(lat, lon); moveTo(lat, lon); });
-  m.addEventListener('pointerup', () => updateReadout({ play: false, speakIt: true }));
+  m.addEventListener('pointerdown', onPointerDown);
+  m.addEventListener('pointerup', () => { if (!isImage() || src.legend) updateReadout({ play: false, speakIt: true }); });
+  // your own map: pick, drop, paste
+  $('#pickBtn').addEventListener('click', () => $('#pickFile').click());
+  $('#pickFile').addEventListener('change', e => usePicture(e.target.files[0]));
+  $('#singBtn').addEventListener('click', makeItSing);
+  const wrap = $('.mapwrap');
+  wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
+  wrap.addEventListener('dragleave', () => wrap.classList.remove('drop'));
+  wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); usePicture(e.dataTransfer.files[0]); });
+  document.addEventListener('paste', e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item) { e.preventDefault(); $('#start').hidden = true; sound.start(); usePicture(item.getAsFile()); }
+  });
 }
 init();

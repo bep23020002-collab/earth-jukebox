@@ -17,7 +17,8 @@
       <p>Every NASA Earth map, made audible.</p>
     </div>
     <nav class="tracks" aria-label="Choose what to listen to">
-      <button type="button" class="track-btn" data-track="temperature" aria-pressed="true">Global temperature</button>
+      <button type="button" class="track-btn" data-mode="track" aria-pressed="true">Global temperature</button>
+      <button type="button" class="track-btn" data-mode="image" aria-pressed="false">Your own NASA map</button>
     </nav>
   </header>
 
@@ -64,6 +65,29 @@
     </section>
 
     <aside class="panel" aria-label="What you are hearing">
+      <section id="byo" class="byo" hidden aria-labelledby="byoTitle">
+        <h3 id="byoTitle">Your own NASA map</h3>
+        <p class="small">Copy any NASA picture that has a color bar and paste it here (<kbd>⌘</kbd><kbd>V</kbd> or <kbd>Ctrl</kbd><kbd>V</kbd>), drop a file on the map, or choose one. A sighted helper marks the color bar once; after that anyone can explore it by ear.</p>
+        <div class="byo-row">
+          <button type="button" id="pickBtn">Choose a picture</button>
+          <input type="file" id="pickFile" accept="image/*" hidden>
+        </div>
+        <ol class="byo-steps">
+          <li id="st1">Click the <strong>low</strong> end of the color bar.</li>
+          <li id="st2">Click the <strong>high</strong> end of the color bar.</li>
+          <li id="st3">
+            Type the values printed at each end.
+            <div class="byo-fields">
+              <label>Low <input id="vMin" type="number" step="any" value="-4"></label>
+              <label>High <input id="vMax" type="number" step="any" value="4"></label>
+              <label>Unit <input id="vUnit" type="text" value="°C" size="4"></label>
+            </div>
+            <button type="button" id="singBtn" class="primary">Make it sing</button>
+          </li>
+        </ol>
+        <p id="byoStatus" class="byo-status" role="status"></p>
+      </section>
+
       <dl class="readout">
         <div><dt>Place</dt><dd id="rPlace">—</dd></div>
         <div><dt>Position</dt><dd id="rCoord">—</dd></div>
