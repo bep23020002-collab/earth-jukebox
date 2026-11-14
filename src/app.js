@@ -1012,11 +1012,23 @@ const startOpen = () => !$('#start').hidden;
 let welcomed = false;
 function talk(text, opts) { const v = state.voice; state.voice = true; const p = speak(text, opts); state.voice = v; return p; } // speak even before Voice guide is on
 const talking = () => state.voice || (welcomed && startOpen());
-function welcome(byKey) {
-  welcomed = true;
-  talk('Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
-    + (byKey ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
-      : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.'));
+const welcomeText = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
+  + (byKey ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
+    : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.');
+function welcome(byKey) { welcomed = true; talk(welcomeText(byKey)); }
+// Say hello as soon as the page opens. Most computer browsers allow this; where a browser blocks speech until the
+// first key press or tap (iPhone Safari), nothing is lost: the first key press or tap says it instead.
+function welcomeOnOpen() {
+  if (!('speechSynthesis' in window)) return;
+  const go = () => {
+    if (welcomed || !startOpen()) return;
+    const u = new SpeechSynthesisUtterance(welcomeText(true));
+    if (voicePick) u.voice = voicePick;
+    u.lang = voicePick?.lang || 'en-US'; u.rate = 1.05;
+    u.onstart = () => { welcomed = true; };
+    speechSynthesis.speak(u);
+  };
+  if (speechSynthesis.getVoices().length) go(); else { speechSynthesis.addEventListener('voiceschanged', go, { once: true }); setTimeout(go, 1200); }
 }
 function setupStartTalk() {
   $('#startVoiceBtn').focus({ preventScroll: true }); // Enter right away starts the voice guide
@@ -1030,6 +1042,7 @@ function setupStartTalk() {
     }
   }, true);
   document.addEventListener('pointerdown', e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(false); }, true);
+  welcomeOnOpen();
 }
 function setupSayOnHover() {
   document.addEventListener('pointerover', e => {
