@@ -12,6 +12,20 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.55; }
 body { background: radial-gradient(1200px 800px at 30% 30%, #0E1A30 0%, var(--bg) 60%) fixed; }
+/* Background: a starry sky, and along the bottom a real NASA photo of Earth's glowing night horizon
+   taken from the International Space Station (image iss072e030147, cropped). */
+body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .55;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 27% 64%, #cfe3ff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 41% 32%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 58% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 69% 47%, #ffe9cf 50%, transparent 51%), radial-gradient(1.5px 1.5px at 83% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 91% 71%, #cfe3ff 50%, transparent 51%), radial-gradient(1px 1px at 6% 83%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 35% 88%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 76% 86%, #fff 50%, transparent 51%);
+  background-size: 420px 380px; }
+body::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 34vh; z-index: 0; pointer-events: none; opacity: .7;
+  background: url("../assets/background/airglow.jpg") center top / cover no-repeat;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 35%, #000 70%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0%, #000 35%, #000 70%, transparent 100%); }
+.top, .layout { position: relative; z-index: 1; }
 h1, h2, h3 { line-height: 1.15; margin: 0; text-wrap: balance; }
 p { margin: 0; }
 a { color: var(--ice); }

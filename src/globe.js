@@ -9,7 +9,7 @@ export class Globe {
   constructor(canvas) {
     this.c = canvas; this.g = canvas.getContext('2d');
     this.lat0 = 8; this.lon0 = 112; // view centre (degrees)
-    this.tex = null; this.ripples = []; this.marker = null;
+    this.tex = null; this.ripples = []; this.marker = null; this.strokes = [];
     this.anim = null; this.dirty = true; this.raf = 0;
     this.out = this.g.createImageData(canvas.width, canvas.height);
   }
@@ -43,6 +43,11 @@ export class Globe {
     this.lon0 -= dxPx * k; this.lat0 = Math.max(-80, Math.min(80, this.lat0 + dyPx * k));
     this.anim = null; this.request();
   }
+
+  // Lines the listener draws on the globe (each stroke is a list of {lat, lon}).
+  startStroke() { this.strokes.push([]); }
+  addPoint(lat, lon) { if (!this.strokes.length) this.startStroke(); this.strokes[this.strokes.length - 1].push({ lat, lon }); this.request(); }
+  clearStrokes() { this.strokes = []; this.request(); }
 
   ripple(lat, lon, hue = 30) { this.ripples.push({ lat, lon, t0: performance.now(), hue }); this.request(); }
 
@@ -117,6 +122,15 @@ export class Globe {
     if (!this.tmp) { this.tmp = document.createElement('canvas'); this.tmp.width = S; this.tmp.height = S; }
     this.tmp.getContext('2d').putImageData(this.out, 0, 0);
     g.drawImage(this.tmp, 0, 0);
+    // lines drawn by the listener
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const stroke of this.strokes) {
+      for (const [w, color] of [[9, 'rgba(5,8,15,.55)'], [4, 'rgba(255,255,255,.95)']]) {
+        g.lineWidth = w; g.strokeStyle = color; g.beginPath(); let pen = false;
+        for (const pt of stroke) { const p = this.project(pt.lat, pt.lon); if (!p.visible) { pen = false; continue; } if (pen) g.lineTo(p.x, p.y); else { g.moveTo(p.x, p.y); pen = true; } }
+        g.stroke();
+      }
+    }
     // ripples where the Earth was tapped
     for (const r of this.ripples) {
       const p = this.project(r.lat, r.lon); if (!p.visible) continue;

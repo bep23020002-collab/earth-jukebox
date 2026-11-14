@@ -236,7 +236,7 @@ function moveTo(lat, lon, opts = {}) {
 }
 
 // ---------- play the Earth like an instrument ----------
-function tapAt(lat, lon, { record = true } = {}) {
+function tapAt(lat, lon, { record = true, fromDraw = false } = {}) {
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
@@ -250,7 +250,7 @@ function tapAt(lat, lon, { record = true } = {}) {
     state.taps.push({ gap, lat, lon });
     if (state.taps.length > 32) state.taps.shift();
     updateTapUI();
-    guideAfterTap(v);
+    if (!fromDraw) guideAfterTap(v); // a drawn line moves the guide on when the line ends
   }
 }
 function updateTapUI() {
@@ -281,20 +281,20 @@ function setGuide({ label, title, text, btn, alt }) {
   speak(`${title}. ${text || ''}`);
 }
 function resetGuide() {
-  state.taps = []; updateTapUI(); guide.step = 1;
-  setGuide({ label: 'Step 1 of 3', title: 'Tap anywhere on the Earth', text: 'Every place plays a note. Warmer places play higher notes.' });
+  state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes();
+  setGuide({ label: 'Step 1 of 3', title: 'Tap the Earth, or draw a line on it', text: 'Every place plays a note. Warmer places play higher notes. A line you draw becomes a tune.' });
 }
 function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1) return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
-    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.` });
+    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}. You can also draw a line across the Earth.` });
     return;
   }
   guide.step = 2;
   setGuide({
     label: 'Step 2 of 3', title: 'Now go back in time',
-    text: 'Your 3 taps are a little tune. Let\'s hear the same tune in 1880, before the Earth warmed up.',
+    text: `You made a tune of ${n} notes. Let's hear the same tune in 1880, before the Earth warmed up.`,
     btn: ['Play my tune in 1880', async () => { await playTuneIn(1880); guideStep3(); }],
   });
 }
@@ -518,18 +518,46 @@ function onMapDown(e) {
 }
 function onMapUp() { if (src.legend) updateReadout({ play: false, speakIt: true }); }
 
-// Globe: tap to play, drag to spin, hover (mouse) to listen
-const drag = { on: false, x: 0, y: 0, moved: 0, id: null };
+// Globe gestures:
+//   tap                         -> play that place
+//   press and drag              -> draw a line; every place it crosses plays, and the line becomes your tune
+//   Shift+drag, two fingers, or drag starting off the globe -> spin the Earth
+//   mouse hover                 -> listen without clicking
+const drag = { on: false, x: 0, y: 0, moved: 0, id: null, mode: 'pending', lastNoteAt: 0, lastCell: -1, notes: 0 };
+const touches = new Map();
 function onGlobeDown(e) {
   sound.start();
-  Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId });
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { $('#globe').setPointerCapture(e.pointerId); } catch { /* synthetic or ended pointer */ }
+  if (touches.size >= 2) { drag.mode = 'spin'; return; } // second finger: spin
+  const onGlobe = !!globe.pick(e.clientX, e.clientY);
+  const spin = e.shiftKey || e.button === 1 || e.button === 2 || !onGlobe || state.replaying || state.songPlaying;
+  Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId, mode: spin ? 'spin' : 'pending', lastCell: -1, notes: 0 });
+}
+function drawAt(clientX, clientY) {
+  const p = globe.pick(clientX, clientY); if (!p) return;
+  globe.addPoint(p.lat, p.lon);
+  const now = performance.now(), cell = cellIndex(p.lat, p.lon);
+  if (cell !== drag.lastCell && now - drag.lastNoteAt >= 140) {
+    drag.lastCell = cell; drag.lastNoteAt = now; drag.notes++;
+    tapAt(p.lat, p.lon, { record: state.mode !== 'song', fromDraw: true });
+  }
 }
 function onGlobeMove(e) {
+  if (touches.has(e.pointerId)) {
+    const t = touches.get(e.pointerId);
+    if (drag.mode === 'spin' && touches.size >= 2) { globe.rotateBy((e.clientX - t.x) / 2, (e.clientY - t.y) / 2); }
+    t.x = e.clientX; t.y = e.clientY;
+  }
   if (drag.on && e.pointerId === drag.id) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
-    if (drag.moved > 6) globe.rotateBy(dx, dy);
+    if (drag.mode === 'pending' && drag.moved > 6) {
+      if (state.mode === 'song' && state.picking != null) drag.mode = 'spin';
+      else { drag.mode = 'draw'; globe.startStroke(); $('#globeHint').hidden = true; }
+    }
+    if (drag.mode === 'spin' && touches.size < 2) globe.rotateBy(dx, dy);
+    if (drag.mode === 'draw') drawAt(e.clientX, e.clientY);
     return;
   }
   if (e.pointerType !== 'mouse' || state.playing || state.busy || state.replaying) return;
@@ -539,9 +567,15 @@ function onGlobeMove(e) {
   if (cell !== state.lastCell) { state.lastCell = cell; moveTo(p.lat, p.lon); }
 }
 function onGlobeUp(e) {
+  touches.delete(e.pointerId);
   if (!drag.on || e.pointerId !== drag.id) return;
   drag.on = false;
-  if (drag.moved > 6) return; // that was a spin, not a tap
+  if (drag.mode === 'draw') {
+    announce(`Your line played ${drag.notes} notes.`);
+    guideAfterTap(currentValue());
+    return;
+  }
+  if (drag.mode !== 'pending') return; // that was a spin
   const p = globe.pick(e.clientX, e.clientY);
   if (!p) return;
   $('#globeHint').hidden = true;
@@ -704,7 +738,8 @@ async function init() {
   g.addEventListener('pointerdown', onGlobeDown);
   g.addEventListener('pointermove', onGlobeMove);
   g.addEventListener('pointerup', onGlobeUp);
-  g.addEventListener('pointercancel', () => { drag.on = false; });
+  g.addEventListener('pointercancel', e => { drag.on = false; touches.delete(e.pointerId); });
+  g.addEventListener('contextmenu', e => e.preventDefault());
   const m = $('#map');
   m.addEventListener('pointermove', onMapMove);
   m.addEventListener('pointerdown', onMapDown);
