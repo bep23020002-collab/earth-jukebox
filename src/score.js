@@ -134,6 +134,29 @@ export class Score {
   line(title, length, first, last) { this.#show({ type: 'line', length, notes: new Array(length), at: -1, first, last }, title); }
   put(i, step) { if (this.view?.type !== 'line') return; this.view.notes[i] = step; this.view.at = i; this.render(); }
   putMany(list) { if (this.view?.type !== 'line' || !list.length) return; for (const [i, step] of list) this.view.notes[i] = step; this.view.at = list[list.length - 1][0]; this.render(); }
+  // The same picture in words, for the voice guide (the canvas itself is hidden from screen readers).
+  describe() {
+    const v = this.view; if (!v) return '';
+    const ax = this.axis || {}, mid = (STEPS - 1) / 2;
+    const pos = st => (st == null ? 'no data' : st > mid + 1 ? (ax.high || 'high') : st < mid - 1 ? (ax.low || 'low') : (ax.mid || 'in the middle'));
+    const trend = list => { const ok = list.filter(x => x != null); if (ok.length < 2) return '';
+      const k = Math.max(1, Math.round(ok.length / 5)), a = ok.slice(0, k).reduce((s, x) => s + x, 0) / k, b = ok.slice(-k).reduce((s, x) => s + x, 0) / k;
+      return b > a + 0.5 ? 'The notes go up.' : b < a - 0.5 ? 'The notes go down.' : 'The notes stay about level.'; };
+    let t = this.titleEl.textContent + '. ';
+    if (v.type === 'live' && v.notes.length) {
+      const last = v.notes[v.notes.length - 1];
+      t += `${v.notes.length} note${v.notes.length > 1 ? 's' : ''}. The newest${last.label ? `, ${last.label},` : ''} is ${pos(last.step)}. ${trend(v.notes.map(n => n.step))}`;
+    } else if (v.type === 'takes') {
+      t += v.takes.map(k => `${k.name ? k.name + ': ' : ''}${k.notes.map(n => `${n.label ? n.label + ' ' : ''}${pos(n.step)}`).join(', ')}`).join('. ') + '.';
+    } else if (v.type === 'line') {
+      const ok = v.notes.filter(x => x != null);
+      t += `${ok.length} notes${v.first ? `, from ${v.first}` : ''}${v.last ? ` to ${v.last}` : ''}. ${trend(v.notes)}`;
+    } else if (v.type === 'song') {
+      t += `${v.sections.length} part${v.sections.length > 1 ? 's' : ''}.`;
+    }
+    const note = this.noteEl.textContent.trim();
+    return (t + (note ? ' ' + note : '')).replace(/\s+/g, ' ').trim();
+  }
   song(sections) { this.#show({ type: 'song', sections, hits: new Set(), section: -1 }, 'Your Earth song'); }
   hit(si, ni) { if (this.view?.type !== 'song') return; this.view.section = si; this.view.hits.add(`${si}:${ni}`); this.render(); }
   render() {
