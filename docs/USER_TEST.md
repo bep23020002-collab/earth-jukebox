@@ -1,7 +1,7 @@
 <!-- AI-assisted (Anthropic Claude). -->
 # 试用流程
 
-**英文主持稿（可以直接照念）：[USER_TEST_EN.md](USER_TEST_EN.md)**
+**照念的主持稿：英文 [USER_TEST_EN.md](USER_TEST_EN.md)，华文 [USER_TEST_ZH.md](USER_TEST_ZH.md)**
 
 目标：用真实的人证明两件事，对应评分的 **Impact（影响力）** 和 **Validity（好用、做得到）**：
 1. 不看屏幕，也能**听出**哪里比较热、地球有没有变暖
