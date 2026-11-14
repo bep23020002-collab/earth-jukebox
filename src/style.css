@@ -160,8 +160,11 @@ kbd { font: inherit; font-size: .78em; border: 1px solid var(--line); border-bot
 .start-card .primary { justify-self: start; }
 .hint { color: var(--muted); font-size: .9rem; }
 
+.hint-touch { display: none; }
+@media (hover: none) { .hint-touch { display: inline; } .hint-mouse { display: none; } }
 @media (max-width: 1020px) {
   .layout { grid-template-columns: 1fr; }
+  .panel { order: -1; } /* on phones the step-by-step guide comes before the globe */
   .about { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
