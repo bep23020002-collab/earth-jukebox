@@ -7,3 +7,5 @@ data/frames_px/
 worker/node_modules/
 worker/.wrangler/
 worker/.dev.vars
+video/node_modules/
+video/out/
