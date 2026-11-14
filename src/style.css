@@ -336,7 +336,7 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   .access-key { padding: 7px 10px; font-size: .8rem; }
   .controls { grid-template-columns: 1fr; padding: 14px; }
   .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .pad-side { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pad-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pad-side button { padding: 8px 6px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

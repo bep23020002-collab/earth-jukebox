@@ -425,24 +425,26 @@ async function replayTaps() {
 
 // ---------- step-by-step guide (first visit) ----------
 const guide = { step: 1, done: false };
-function setGuide({ label, title, text, btn, alt }) {
+function setGuide({ label, title, text, btn, alt, say }) {
   $('#guideStep').textContent = label || '';
   $('#guideTitle').textContent = title; $('#guideText').textContent = text || '';
   for (const [id, b] of [['#guideBtn', btn], ['#guideAlt', alt]]) {
     const el = $(id); el.hidden = !b; el.disabled = false;
     if (b) { el.textContent = b[0]; el.onclick = async () => { sound.start(); el.disabled = true; await b[1](); }; }
   }
-  speak(`${title}. ${text || ''}`);
+  speak(say || `${title}. ${text || ''}`);
 }
 function resetGuide() {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
-  setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.' });
+  setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
+    say: state.voice ? 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null });
 }
 function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
-    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.` });
+    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.`,
+      say: state.voice ? `That was ${place}: ${feeling(v).toLowerCase()}. ${n === 1 ? 'Add 2 more places.' : 'Add 1 more place.'}` : null });
     return;
   }
   guide.step = 2;
@@ -726,8 +728,12 @@ async function hearLegend() {
   state.busy = false;
 }
 
+function setHint() { // the hint on the globe says how to listen; with Voice guide on, moving listens
+  $('#globeHint .hint-mouse').textContent = state.voice ? 'Move the mouse to listen. Click to add a place.' : 'Tap to play. Drag to spin the Earth.';
+  $('#globeHint .hint-touch').textContent = state.voice ? 'Slide a finger to listen. Two fingers spin.' : 'Tap to play. Drag to spin the Earth.';
+}
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' : 'Voice guide off.'); }
+  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' : 'Voice guide off.'); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
   document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
@@ -1008,6 +1014,27 @@ function onMapUp() { if (src.legend) updateReadout({ play: false, speakIt: true 
 // The only line on the globe is the Space Station's orbit ("Fly with the Space Station").
 const drag = { on: false, x: 0, y: 0, moved: 0, id: null, mode: 'pending', lastNoteAt: 0, lastCell: -1, notes: 0 };
 const touches = new Map();
+// With Voice guide on ("blind mode"), moving the mouse or one finger over the Earth keeps playing notes,
+// resting for a moment says where you are, and leaving the Earth's edge ticks. Two fingers still spin.
+const hover = { x: -999, y: 0, on: false, t: 0, talking: false };
+function hearUnder(e) {
+  const dense = state.voice, p = globe.pick(e.clientX, e.clientY);
+  if (!p) { if (dense && hover.on) sound.noData(); hover.on = false; clearTimeout(hover.t); return; }
+  hover.on = true;
+  const now = performance.now(), cell = cellIndex(p.lat, p.lon);
+  const far = Math.hypot(e.clientX - hover.x, e.clientY - hover.y) > 14; // a note every few millimetres, even inside one 2° cell
+  if ((cell !== state.lastCell || (dense && far)) && now - lastMove >= (dense ? 90 : 70)) {
+    lastMove = now; hover.x = e.clientX; hover.y = e.clientY; state.lastCell = cell;
+    if (hover.talking) { speechSynthesis?.cancel(); hover.talking = false; }
+    moveTo(p.lat, p.lon);
+  }
+  if (!dense) return;
+  clearTimeout(hover.t);
+  hover.t = setTimeout(() => {
+    if (state.playing || state.busy || state.replaying || !hover.on) return;
+    hover.talking = true; speak(`${currentPlace()}. ${feeling(currentValue())}.`).then(() => { hover.talking = false; });
+  }, 650);
+}
 function onGlobeDown(e) {
   sound.start();
   touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1015,7 +1042,9 @@ function onGlobeDown(e) {
   if (touches.size >= 2) { drag.mode = 'spin'; return; } // second finger: spin
   const onGlobe = !!globe.pick(e.clientX, e.clientY);
   const spin = e.shiftKey || e.button === 1 || e.button === 2 || !onGlobe || state.replaying || state.songPlaying;
-  Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId, mode: spin ? 'spin' : 'pending', lastCell: -1, notes: 0 });
+  const explore = !spin && state.voice && e.pointerType !== 'mouse'; // one finger, Voice guide on: listen by touch
+  Object.assign(drag, { on: true, x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId, mode: spin ? 'spin' : explore ? 'explore' : 'pending', lastCell: -1, notes: 0 });
+  if (explore) hover.x = -999;
 }
 function onGlobeMove(e) {
   if (touches.has(e.pointerId)) {
@@ -1026,21 +1055,19 @@ function onGlobeMove(e) {
   if (drag.on && e.pointerId === drag.id) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.mode === 'explore') { if (touches.size < 2 && !state.playing && !state.busy && !state.replaying) hearUnder(e); return; }
     if (drag.mode === 'pending' && drag.moved > 6) drag.mode = 'spin';
     if (drag.mode === 'spin' && touches.size < 2) globe.rotateBy(dx, dy);
     return;
   }
   if (e.pointerType !== 'mouse' || state.playing || state.busy || state.replaying) return;
-  const now = performance.now(); if (now - lastMove < 70) return; lastMove = now;
-  const p = globe.pick(e.clientX, e.clientY); if (!p) return;
-  const cell = cellIndex(p.lat, p.lon);
-  if (cell !== state.lastCell) { state.lastCell = cell; moveTo(p.lat, p.lon); }
+  hearUnder(e);
 }
 function onGlobeUp(e) {
   touches.delete(e.pointerId);
   if (!drag.on || e.pointerId !== drag.id) return;
   drag.on = false;
-  if (drag.mode !== 'pending') return; // that was a spin
+  if (drag.mode === 'explore' ? drag.moved > 6 : drag.mode !== 'pending') return; // that was a spin, or listening by touch
   const p = globe.pick(e.clientX, e.clientY);
   if (!p) return;
   $('#globeHint').hidden = true;
@@ -1211,7 +1238,7 @@ async function shareSong() {
 
 // ---------- start ----------
 async function start(withVoice = false) {
-  state.voice = withVoice; document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
+  state.voice = withVoice; setHint(); document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
   const ok = await sound.start();
   $('#start').hidden = true; $('#globe').focus();
   draw(); preloadAll();
@@ -1284,6 +1311,7 @@ async function init() {
   g.addEventListener('pointermove', onGlobeMove);
   g.addEventListener('pointerup', onGlobeUp);
   g.addEventListener('pointercancel', e => { drag.on = false; touches.delete(e.pointerId); });
+  g.addEventListener('pointerleave', e => { if (e.pointerType !== 'mouse') return; clearTimeout(hover.t); if (state.voice && hover.on) sound.noData(); hover.on = false; });
   g.addEventListener('contextmenu', e => e.preventDefault());
   const m = $('#map');
   m.addEventListener('pointermove', onMapMove);
