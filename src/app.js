@@ -11,7 +11,7 @@ import { Globe } from './globe.js';
 import { composeSong, scheduleSong, BPM, BEATS_PER_MOMENT } from './song.js';
 import { KINDS } from './tracks.js';
 import { aiReady, aiSong, aiAsk, storyWithoutAI } from './ai.js';
-import { loadMeta, hasMonth, loadYear, yearLoaded, monthValue, monthBoxMean, dateText, MON, MONTHS, latestMonth } from './monthly.js';
+import { loadMeta, hasMonth, loadYear, yearLoaded, monthValue, monthBoxMean, monthCell, dateText, MON, MONTHS, latestMonth } from './monthly.js';
 
 const $ = s => document.querySelector(s);
 const sound = new Sound();
@@ -22,7 +22,7 @@ const state = {
   mode: 'track', track: null, cube: null, yi: 0, lat: 2.3, lon: 111.8,
   u: 0.5, v: 0.5, cal: { step: 0, p0: null, p1: null },
   voice: false, ref: false, playing: false, busy: false, images: new Map(), lastCell: -1,
-  texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {}, monthLabel: null,
+  texYear: null, taps: [], lastTapAt: 0, replaying: false, tracks: {}, monthLabel: null, month: null,
 };
 
 // ---------- track data ----------
@@ -40,7 +40,8 @@ const temp = () => state.tracks.temperature;
 function useTrack(id) {
   const track = state.tracks[id]; if (!track) return;
   Object.assign(state, { track, cube: track.cube, yi: track.years.length - 1, texYear: null });
-  const yr = $('#year'); yr.max = track.years.length - 1; yr.value = state.yi;
+  state.month = null;
+  const yr = $('#year'); yr.max = hasMonths(track) ? track.years.length * 12 - 1 : track.years.length - 1; yr.value = sliderValue();
   setPlayingUI(false);
   document.querySelectorAll('[data-track]').forEach(b => b.setAttribute('aria-pressed', b.dataset.track === id));
 }
@@ -57,10 +58,41 @@ function decode(code, T = state.track) {
   const { min, max } = T;
   return min + (code - 1) / 254 * (max - min);
 }
-function cellValue(yi, idx, T = state.track) { const { width: W, height: H } = grid(T); return decode(T.cube[yi * W * H + idx], T); }
+// The year bar moves month by month. state.month: null = the whole year (NASA's yearly map, as published),
+// 1-12 = that month (temperature: NASA GISTEMP monthly numbers; lightning: NASA's 10-day frames dated in that month).
+const hasMonths = (T = state.track) => !!T && (T.id === 'temperature' || T.id === 'lightning');
+const monthOn = (T = state.track) => state.mode === 'track' && state.month != null && hasMonths(T);
+let lightningByCell = null, lightningMeta = null;
+async function loadLightningMonths() {
+  lightningMeta ||= await fetch('assets/lightning/monthly/meta.json').then(r => r.json());
+  lightningByCell ||= new Uint8Array(await (await fetch('assets/lightning/monthly/by-cell.bin')).arrayBuffer());
+}
+async function ensureMonthData(T = state.track) { // load what the current month needs (one year file, or the lightning months)
+  if (!monthOn(T)) return;
+  if (T.id === 'temperature') { await loadMeta(); await loadYear(T.years[state.yi]); } else await loadLightningMonths();
+}
+function monthCovered(yi = state.yi, T = state.track) { // does NASA's data cover this month of this year?
+  if (!monthOn(T)) return true;
+  const y = T.years[yi];
+  if (T.id === 'temperature') return hasMonth(y, state.month);
+  return !!lightningMeta && (lightningMeta.months[y] || []).includes(state.month);
+}
+function cellValue(yi, idx, T = state.track) {
+  if (monthOn(T)) {
+    const y = T.years[yi];
+    if (T.id === 'temperature') return yearLoaded(y) ? monthCell(y, state.month, idx) : null;
+    if (!lightningByCell) return null;
+    const N = lightningMeta.monthsPerCell, k = (y - lightningMeta.firstYear) * 12 + (state.month - lightningMeta.firstMonth);
+    if (k < 0 || k >= N) return null;
+    const c = lightningByCell[idx * N + k]; return c ? (c - 1) / 254 : null;
+  }
+  const { width: W, height: H } = grid(T); return decode(T.cube[yi * W * H + idx], T);
+}
 function trackValue(yi, lat, lon, T = state.track) { return cellValue(yi, cellIndex(lat, lon, T), T); }
-// the year as shown (while Play goes month by month, the month too: "Mar 1950")
-const when = (yi = state.yi, T = state.track) => String(T.years[yi]);
+// the year as shown, with the month when the year bar is on a month: "Mar 1950"
+const when = (yi = state.yi, T = state.track) => (monthOn(T) ? `${MON[state.month - 1]} ${T.years[yi]}` : String(T.years[yi]));
+// the year bar: 12 steps per year for tracks with months
+const sliderValue = () => (hasMonths() ? state.yi * 12 + (state.month ? state.month - 1 : 11) : state.yi);
 function boxMean(yi, lat, lon, r = 6, T = state.track) { // area-weighted average around a point
   const d = grid(T).cellDegrees;
   let s = 0, w = 0;
@@ -123,6 +155,7 @@ function fmt(v) {
   const mag = nice(Math.abs(v)), zero = Number(mag) === 0; // no "−0.0"
   const s = `${signed ? (v >= 0 || zero ? '+' : '−') : (v < 0 && !zero ? '−' : '')}${mag} ${unit}`.trim();
   const span = max - min;
+  if (monthOn() && state.track.kind === 'temperature') return s; // NASA's monthly numbers are exact, not read from capped colors
   if (v >= max - span * 0.008) return `${s} or more`;
   if (v <= min + span * 0.008) return `${s} or less`;
   return s;
@@ -142,6 +175,7 @@ function describe() {
     if (st.mean == null) return 'None of the colors match the color bar. Try marking the bar again, a little closer to its middle.';
     return `The highest values are at the ${describeSpot(st.hiAt.u, st.hiAt.v)} (${fmt(st.hi)}). The lowest are at the ${describeSpot(st.loAt.u, st.loAt.v)} (${fmt(st.lo)}).`;
   }
+  if (!monthCovered()) return `NASA's data does not cover ${when()}. Try another month.`;
   const st = yearStats(state.yi);
   if (!st.bands.length) return `NASA has no data for ${when()}.`;
   const top = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a));
@@ -216,15 +250,48 @@ function draw() {
   }
   // track mode: wrap this year's NASA frame onto the globe (or the nearest year already loaded)
   const img = frameImage(state.yi);
-  const texKey = `${state.track.id}/${year()}`;
-  if (img.complete && img.naturalWidth) { if (state.texYear !== texKey) { globe.setTexture(img); state.texYear = texKey; } }
+  const texKey = `${state.track.id}/${year()}${monthOn() ? `/m${state.month}` : ''}`;
+  if (monthOn()) { if (state.texYear !== texKey) { const tex = monthTexture(img); if (tex) { globe.setTexture(tex); state.texYear = texKey; } } }
+  else if (img.complete && img.naturalWidth) { if (state.texYear !== texKey) { globe.setTexture(img); state.texYear = texKey; } }
   else if (state.texYear == null || !state.texYear.startsWith(state.track.id)) {
     for (let d = 1; d < 15; d++) { const alt = state.images.get(`${state.track.id}/${state.track.years[state.yi - d]}`); if (alt?.complete && alt.naturalWidth) { globe.setTexture(alt); break; } }
   }
   globe.setMarker(state.lat, state.lon);
   const label = state.monthLabel || when();
   $('#yearBig').textContent = label; $('#yearOut').textContent = label;
-  $('#year').value = state.yi; $('#year').setAttribute('aria-valuetext', label);
+  $('#year').value = sliderValue(); $('#year').setAttribute('aria-valuetext', label);
+  $('#wholeYear').hidden = !monthOn() || state.playing;
+}
+
+// A map of one month: temperature drawn from NASA's monthly numbers in the yearly map's colors, with NASA's coastlines;
+// lightning: that month's lightning laid brightly over the dimmed yearly picture.
+let coastMask = null, monthCanvas = null;
+function monthTexture(img) {
+  const T = state.track;
+  if (!img.complete || !img.naturalWidth) return null;
+  if (T.id === 'temperature' ? !yearLoaded(year()) : !lightningByCell) return null;
+  monthCanvas ||= Object.assign(document.createElement('canvas'), { width: 720, height: 360 });
+  const g = monthCanvas.getContext('2d', { willReadFrequently: true });
+  if (T.kind === 'temperature') {
+    if (!coastMask) { g.drawImage(img, 0, 0, 720, 360); const d = g.getImageData(0, 0, 720, 360).data; coastMask = new Uint8Array(720 * 360); for (let i = 0; i < coastMask.length; i++) coastMask[i] = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) < 70 ? 1 : 0; }
+    const stops = T.stops, col = v => {
+      if (v == null) return [128, 128, 128];
+      if (v <= stops[0].value) return stops[0].rgb;
+      for (let i = 1; i < stops.length; i++) if (v <= stops[i].value) { const a = stops[i - 1], b = stops[i], k = (v - a.value) / (b.value - a.value); return a.rgb.map((c, j) => c + (b.rgb[j] - c) * k); }
+      return stops[stops.length - 1].rgb;
+    };
+    const cells = Array.from({ length: 16200 }, (_, i) => col(cellValue(state.yi, i)));
+    const out = g.createImageData(720, 360), o = out.data;
+    for (let py = 0; py < 360; py++) for (let px = 0; px < 720; px++) {
+      const p = py * 720 + px, c = coastMask[p] ? [15, 15, 15] : cells[(py >> 2) * 180 + (px >> 2)];
+      o[p * 4] = c[0]; o[p * 4 + 1] = c[1]; o[p * 4 + 2] = c[2]; o[p * 4 + 3] = 255;
+    }
+    g.putImageData(out, 0, 0);
+  } else {
+    g.drawImage(img, 0, 0, 720, 360); g.fillStyle = 'rgba(0,0,0,0.62)'; g.fillRect(0, 0, 720, 360);
+    for (let i = 0; i < 16200; i++) { const v = cellValue(state.yi, i); if (v > 0) { g.fillStyle = `rgba(255,226,70,${(0.25 + 0.75 * v).toFixed(2)})`; g.fillRect((i % 180) * 4, Math.floor(i / 180) * 4, 4, 4); } }
+  }
+  return monthCanvas;
 }
 
 function drawLegend() {
@@ -266,11 +333,13 @@ function toneFor(v) {
 function showValue(v, place) {
   $('#nowBox').style.setProperty('--tone', toneFor(v));
   if (place) $('#rPlace').textContent = place;
+  if (v == null && !monthCovered()) { $('#rValue').textContent = 'No data for this month'; $('#rDetail').textContent = `NASA's data does not cover ${when()}`; return; }
   $('#rValue').textContent = feeling(v);
   $('#rDetail').textContent = v == null ? (isImage() ? 'Not a color on the color bar' : kind().noData) : isImage() ? fmt(v) : kind().detail(v, fmt(v));
 }
 // Plain words first; the number is shown smaller underneath.
 function feeling(v, k = isImage() ? null : kind()) {
+  if (v == null && !isImage() && !monthCovered()) return 'No data for this month';
   if (v == null) return k?.noDataWord || 'No data';
   if (!k) {
     const t = tOf(v);
@@ -384,7 +453,7 @@ function guideDone() {
   });
 }
 async function playTuneIn(y) {
-  state.yi = yearIndexOf(y); draw(); updateReadout({ play: false });
+  state.yi = yearIndexOf(y); state.month = null; draw(); updateReadout({ play: false }); // the guide compares whole years
   $('#guideTitle').textContent = `Playing your tune in ${y}…`;
   await replayTaps();
 }
@@ -395,10 +464,13 @@ function moveUV(u, v, opts) {
   state.u = Math.max(0, Math.min(1, u)); state.v = Math.max(0, Math.min(1, v));
   draw(); return updateReadout(opts);
 }
-function setYear(yi) {
+async function setYear(yi, month = state.month) {
   if (isImage()) return;
   state.yi = Math.max(0, Math.min(state.track.years.length - 1, yi));
+  state.month = hasMonths() ? month : null;
+  await ensureMonthData();
   draw(); updateReadout({ play: true });
+  if (guide.done) $('#desc').textContent = describe(); // keep the sentence under the card in step with the year bar
   announce(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`);
 }
 
@@ -443,6 +515,8 @@ async function monthSeriesAt(id, lat, lon, r = 6) {
 async function playMonths(series, place) {
   const T = state.track, cfg = MONTH_SERIES[T.id], inst = kind().instrument, n = series.length, step = cfg.stepMs / 1000;
   const lab = p => `${MON[p.month - 1]} ${p.year}`;
+  const slow = cfg.stepMs > 100; // lightning: slow enough to show each month's own map
+  if (slow) await loadLightningMonths();
   score.line(`${shortPlace(place)}, every month`, n, lab(series[0]), lab(series[n - 1]));
   const t0 = sound.now + 0.15, start = performance.now() + 150;
   let scheduled = 0, shown = -1;
@@ -461,8 +535,10 @@ async function playMonths(series, place) {
     if (now > shown) {
       score.putMany(series.slice(shown + 1, now + 1).map((p, j) => [shown + 1 + j, stepOf(p.v)]));
       const p = series[now], yi = T.years.indexOf(p.year);
-      if (yi >= 0 && yi !== state.yi) { state.yi = yi; draw(); } // the globe shows that year's map
+      if (slow && yi >= 0) { state.yi = yi; state.month = p.month; draw(); } // each month's own map
+      else if (yi >= 0 && yi !== state.yi) { state.yi = yi; draw(); } // fast: that year's map
       state.monthLabel = lab(p); $('#yearBig').textContent = state.monthLabel; $('#yearOut').textContent = state.monthLabel;
+      $('#year').value = yi * 12 + p.month - 1;
       showValue(p.v);
       for (let i = shown + 1; i <= now; i++) { const q = series[i]; if (q.month === 1 && (cfg.stepMs > 100 || q.year % 50 === 0)) announce(String(q.year)); }
       shown = now;
@@ -470,13 +546,13 @@ async function playMonths(series, place) {
     if (shown >= n - 1 && elapsed > n * step + 0.2) break;
     await sleep(20);
   }
-  state.monthLabel = null;
+  state.monthLabel = null; state.month = null;
 }
 
 async function playHistory() {
   if (isImage()) return;
   if (state.playing) { state.playing = false; return; }
-  state.playing = true; setPlayingUI(true);
+  state.playing = true; state.month = null; setPlayingUI(true); draw();
   const place = placeName(state.lat, state.lon), years = state.track.years;
   await speak(`${place}, ${when(0)} to ${when(years.length - 1)}.`);
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
@@ -1087,7 +1163,11 @@ async function init() {
   $('#startBtn').addEventListener('click', () => start(false));
   $('#startVoiceBtn').addEventListener('click', () => start(true));
   $('#playBtn').addEventListener('click', () => { sound.start(); playHistory(); });
-  $('#year').addEventListener('input', e => { sound.start(); setYear(+e.target.value); });
+  $('#year').addEventListener('input', e => { // 12 steps per year: the bar lands on a month
+    sound.start(); const k = +e.target.value;
+    if (hasMonths()) setYear(Math.floor(k / 12), (k % 12) + 1); else setYear(k);
+  });
+  $('#wholeYear').addEventListener('click', () => { sound.start(); setYear(state.yi, null); $('#desc').textContent = describe(); });
   document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { sound.start(); act(b.dataset.act); }));
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   document.addEventListener('keydown', onKey);

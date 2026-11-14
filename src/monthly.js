@@ -35,6 +35,12 @@ export function monthValue(year, month, lat, lon) {
   const code = a[(month - 1) * 16200 + cell(lat, lon)];
   return code ? meta.encoding.offset + (code - 1) * meta.encoding.step : null;
 }
+// the same, by grid cell index (row * 180 + column, north first)
+export function monthCell(year, month, idx) {
+  const a = years.get(year); if (!a || !meta) return null;
+  const code = a[(month - 1) * 16200 + idx];
+  return code ? meta.encoding.offset + (code - 1) * meta.encoding.step : null;
+}
 // area-weighted mean in a box around a point (like boxMean in app.js)
 export function monthBoxMean(year, month, lat, lon, r = 6) {
   let s = 0, w = 0;

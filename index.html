@@ -82,6 +82,7 @@
           <input type="range" id="year" min="0" max="145" step="1" value="145">
         </label>
         <output id="yearOut" for="year">2025</output>
+        <button type="button" id="wholeYear" class="ghost small-key" hidden>Whole year</button>
       </div>
     </section>
 
@@ -260,6 +261,7 @@
           <p>Temperature: the equirectangular video has no printed color bar. Its colors match NASA's labelled map (the "vik" colormap) over −2 to +2 °C, which we checked against GISTEMP's published yearly means: the area-weighted global mean we read differs from GISTEMP by 0.07 °C on average (RMSE 0.085 °C, r = 0.98, 146 years) and fits the yearly series better than a 5-year running mean (0.08 °C), so the frames are single years. By latitude band the average gap is 0.07–0.12 °C between 64° S and 44° N, 0.21 °C at 44–64° N, and about 0.35 °C poleward of 64°, where colors saturate at ±2 °C and there are few cells. Values are read on a 2° grid; coastline pixels are skipped and gray "no data" cells stay silent.</p>
           <p>Ocean: one frame of the ECCO2 model (19 June 2007), read against NASA's 0–32 °C color bar by hue, so the light and shadow of the flow lines do not change the number.</p>
           <p>Months: when a moment or a question names a month, Earth Jukebox uses NASA GISS GISTEMP v4 monthly anomalies (1200 km smoothing, 2° grid, vs 1951–1980), the numbers behind the temperature map, read directly instead of from colors, so they are not capped at ±2 °C. Our stored grid's global mean is within 0.012 °C of NASA's published monthly global means on average (1,762 months).</p>
+          <p>The year bar has twelve steps per year. On a month, the globe shows that month (temperature drawn from NASA GISTEMP monthly numbers in the yearly map's colors, with NASA's coastlines; lightning from NASA's frames dated in that month); "Whole year" returns to NASA's published yearly map.</p>
           <p>Play goes month by month: temperature plays NASA GISTEMP monthly numbers for the place (January 1880 to December 2025, 1,752 short notes in about 30 seconds; the globe shows each year's map), and lightning groups NASA's 10-day frames by the month of their date (March 2017 to August 2023). The Space Station passes over each place only a few times a month, so single lightning months jump around much more than whole years. The ocean track has one day only, so it has no months.</p>
           <p>Lightning: the sensor on the Space Station only sees between about 56° north and 56° south, so places outside that band stay silent instead of claiming "no lightning". Values are the share of 10-day periods in which lightning was seen.</p>
         </details>
