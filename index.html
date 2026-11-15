@@ -6,6 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Earth Jukebox</title>
   <meta name="description" content="Tap the Earth and hear it. NASA Earth visualizations turned into sound, for everyone, including people who cannot see the map.">
+  <meta property="og:title" content="Earth Jukebox: hear NASA's Earth">
+  <meta property="og:description" content="NASA's maps of our changing planet, turned into sound, so everyone can explore them by ear, including people who are blind.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://bep23020002-collab.github.io/earth-jukebox/">
+  <meta property="og:image" content="https://bep23020002-collab.github.io/earth-jukebox/assets/temperature/frames/2025.jpg">
+  <meta property="og:image:alt" content="NASA's map of 2025 temperatures: most of the world is red, warmer than normal.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#E4E1DC">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&family=Atkinson+Hyperlegible+Next:wght@400;500&display=swap">
@@ -40,6 +48,7 @@
       <p class="start-label"><span class="led" aria-hidden="true"></span>Earth Jukebox</p>
       <h1 id="startTitle">Tap the Earth.<br>Hear it change.</h1>
       <p>Every spot on this NASA map has a note. Warmer places sing higher. Put on headphones, then tap anywhere on the globe.</p>
+      <noscript><p><strong>Earth Jukebox needs JavaScript to play sound. Please turn it on in your browser, or read <a href="about.html">about the project</a>.</strong></p></noscript>
       <div class="row">
         <button data-zh="开始听" data-zh-desc="用 VoiceOver 或 TalkBack 的人，或者看得见屏幕的人，选这个。" type="button" id="startBtn" class="primary big" aria-description="Choose this if you use VoiceOver or TalkBack, or if you can see the screen.">Start listening</button>
         <button data-zh="英文语音导览" data-zh-desc="用英文一步一步带你。" type="button" id="startVoiceBtn" class="ghost big" aria-description="The page talks you through every step.">Start with voice guide</button>
@@ -47,6 +56,7 @@
       </div>
       <p class="hint"><strong>Can't see the screen? This page talks. If you hear nothing, press any key or tap the screen.</strong></p>
       <p class="hint">No sound on iPhone? Turn off silent mode. <a href="guide.html">Guide for screen reader users (English, <span lang="zh">中文</span>)</a></p>
+      <p class="hint"><a href="about.html" data-zh="关于这个项目：看全盲的 Betty 怎么测试它">About this project: watch Betty, who is blind, test it</a></p>
     </div>
   </div>
 
@@ -214,7 +224,7 @@
           <button type="button" class="chip">Is Sibu warmer now than in 1960?</button>
           <button type="button" class="chip">Compare the Arctic and Sibu in 2025</button>
           <button type="button" class="chip">How warm was Kuching in March 2006?</button>
-          <button type="button" class="chip">Has Kuching got hotter since 1900?</button>
+          <button type="button" class="chip">Has Kuching got hotter since 1880?</button>
           <button type="button" class="chip">Does Sibu get a lot of lightning?</button>
           <button type="button" class="chip">How warm is the sea near Borneo?</button>
         </div>

@@ -16,6 +16,9 @@
 - 43.3 million people were blind in 2020: GBD 2019 Blindness and Vision Impairment Collaborators, "Trends in prevalence of blindness and distance and near vision impairment over 30 years", The Lancet Global Health 9(2), e130–e143, 2021. https://pubmed.ncbi.nlm.nih.gov/33275950/
 - At least 2.2 billion people have a near or distance vision impairment: World Health Organization, Blindness and vision impairment fact sheet. https://www.who.int/news-room/fact-sheets/detail/blindness-and-visual-impairment
 
+## User test
+- Test with Betty, who is totally blind, on her own iPhone with VoiceOver, guided over a Zoom call on 15 November 2026. Video, subtitles and transcript: assets/video/ (shown on about.html). Recorded and published with her consent; the English translation of her Mandarin was made with AI help (Anthropic Claude) and checked against the recording.
+
 ## Style
 - Visual design follows the "dieter-rams-braun" style recipe of the web-design-engineer skill (ConardLi/garden-skills, MIT license).
 
