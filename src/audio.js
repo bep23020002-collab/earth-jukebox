@@ -112,8 +112,10 @@ export class Sound {
     });
     // a second, softer pluck a fifth up a moment later, like water moving on
     const o2 = c.createOscillator(), g2 = c.createGain(); o2.type = 'sine'; o2.frequency.value = FREQ[Math.min(FREQ.length - 1, noteIndex(t) + 3)];
-    g2.gain.setValueAtTime(0.0001, at + 0.11); g2.gain.exponentialRampToValueAtTime(gain * 0.3, at + 0.115); g2.gain.exponentialRampToValueAtTime(0.0001, at + 0.9);
-    o2.connect(g2).connect(out); o2.start(at + 0.1); o2.stop(at + 1);
+    // The gain must be set from the very start: a gain node is at full volume until its first scheduled value,
+    // and this pluck used to start 10 ms before that, so every harp note was followed by a 10 ms full-volume pop.
+    g2.gain.setValueAtTime(0.0001, at); g2.gain.setValueAtTime(0.0001, at + 0.11); g2.gain.exponentialRampToValueAtTime(gain * 0.3, at + 0.118); g2.gain.exponentialRampToValueAtTime(0.0001, at + 0.9);
+    o2.connect(g2).connect(out); o2.start(at + 0.11); o2.stop(at + 1);
   }
 
   // Lightning: drum hits. More lightning = more hits in a quick roll, and a sharper crack on top.

@@ -10,6 +10,10 @@ Development started at the official start time, 2026-11-14 09:00 (UTC+8). No cod
 - Tested with Betty, who is totally blind (1-minute video, subtitles and transcript), plus how it works and how we checked our numbers against NASA's: https://bep23020002-collab.github.io/earth-jukebox/about.html
 - Guide for screen reader users (English and Chinese): https://bep23020002-collab.github.io/earth-jukebox/guide.html
 
+Every note is made live in the browser from the colors of NASA's own maps; nothing is pre-recorded.
+
+Earth Jukebox is a student project for the NASA Space Apps Challenge. It is not affiliated with or endorsed by NASA.
+
 ## Use of AI (Super Intelligence)
 Parts of this project's code are written with the help of an AI coding assistant (Anthropic Claude).
 Files containing AI-assisted code say so in their header comment.

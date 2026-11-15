@@ -38,7 +38,7 @@ https://bep23020002-collab.github.io/earth-jukebox/
 
 ```
 WHAT IT DOES
-Earth Jukebox is a web app that pairs NASA Earth Information Center (EIC) visual frames with sound generated in real time in the browser. A first-time visitor is guided in three steps: tap three places on the globe (each place plays a note; warmer places play higher), then hear the same three places in 1880 and in 2025. Visitors can:
+Earth Jukebox is a web app that pairs NASA Earth Information Center (EIC) visual frames with sound generated in real time in the browser: every note is computed from the colors of NASA's own map at the moment you tap or press Play, and nothing is pre-recorded. A six-step tour shows a first-time visitor what to do: tap the Earth (each place plays a note; warmer places play higher), go back to 1880, then hear 145 years in 30 seconds. Visitors can:
 - Tap a rotating 3D globe like an instrument, and drag to spin it.
 - Choose an EIC visualization (a "track"): Global Temperature 1880–2025 (marimba), Ocean Currents and Temperature (harp), Lightning from the Space Station 2017–2023 (drums), or All three together.
 - Press Play to hear one place month by month: 1,752 months of temperature from 1880 to 2025 in about 30 seconds, or lightning month by month from 2017 to 2023. The year bar also steps by month.

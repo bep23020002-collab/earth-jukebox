@@ -508,7 +508,7 @@ function setGuide({ label, title, text, btn, alt, say, sayZh, quiet = false }) {
 }
 function resetGuide({ quiet = false } = {}) {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
-  setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
+  setGuide({ label: 'Make a tune · 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
     say: state.voice ? 'If I speak too fast or too slow, press Slower or Faster at the top of the page. ' + (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null,
     sayZh: state.voice ? '如果我讲太快或太慢，按页面最上面的"慢一点"或"快一点"。' + (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。或者按住不动，再滑动手指，手指经过的东西都会念出来。' : '')
       + '把鼠标或手指在地球上移动，就会听到声音。越暖的地方，音越高。停一下，我会告诉你在哪里。要做一段旋律，加三个地方：点一个地方，或按大按钮里的"把这里加进旋律"。'
@@ -518,14 +518,14 @@ function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
-    setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.`,
+    setGuide({ label: 'Make a tune · 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.`,
       say: state.voice ? `That was ${place}: ${feeling(v).toLowerCase()}. ${n === 1 ? 'Add 2 more places.' : 'Add 1 more place.'}` : null,
       sayZh: `那是${placeZ(place)}：${feelingZ(v)}。${n === 1 ? '再加两个地方。' : '再加一个地方。'}` });
     return;
   }
   guide.step = 2;
   setGuide({
-    label: 'Step 2 of 3', title: 'Now go back in time',
+    label: 'Make a tune · 2 of 3', title: 'Now go back in time',
     text: `You made a tune of ${n} notes. Let's hear the same tune in 1880, before the Earth warmed up.`,
     sayZh: `你做了一段 ${n} 个音的旋律。我们来听同一段旋律在 1880 年的样子，那时候地球还没变暖。按"在 1880 年播放我的旋律"。`,
     btn: ['Play my tune in 1880', async () => { await playTuneIn(1880); guideStep3(); }, '在 1880 年播放我的旋律'],
@@ -534,7 +534,7 @@ function guideAfterTap(v) {
 function guideStep3() {
   guide.step = 3;
   setGuide({
-    label: 'Step 3 of 3', title: 'Now hear it today',
+    label: 'Make a tune · 3 of 3', title: 'Now hear it today',
     text: 'Same places, same tune. This time in 2025. Listen: is it higher?',
     sayZh: '同样的地方，同样的旋律。这次是 2025 年。听听看：是不是比较高？按"在 2025 年播放我的旋律"。',
     btn: ['Play my tune in 2025', async () => { await playTuneIn(2025); guideDone(); }, '在 2025 年播放我的旋律'],
@@ -1179,8 +1179,16 @@ function setupStartTalk() {
   welcomeOnOpen();
 }
 function setupSayOnHover() {
+  // Where the mouse last was. When a button appears and pushes another one under a still mouse (Slower and Faster
+  // appear when Voice guide turns on), the browser reports a "pointerover" at the same spot: that is not the
+  // listener pointing at something, so it is not read (it used to cut off "Voice guide on").
+  let at = { x: -1, y: -1 };
+  const track = e => { if (e.pointerType === 'mouse') at = { x: e.clientX, y: e.clientY }; };
+  document.addEventListener('pointermove', track, { capture: true, passive: true });
+  document.addEventListener('pointerdown', track, { capture: true, passive: true });
   document.addEventListener('pointerover', e => {
     if (!talking() || e.pointerType !== 'mouse') return;
+    if (e.clientX === at.x && e.clientY === at.y) return;
     const el = sayable(e.target); if (!el || el === sayOver || el.closest('#globeWrap')) return;
     sayOver = el; clearTimeout(sayTimer);
     sayTimer = setTimeout(() => { if (sayOver !== el || !talking()) return; const t = spokenName(el); if (t) talk(t); }, 180); // also while music plays: words always come first
