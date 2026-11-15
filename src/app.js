@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 16:05', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 16:25', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1679,15 +1679,21 @@ async function shareSong() {
 // Four steps, one thing at a time. Each step dims the page except one thing; doing it (or Next) moves on.
 const TOUR = [
   { sel: '#globeWrap', on: 'tap', title: 'Tap the Earth', zhTitle: '点地球',
+    ear: 'Every place on Earth has a note, and warmer places play higher. You do not need to find anything on the screen. Press Enter to hear where you are now. Then press an arrow key: each press travels about 1,000 kilometres and plays the note there. Press N for the next step, or Escape to stop this tour.',
+    earZh: '地球上每个地方都有一个音，越暖的地方音越高。你不用在屏幕上找任何东西。按 Enter，会念出你现在在哪里。再按方向键：每按一次移动大约一千公里，并弹出那里的音。按 N 是下一步，按 Esc 停止这个引导。',
     text: "Every place on NASA's map has a note. Warmer places play higher. Tap anywhere on the globe.",
     zh: 'NASA 地图上每个地方都有一个音，越暖的地方音越高。点地球上任何地方试试。',
     sr: () => (coarse() ? ' Or press Controls, at the top of the page, for big buttons.' : ' On a keyboard, the arrow keys travel and Enter says where you are. Press N for the next step of this tour, or Escape to close it.'),
     srZh: () => (coarse() ? '也可以按页面最上面的"大按钮"。' : '用键盘的话，方向键是移动，Enter 会念出你在哪里。按 N 是引导的下一步，按 Esc 关掉引导。') },
   { sel: '#playBtn', on: 'playEnd', hideOn: 'playStart', title: 'Hear 145 years', zhTitle: '听 145 年',
+    ear: 'Hear 145 years. Press the Space bar. You will hear this place every month from 1880 to 2025, in about 30 seconds. Listen to the notes climb. Press Space again to stop early.',
+    earZh: '听 145 年。按空白键，会听到这个地方从 1880 到 2025 年每个月的音，大约 30 秒。听听音是不是一路往上。再按一次空白键可以提早停。',
     text: 'Press Play to hear this place every month from 1880 to 2025, in 30 seconds. Listen to the notes climb.',
     zh: '按"播放"，听这个地方从 1880 到 2025 年每个月的变化，只要 30 秒。听听音是不是一路往上。',
     sr: () => (coarse() ? '' : ' On a keyboard, press Space.'), srZh: () => (coarse() ? '' : '用键盘的话，按空白键。') },
   { sel: '#trackPicker', on: 'track', title: 'More NASA maps', zhTitle: '更多 NASA 地图',
+    ear: 'More NASA maps. Each map has its own instrument: temperature is a marimba, the ocean is a harp, lightning is drums. Press I to fly once around the Earth with the Space Station and hear every place below. To change the map, press Tab until you hear Ocean or Lightning, then press Enter. Press N for the next step.',
+    earZh: '更多 NASA 地图。每张地图有自己的乐器：温度是木琴，海洋是竖琴，闪电是鼓。按 I，跟着太空站绕地球飞一圈，听下面经过的每个地方。要换地图，按 Tab 键，听到"海洋"或"闪电"时按 Enter。按 N 是下一步。',
     text: 'Each NASA visualization has its own instrument: temperature plays a marimba, the ocean a harp, lightning the drums. Or fly once around the Earth with the Space Station.',
     zh: '每一种 NASA 视觉图都有自己的乐器：温度是木琴，海洋是竖琴，闪电是鼓。也可以跟着太空站绕地球飞一圈。',
     sr: () => (coarse() ? '' : ' On a keyboard, press I to fly with the Space Station.'), srZh: () => (coarse() ? '' : '用键盘的话，按 I 跟着太空站飞一圈。') },
@@ -1695,6 +1701,8 @@ const TOUR = [
     text: 'Turn on Voice guide and close your eyes: it reads every step aloud. Controls gives big buttons for phones and screen readers.',
     zh: '打开语音导览，闭上眼睛试试：它会把每一步念出来。"大按钮"给手机和读屏软件用。' },
   { sel: '.modes', on: 'mode', title: 'Make it yours', zhTitle: '变成你的',
+    ear: 'Make it yours. You can turn a story about your life into a song, or ask the Earth a question, in English or Chinese. Press Tab until you hear My Earth song, or Ask the Earth, then press Enter. That is the end of the tour. Press the question mark key any time to hear all the keys.',
+    earZh: '变成你的。你可以把人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。按 Tab 键，听到"我的地球之歌"或"问地球"时按 Enter。引导到这里结束。随时按问号键，可以听所有按键的说明。',
     text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese.',
     zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。',
     sr: () => (coarse() ? '' : ' Press Tab to move through the page; these tabs are near the top. Press the question mark key any time to hear all the keys.'),
@@ -1719,9 +1727,13 @@ function showTourStep() {
   $('#tour').hidden = false; $('#tourSpot').hidden = false;
   el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   placeTour(); setTimeout(placeTour, 400); setTimeout(placeTour, 900);
-  const speed = tour.i === 0 && state.voice ? helloAgain + tr('If I speak too fast or too slow, press Slower or Faster at the top of the page. ', '如果我讲太快或太慢，按页面最上面的"慢一点"或"快一点"。') : '';
+  const speed = tour.i === 0 && state.voice ? helloAgain + tr('If I speak too fast, press the minus key. To make me faster, press plus. ', '如果我讲太快，按减号键。要我讲快一点，按加号键。') : '';
   helloAgain = '';
-  speak(speed + tr(`Tour, step ${tour.i + 1} of ${N}. ${st.title}. ${tourText(st, 'text')}${tourText(st, 'sr') || ''}`, `新手引导，第 ${tour.i + 1} 步，共 ${N} 步。${st.zhTitle}。${tourText(st, 'zh')}${tourText(st, 'srZh') || ''}`), { interrupt: false });
+  // The dimmed page and the orange frame are for people who can see them. With the voice guide on a computer, the words
+  // are written for the ear instead: which key to press and what you will hear, nothing about where things are on screen.
+  const forEar = state.voice && !coarse() && st.ear;
+  speak(speed + (forEar ? tr(`Step ${tour.i + 1} of ${N}. ${st.ear}`, `第 ${tour.i + 1} 步，共 ${N} 步。${st.earZh}`)
+    : tr(`Tour, step ${tour.i + 1} of ${N}. ${st.title}. ${tourText(st, 'text')}${tourText(st, 'sr') || ''}`, `新手引导，第 ${tour.i + 1} 步，共 ${N} 步。${st.zhTitle}。${tourText(st, 'zh')}${tourText(st, 'srZh') || ''}`)), { interrupt: false });
 }
 function placeTour() {
   if (tour.i < 0 || tour.hidden) return;
@@ -1776,7 +1788,8 @@ async function start(withVoice = false, lang = null, { back = false } = {}) {
   // tap or key. Left there, a screen reader user gets two voices, and the tour (which waits its turn) is never heard at all.
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   const sounding = sound.start(); // not awaited first: iPhone only lets the page speak during the tap itself
-  $('#start').hidden = true; setInert(false); $('#globe').focus();
+  $('#start').hidden = true; setInert(false);
+  sayOver = $('#globe'); $('#globe').focus(); sayOver = null; // focus goes to the Earth without reading its long label: the first words belong to the guide
   draw(); preloadAll();
   if (state.mode === 'song') { speak(tr('Someone shared their Earth song with you. Press Play my Earth song to hear it.', '有人把他们的地球之歌分享给你。按"Play my Earth song"来听。')); $('#playSong').focus(); }
   else if (coarse()) { // a phone: open the big buttons and say exactly what to do first
