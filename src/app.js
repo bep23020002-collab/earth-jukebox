@@ -441,7 +441,7 @@ function setGuide({ label, title, text, btn, alt, say }) {
 function resetGuide() {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
   setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
-    say: state.voice ? 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null });
+    say: state.voice ? (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null });
 }
 function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
@@ -736,10 +736,10 @@ async function hearLegend() {
 function setHint() { // the hint on the globe says how to listen; with Voice guide on, moving listens
   $('#globeHint .hint-mouse').textContent = state.voice ? 'Move the mouse to listen. Click to add a place.' : 'Tap to play. Drag to spin the Earth.';
   $('#globeHint .hint-touch').textContent = state.voice ? 'Slide a finger to listen. Two fingers spin.' : 'Tap to play. Swipe sideways to spin.';
-  $('#globe').classList.toggle('explore', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
+  $('#globe').classList.toggle('explore', state.voice); document.documentElement.classList.toggle('voice-on', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' : 'Voice guide off.'); }
+  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' + (coarse() ? ' Tap anything to hear it. Tap it again to press it.' : '') : 'Voice guide off.'); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
   document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
@@ -1019,7 +1019,7 @@ function talk(text, opts) { const v = state.voice; state.voice = true; const p =
 const talking = () => state.voice || (welcomed && startOpen());
 const welcomeText = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
   + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
-    : byKey === 'touch' ? 'There are two buttons: Start listening, and Start with voice guide. If you use VoiceOver or TalkBack, choose Start listening.'
+    : byKey === 'touch' ? 'There are two buttons: Start listening, and Start with voice guide. Tap a button once to hear it, and tap it again to choose it. If you use VoiceOver or TalkBack, choose Start listening.'
     : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.');
 function welcome(byKey) { welcomed = true; talk(welcomeText(byKey)); }
 // Say hello as soon as the page opens. Most computer browsers allow this; where a browser blocks speech until the
@@ -1069,6 +1069,60 @@ function setupSayOnHover() {
     const el = sayable(e.target); if (!el || el === sayOver) return;
     const t = nameOf(el); if (t) talk(t);
   });
+}
+// Voice guide on a phone works like a screen reader: tap anything to hear it, tap it again to press it.
+// Touch and hold for a moment, then slide, to hear everything under the finger. (On the Earth, sliding plays its notes.)
+const CONTROL = 'button, a[href], summary, input, select, textarea, label';
+const coarse = () => matchMedia('(hover: none) and (pointer: coarse)').matches;
+let armed = null; // the control read last; tapping it again presses it
+const tch = { on: false, x: 0, y: 0, hold: 0, exploring: false, item: null };
+function touchItem(x, y) {
+  const t = document.elementFromPoint(x, y); if (!t) return null;
+  return t.closest('#globeWrap') || sayable(t) || null;
+}
+function touchWords(el) {
+  if (el.id === 'globeWrap') return 'The Earth. Lift your finger, then slide it on the Earth to hear the notes.';
+  const n = nameOf(el); if (!n || !el.matches(CONTROL) || el.disabled) return n;
+  if (el.type === 'range') return `${n}, slider. Slide left or right to change it.`;
+  if (el.matches('input, textarea')) return `${n}. Tap again to type.`;
+  if (el.tagName === 'SELECT') return `${n}. Tap again to choose.`;
+  if (el.tagName === 'A') return `${n}, link. Tap again to open it.`;
+  if (el.tagName === 'LABEL') return `${n}. Tap again to use it.`;
+  return `${n}, button. Tap again to press it.`;
+}
+function setupTouchReader() {
+  const stop = () => { tch.on = false; clearTimeout(tch.hold); };
+  const say = item => {
+    if (item === tch.item) return; tch.item = item;
+    const w = item && touchWords(item);
+    if (w) talk(w); else if (sound.ctx) sound.noData(); // nothing to read here: a soft tick
+  };
+  document.addEventListener('touchstart', e => {
+    stop();
+    if (!talking() || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (document.elementFromPoint(t.clientX, t.clientY)?.closest('#globeWrap')) return; // the Earth listens by itself
+    Object.assign(tch, { on: true, x: t.clientX, y: t.clientY, exploring: false, item: null });
+    tch.hold = setTimeout(() => { if (tch.on) { tch.exploring = true; say(touchItem(tch.x, tch.y)); } }, 450);
+  }, { capture: true, passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!tch.on) return;
+    const t = e.touches[0];
+    if (tch.exploring) { if (e.cancelable) e.preventDefault(); say(touchItem(t.clientX, t.clientY)); return; } // hold, then slide: read, don't scroll
+    if (Math.hypot(t.clientX - tch.x, t.clientY - tch.y) > 10) stop(); // a scroll or a slider: leave it alone
+  }, { capture: true, passive: false });
+  document.addEventListener('touchend', e => {
+    if (!tch.on) return;
+    const exploring = tch.exploring; stop();
+    if (exploring) { if (e.cancelable) e.preventDefault(); armed = tch.item?.matches?.(CONTROL) ? tch.item : null; return; } // what you heard last is ready: tap it to press it
+    const t = e.changedTouches[0], it = touchItem(t.clientX, t.clientY);
+    if (!it || it.id === 'globeWrap') return;
+    if (it === armed && it.matches(CONTROL) && !it.disabled) return; // second tap: press it
+    if (e.cancelable) e.preventDefault(); // first tap: only say what it is
+    armed = it.matches(CONTROL) ? it : null;
+    tch.item = null; say(it);
+  }, { capture: true, passive: false });
+  document.addEventListener('touchcancel', stop, true);
 }
 // The Speak buttons must be told the language before listening, so they follow the language you last typed or spoke in
 const followLang = t => { if (hasHan(t)) setLang('zh'); else if (/[a-z]{2}/i.test(t)) setLang('en'); };
@@ -1430,7 +1484,7 @@ async function init() {
   $('#storyBtn').addEventListener('click', () => { sound.start(); storyToSong(); });
   $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
   $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
-  setupUnlock(); setupMic(); setupSayOnHover(); setupStartTalk();
+  setupUnlock(); setupMic(); setupSayOnHover(); setupTouchReader(); setupStartTalk();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));

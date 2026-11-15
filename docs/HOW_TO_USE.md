@@ -9,7 +9,7 @@
 ## 0. 打开网站
 有两个按钮：
 - **Start listening**：一般使用，不会自动念出文字
-- **Start with voice guide**：每一步都会念出来，给看不见屏幕的人用
+- **Start with voice guide**：每一步都会念出来，给看不见屏幕的人用。用手机时像读屏软件：点一下念出来，再点一下才按下去；按住不动再滑，手指经过的都会念
 
 顶部有 3 个分页：**Play**、**My Earth song**、**Ask the Earth**
 

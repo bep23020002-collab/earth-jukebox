@@ -26,6 +26,11 @@ html, body { margin: 0; color: var(--ink); font-family: var(--font); font-size: 
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 button, a, summary, input, select, textarea, label { touch-action: manipulation; }
 .globe-wrap, .pad, .pad-side, .track-picker, .iss-btn, .timeline { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* Voice guide on a phone: touching and holding reads aloud, so it must not select text or open a link menu */
+@media (hover: none) and (pointer: coarse) {
+  .start, html.voice-on body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  html.voice-on input, html.voice-on textarea { -webkit-user-select: text; user-select: text; }
+}
 h1, h2, h3 { line-height: 1.12; margin: 0; font-weight: 500; text-wrap: balance; letter-spacing: -0.015em; }
 p { margin: 0; text-wrap: pretty; }
 strong { font-weight: 500; }

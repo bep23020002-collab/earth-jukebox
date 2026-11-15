@@ -47,6 +47,7 @@ If they don't agree to recording or the video, don't record. Just do the test.
   > "Please press Start listening. Please keep Voice guide off, because your screen reader already reads everything."
 - No screen reader:
   > "Please press Start with voice guide."
+  (On a phone, Voice guide works like a screen reader: tap a button once to hear it, and tap it again to press it. Tell them this if they seem stuck.)
 
 > "Can you hear any sound? Please tell me what you hear."
 

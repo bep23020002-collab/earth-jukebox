@@ -61,7 +61,9 @@ There are two buttons:
 
 You start at Sibu, Sarawak, in 2025.
 
-Without a screen reader, with **Voice guide** on, you can also listen by touch: slide one finger over the Earth and it keeps playing notes. Stop for a moment and it tells you where you are. A quick tap adds the place to your tune. Two fingers spin the Earth. A tick means your finger left the Earth.
+Without a screen reader, turn **Voice guide** on, and the phone works like a screen reader: tap anything once to hear it, and tap it again to press it. Touch and hold for a moment, then slide your finger, to hear everything under it; lift your finger, and a tap presses the last thing you heard. Swipe up or down to scroll.
+
+On the Earth, with **Voice guide** on, you can listen by touch: slide one finger over the Earth and it keeps playing notes. Stop for a moment and it tells you where you are. A quick tap adds the place to your tune. Two fingers spin the Earth. A tick means your finger left the Earth.
 
 ## On a computer (keyboard)
 
