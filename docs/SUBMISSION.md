@@ -73,7 +73,7 @@ What we changed because of her. We made the page explain itself:
 - Nothing has to be found by sight. A two-finger tap anywhere opens the remote or repeats where everything is. The spoken tour runs every time for people using the voice guide, and someone who comes back gets it again with one tap anywhere.
 - Every button says what it does before you press it, and after each press the guide suggests one thing you haven't tried yet.
 - Slower and Faster set the speed of the voice, and the voice guide speaks English or Chinese, because many older people in Sibu speak Chinese, not English.
-After these changes Betty tried the new version and told us that with the step-by-step guide it is clearer how to use it, and easier to use.
+After these changes Betty tried the new version and told us that with the step-by-step guide it is clearer how to use it, and easier to use. We also tested the final version ourselves on real phones: an iPhone with VoiceOver and an Android phone with TalkBack.
 
 Also built in:
 - The page talks from the first screen, and a short tour shows a first-time visitor what to do, one thing at a time. A Tutorial button replays it.
