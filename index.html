@@ -169,7 +169,7 @@
         <div class="story">
           <label for="storyText"><strong>Tell your story</strong>, in any language: type it, or press Speak</label>
           <textarea id="storyText" rows="3" placeholder="My grandpa was born in Fuzhou in 1950. He moved to Sibu in 1970. I was born in Kuching on 15 March 2006."></textarea>
-          <div class="row"><button type="button" id="storyMic" class="ghost" aria-label="Tell your story by speaking" hidden>Speak</button><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
+          <div class="row"><button type="button" id="storyMic" class="ghost" aria-label="Tell your story by speaking" data-zh="用说的讲你的故事" data-zh-desc="按下去，然后说一两句有地方和年份的话。例如：我 2006 年在诗巫出生。" aria-description="Press it, then say one or two sentences with a place and a year. For example: I was born in Sibu in 2006." hidden>Speak</button><button type="button" id="storyBtn" class="primary">Make my song from this</button></div>
           <div class="lang-row" role="group" aria-label="Language for speaking">
             <span class="small">Speak in</span>
             <button type="button" class="chip" data-lang="en" aria-pressed="true">English</button>
@@ -203,7 +203,7 @@
         <form id="askForm" class="ask-form">
           <label for="askText" class="sr-only">Your question</label>
           <input id="askText" type="text" autocomplete="off" placeholder="Is Sibu warmer now than in 1960?">
-          <button type="button" id="micBtn" class="ghost" aria-label="Ask by speaking" hidden>Speak</button>
+          <button type="button" id="micBtn" class="ghost" aria-label="Ask by speaking" data-zh="用说的问" data-zh-desc="按下去，然后说你的问题。例如：诗巫现在比 1960 年暖吗？" aria-description="Press it, then say your question. For example: Is Sibu warmer now than in 1960?" hidden>Speak</button>
           <button type="submit" class="primary">Ask</button>
         </form>
         <div class="lang-row" role="group" aria-label="Language for speaking and answers">
@@ -268,7 +268,7 @@
     <section class="info-link" aria-label="About this project">
       <a class="info-card" href="about.html" data-zh="关于地球点唱机：为什么做、怎么运作、怎么和 NASA 的数字比对">
         <span class="info-title">About Earth Jukebox</span>
-        <span class="info-sub">Why we built it, how it works, and how we checked our numbers against NASA's</span>
+        <span class="info-sub">A video of Betty, a blind tester, using it; why we built it; how it works; and how we checked our numbers against NASA's</span>
       </a>
       <p class="small">Data: <span id="credit"></span></p>
       <p class="small">Background: Earth's glowing night horizon, photographed from the International Space Station (NASA image iss072e030147, cropped). Built during the 2026 NASA Space Apps Challenge by Team Happy Squad (Sibu, Sarawak), with help from an AI coding assistant. <a href="guide.html">Guide for screen reader users (English, <span lang="zh">中文</span>)</a></p>

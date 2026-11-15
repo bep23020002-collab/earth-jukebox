@@ -1051,7 +1051,7 @@ function attachMic(button, field, { story = false, onDone } = {}) {
     rec.continuous = story; rec.interimResults = story;
     const before = field.value.trim() ? field.value.trim() + ' ' : '';
     button.setAttribute('aria-pressed', 'true'); button.textContent = story ? 'Stop' : 'Listening…';
-    announce(story ? 'Listening. Tell your story, then press Stop.' : 'Listening.');
+    announce(story ? tr('Listening. Say a place and a year, for example: I was born in Sibu in 2006. Then press Stop.', '在听了。说一个地方和年份，例如：我 2006 年在诗巫出生。说完按 Stop。') : tr('Listening. Ask your question, for example: Is Sibu warmer now than in 1960?', '在听了。说你的问题，例如：诗巫现在比 1960 年暖吗？'));
     rec.onresult = e => {
       const text = [...e.results].map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').trim();
       field.value = before + text;
