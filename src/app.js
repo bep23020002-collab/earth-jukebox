@@ -254,8 +254,25 @@ function syncLangKeys() {
   });
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
+// Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
+const BUILD = '15 Nov 14:50', dbg = { n: 0, said: '', ev: '' };
+function setupDebug() {
+  const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
+  bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
+  document.body.appendChild(bar);
+  setInterval(() => {
+    const ss = 'speechSynthesis' in window ? speechSynthesis : null, vs = ss ? ss.getVoices() : [];
+    const zhv = vs.filter(v => /^zh/i.test(v.lang)), env = vs.filter(v => /^en/i.test(v.lang));
+    bar.textContent = `build ${BUILD} | audio: ${sound.ctx ? sound.ctx.state : 'not started'}${navigator.audioSession ? ` (${navigator.audioSession.type})` : ''}`
+      + `\nspeech: ${ss ? `${vs.length} voices, en ${env.length}, zh ${zhv.length}${zhv[0] ? ` (${zhv[0].name})` : ''}, ${ss.speaking ? 'speaking' : 'quiet'}${ss.pending ? ', pending' : ''}` : 'not supported'}`
+      + `\nlast: #${dbg.n} ${dbg.ev} "${dbg.said}"`
+      + `\nvoice guide ${state.voice ? 'on' : 'off'}, ${talkLang}, speed ${speed}, ${coarse() ? 'touch' : 'mouse'}${isRemote() ? ', remote' : ''}, ${innerWidth}x${innerHeight}`;
+  }, 400);
+}
 function utter(text) {
   const u = new SpeechSynthesisUtterance(text), zh = hasHan(text), v = zh ? zhVoice() : voicePick;
+  const n = ++dbg.n; dbg.said = text.slice(0, 34); dbg.ev = 'queued';
+  for (const t of ['start', 'end', 'error']) u.addEventListener(t, e => { if (dbg.n === n) dbg.ev = t + (e.error ? `: ${e.error}` : ''); });
   if (v) u.voice = v;
   u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = rateOf(zh);
   return u;
@@ -1788,6 +1805,7 @@ async function init() {
   $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
   $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
   setupUnlock(); setupMic(); setupSayOnHover(); setupTouchReader(); setupTour(); setupStartTalk();
+  if (/[?&]debug\b/.test(location.search)) setupDebug();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));
