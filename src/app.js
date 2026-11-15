@@ -255,7 +255,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 14:50', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 15:30', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -850,7 +850,8 @@ function setHint() { // the hint on the globe says how to listen; with Voice gui
   $('#globe').classList.toggle('explore', state.voice); document.documentElement.classList.toggle('voice-on', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; setHint(); if (state.voice) tourHit('voice'); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? tr('Voice guide on. I will read every step aloud.', '语音导览开了。我会把每一步念出来。') + ' ' + (isRemote() ? remoteMap()
+  if (act === 'voice') { state.voice = !state.voice; setHint(); if (state.voice) tourHit('voice');
+    if (state.voice && coarse() && $('#controls').hidden) openControls(true, { scroll: false }); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? tr('Voice guide on. I will read every step aloud.', '语音导览开了。我会把每一步念出来。') + ' ' + (isRemote() ? remoteMap()
     : tr((coarse() ? 'Tap anything to hear it. Tap it again to press it. ' : '') + 'Slower and Faster, at the top of the page, change how fast I speak.', (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。' : '') + '页面最上面的"慢一点"和"快一点"可以改变我讲话的速度。'))
     : tr('Voice guide off.', '语音导览关了。')); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off.'); }
@@ -868,7 +869,8 @@ function act(name) {
   if (name === 'more') { document.documentElement.classList.add('remote-more'); speak(moreMap()); }
   if (name === 'back') { document.documentElement.classList.remove('remote-more'); speak(tr('Back to the remote. Where am I? is in the middle of the top half.', '回到遥控器。"我在哪里"在上半部的中间。')); }
   if (name === 'lang') { setTalk(ZH() ? 'en' : 'zh'); speak(tr('English. I will speak English now.', '中文。我现在讲中文。')); }
-  if (name === 'closeControls') { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); speak(tr('Big buttons closed. To open them again, press Controls, at the top of the page.', '大按钮关掉了。要再打开，按页面最上面的"大按钮"。')); }
+  if (name === 'closeControls') { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); speak(coarse() && state.voice ? tr('Remote closed. To open it again, tap anywhere with two fingers.', '遥控器关掉了。要再打开，用两根手指在任何地方点一下。')
+      : tr('Big buttons closed. To open them again, press Controls, at the top of the page.', '大按钮关掉了。要再打开，按页面最上面的"大按钮"。')); }
 }
 
 // ---------- your own map ----------
@@ -1159,6 +1161,10 @@ function welcomeOnOpen() {
   if (!('speechSynthesis' in window)) return;
   const go = () => {
     if (welcomed || !startOpen()) return;
+    if (backPending) { // a short hello instead of the long one
+      const u = utter(tr('Welcome back to Earth Jukebox. Tap anywhere, or press any key, to start the voice guide again.', '欢迎回到地球点唱机。点一下任何地方，或者按任何键，就会再打开语音导览。'));
+      u.onstart = () => { welcomed = true; }; speechSynthesis.speak(u); return;
+    }
     const [a, b] = welcomeBoth(coarse() ? 'touch' : true), u = utter(a);
     u.onstart = () => { welcomed = true; };
     speechSynthesis.speak(u); speechSynthesis.speak(utter(b));
@@ -1166,11 +1172,14 @@ function welcomeOnOpen() {
   if (speechSynthesis.getVoices().length) go(); else { speechSynthesis.addEventListener('voiceschanged', go, { once: true }); setTimeout(go, 1200); }
 }
 function setupStartTalk() {
+  backPending = cameBack();
   $('#startVoiceBtn').focus({ preventScroll: true }); // Enter right away starts the voice guide
   document.addEventListener('keydown', e => {
     if (!startOpen()) return;
     if (welcomed && ['-', '=', '+'].includes(e.key)) { e.preventDefault(); changeSpeed(e.key === '-' ? -1 : 1); return; }
     const onKeyButton = e.target.closest?.('#start button, #start a') && (e.key === 'Enter' || e.key === ' ');
+    // used the voice guide last time: any key brings it back (Tab still moves between the buttons)
+    if (backPending && !onKeyButton && !e.metaKey && !e.ctrlKey && !e.altKey && !['Tab', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) { e.preventDefault(); start(true, null, { back: true }); return; }
     if (!welcomed && !onKeyButton) { e.preventDefault(); welcome(true); return; }
     if (e.key === 'Tab') { // keep Tab inside the first screen
       const f = [...$('#start').querySelectorAll('button, a[href]')], i = f.indexOf(document.activeElement);
@@ -1178,7 +1187,11 @@ function setupStartTalk() {
     }
   }, true);
   // a click says hello on pointerdown; a finger only on lifting (the browser allows speech only then)
-  const firstTap = e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(e.pointerType === 'mouse' ? 'mouse' : 'touch'); };
+  const firstTap = e => {
+    if (!startOpen() || e.target.closest('#start button, #start a')) return;
+    if (backPending) { if (e.pointerType === 'mouse') start(true, null, { back: true }); return; } // used the voice guide last time: any click brings it back (a finger: see touchend below)
+    if (!welcomed) welcome(e.pointerType === 'mouse' ? 'mouse' : 'touch');
+  };
   document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') firstTap(e); }, true);
   document.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') firstTap(e); }, true);
   // On a phone, a quick double tap anywhere starts the voice guide: the top half in English, the bottom half in Chinese.
@@ -1186,6 +1199,10 @@ function setupStartTalk() {
   let last = { t: 0, x: 0, y: 0 };
   document.addEventListener('touchend', e => {
     if (!startOpen() || e.changedTouches.length !== 1) return;
+    if (backPending) { // used the voice guide last time: any tap brings it back. The tap is swallowed here, or it would also press whatever button appears under the finger.
+      if (e.target.closest?.('#start button, #start a')) return;
+      if (e.cancelable) e.preventDefault(); start(true, null, { back: true }); return;
+    }
     const t = e.changedTouches[0], now = performance.now();
     if (now - last.t < 500 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 80) { last.t = 0; if (e.cancelable) e.preventDefault(); start(true, t.clientY > innerHeight / 2 ? 'zh' : 'en'); return; }
     last = { t: now, x: t.clientX, y: t.clientY };
@@ -1228,6 +1245,7 @@ const isRemote = () => document.documentElement.classList.contains('remote');
 function syncRemote() {
   const on = !$('#controls').hidden && state.voice && coarse(), html = document.documentElement;
   html.classList.toggle('remote', on); if (!on) html.classList.remove('remote-more');
+  if (on && tour.i >= 0) endTour(); // the remote covers the page: the tour steps aside
 }
 const remoteMap = () => tr('Your screen is now a remote control. Tap a button once to hear it, and tap it again to press it. '
   + 'In the top half of the screen, Where am I? is in the middle. North is above it, South is below it, West is on the left, and East is on the right. '
@@ -1247,7 +1265,7 @@ function helpText() {
   const what = tr('Where am I? says the place and how warm it was. North, South, East and West each travel about 1,000 kilometres and play the note there: a higher note means warmer. '
     + 'Play 1880 to 2025 plays the history of this place. Next place jumps to places like the Arctic Ocean. What do the sounds mean? plays the low, middle and high notes.',
     '"我在哪里"会念出地方和有多暖。北、南、东、西每按一次移动大约一千公里，并弹出那里的音：音越高，代表越暖。"播放"会弹出这个地方从 1880 年到现在的历史。"下一个地方"会跳到北冰洋这些地方。"声音代表什么"会弹出低音、中音和高音。');
-  if (isRemote()) return here + remoteMap() + ' ' + what;
+  if (isRemote()) return here + remoteMap() + ' ' + what + tr(' Tap anywhere with two fingers to hear this again.', '用两根手指在任何地方点一下，可以再听一次。');
   if ($('#controls').hidden) return here + tr('Press Controls, at the top of the page, for big buttons. ', '按页面最上面的"大按钮"（Controls），会打开大按钮。') + what + (coarse() ? '' : ' ' + tr(help(), helpZh()));
   return here + what + (coarse() ? '' : ' ' + tr(help(), helpZh()));
 }
@@ -1312,8 +1330,10 @@ function setupTouchReader() {
     const w = item && touchWords(item);
     if (w) talk(w); else if (sound.ctx) sound.noData(); // nothing to read here: a soft tick
   };
+  let two = null; // a two-finger tap in progress
   document.addEventListener('touchstart', e => {
     stop();
+    two = e.touches.length === 2 && state.voice && !startOpen() ? { t: performance.now(), x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
     if (!talking() || e.touches.length !== 1) return;
     const t = e.touches[0];
     if (document.elementFromPoint(t.clientX, t.clientY)?.closest('#globeWrap')) return; // the Earth listens by itself
@@ -1321,12 +1341,21 @@ function setupTouchReader() {
     tch.hold = setTimeout(() => { if (tch.on) { tch.exploring = true; say(touchItem(tch.x, tch.y)); } }, 450);
   }, { capture: true, passive: true });
   document.addEventListener('touchmove', e => {
+    if (two && Math.hypot(e.touches[0].clientX - two.x, e.touches[0].clientY - two.y) > 24) two = null; // fingers moved: a pinch or a spin, not a tap
     if (!tch.on) return;
     const t = e.touches[0];
     if (tch.exploring) { if (e.cancelable) e.preventDefault(); say(touchItem(t.clientX, t.clientY)); return; } // hold, then slide: read, don't scroll
     if (Math.hypot(t.clientX - tch.x, t.clientY - tch.y) > 10) stop(); // a scroll or a slider: leave it alone
   }, { capture: true, passive: false });
   document.addEventListener('touchend', e => {
+    if (two && e.touches.length === 0) {
+      const quick = performance.now() - two.t < 500; two = null;
+      if (quick) { // lost? two fingers anywhere: the remote opens, or says again where everything is
+        if (e.cancelable) e.preventDefault();
+        if (!isRemote()) { openControls(true, { scroll: false }); speak(remoteMap()); } else talk(helpText());
+        return;
+      }
+    }
     if (!tch.on) return;
     const exploring = tch.exploring; stop();
     if (exploring) { if (e.cancelable) e.preventDefault(); armed = tch.item?.matches?.(CONTROL) ? tch.item : null; return; } // what you heard last is ready: tap it to press it
@@ -1666,7 +1695,9 @@ const TOUR = [
     zh: '打开语音导览，闭上眼睛试试：它会把每一步念出来。"大按钮"给手机和读屏软件用。' },
   { sel: '.modes', on: 'mode', title: 'Make it yours', zhTitle: '变成你的',
     text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese.',
-    zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。' },
+    zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。',
+    sr: () => (coarse() ? '' : ' Press Tab to move through the page; these tabs are near the top. Press the question mark key any time to hear all the keys.'),
+    srZh: () => (coarse() ? '' : '按 Tab 键可以在页面上移动，这几个分页在页面上方。随时按问号键，可以听所有按键的说明。') },
 ];
 const tour = { i: -1, hidden: false, advancing: false, steps: TOUR };
 const tourText = (st, k) => (typeof st[k] === 'function' ? st[k]() : st[k]);
@@ -1687,7 +1718,8 @@ function showTourStep() {
   $('#tour').hidden = false; $('#tourSpot').hidden = false;
   el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   placeTour(); setTimeout(placeTour, 400); setTimeout(placeTour, 900);
-  const speed = tour.i === 0 && state.voice ? tr('If I speak too fast or too slow, press Slower or Faster at the top of the page. ', '如果我讲太快或太慢，按页面最上面的"慢一点"或"快一点"。') : '';
+  const speed = tour.i === 0 && state.voice ? helloAgain + tr('If I speak too fast or too slow, press Slower or Faster at the top of the page. ', '如果我讲太快或太慢，按页面最上面的"慢一点"或"快一点"。') : '';
+  helloAgain = '';
   speak(speed + tr(`Tour, step ${tour.i + 1} of ${N}. ${st.title}. ${tourText(st, 'text')}${tourText(st, 'sr') || ''}`, `新手引导，第 ${tour.i + 1} 步，共 ${N} 步。${st.zhTitle}。${tourText(st, 'zh')}${tourText(st, 'srZh') || ''}`), { interrupt: false });
 }
 function placeTour() {
@@ -1730,8 +1762,14 @@ function setupTour() {
 }
 
 // ---------- start ----------
-async function start(withVoice = false, lang = null) {
+const cameBack = () => { try { return localStorage.getItem('ej-start') === 'voice'; } catch { return false; } };
+let backPending = false; // on the first screen: this person used the voice guide last time
+let helloAgain = ''; // said once, before the first words after a "welcome back" start
+async function start(withVoice = false, lang = null, { back = false } = {}) {
   if (lang) setTalk(lang);
+  try { localStorage.setItem('ej-start', withVoice ? 'voice' : 'plain'); } catch { /* private window */ }
+  backPending = false; tch.on = false; clearTimeout(tch.hold); // the tap that started it must not also be read as a tap on what appears next
+  helloAgain = back ? tr('Welcome back. The voice guide is on, like last time. ', '欢迎回来。语音导览已经打开，和上次一样。') : '';
   state.voice = withVoice; setHint(); document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
   if (!withVoice && 'speechSynthesis' in window) speechSynthesis.cancel(); // the welcome may still be waiting to speak (iPhone holds it until a tap): a screen reader user must not get two voices
   const sounding = sound.start(); // not awaited first: iPhone only lets the page speak during the tap itself
@@ -1741,12 +1779,14 @@ async function start(withVoice = false, lang = null) {
   else if (coarse()) { // a phone: open the big buttons and say exactly what to do first
     resetGuide({ quiet: true }); if (state.voice) openControls(true, { scroll: false });
     const place = placeName(state.lat, state.lon);
-    if (state.voice) speak(tr(`You are in ${place}, in ${when()}. ${remoteMap()} If I speak too fast, press More, then Slower. Start now: tap Where am I?, in the middle of the top half, then tap it again.`,
-      `你现在在${placeZ(place)}，${whenZ()}。${remoteMap()}如果我讲太快，按"更多"，再按"慢一点"。现在开始：点一下上半部中间的"我在哪里"，再点一下。`));
+    if (state.voice) speak(helloAgain + tr(`You are in ${place}, in ${when()}. ${remoteMap()} If I speak too fast, press More, then Slower. Lost? Tap anywhere with two fingers. Start now: tap Where am I?, in the middle of the top half, then tap it again.`,
+      `你现在在${placeZ(place)}，${whenZ()}。${remoteMap()}如果我讲太快，按"更多"，再按"慢一点"。迷路的话，用两根手指在任何地方点一下。现在开始：点一下上半部中间的"我在哪里"，再点一下。`));
     else { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); } // screen readers land on Controls (big buttons); the screen stays clear // after the screen reader reads the button
   }
-  else resetGuide({ quiet: !tourDone() }); // step 1: "Tap anywhere on the Earth" (also read aloud, unless the tour does the talking)
-  if (state.mode !== 'song' && !isRemote() && !tourDone()) startTour();
+  else resetGuide({ quiet: state.voice || !tourDone() }); // step 1: "Tap anywhere on the Earth" (also read aloud, unless the tour does the talking)
+  // The tour shows once to people who can see it. With the voice guide on it runs every time: a listener has no screen to remind them.
+  if (state.mode !== 'song' && !isRemote() && (state.voice || !tourDone())) startTour();
+  helloAgain = '';
   if (!(await sounding)) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
 }
 // While the first screen is open, VoiceOver and TalkBack must not wander into the page behind it
