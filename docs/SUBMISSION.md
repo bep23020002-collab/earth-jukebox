@@ -12,13 +12,15 @@ Earth Jukebox: Hear Our Changing Planet
 
 ## Summary（50–200 words，上限 1500 字元）
 ```
-Earth Jukebox turns NASA Earth Information Center (EIC) visualizations into sound, so anyone can explore our changing planet by ear, including people who are blind or have low vision.
+NASA's Earth Information Center (EIC) shows our planet changing in stunning visualizations: a globe that warms year by year, swirling ocean currents, lightning seen from the Space Station. But they can only be seen. For the 43 million people who are blind, they are silent.
 
-Our app reads the color legend of a NASA map, so every color becomes a real number and every spot on Earth gets a note: warmer places sing higher. Tap a 3D globe like an instrument, or press Play to hear any place month by month from 1880 to 2025. Each EIC visualization is a track with its own instrument: temperature plays a marimba, ocean temperature a harp, and lightning seen from the Space Station the drums, or all three at once. Fly one orbit with the Space Station and hear the Earth passing below. "My Earth song" turns the places and dates in your story, down to the month you were born, into a song you can share. A voice guide reads every step aloud in English or Chinese, and everything works with a keyboard, a screen reader, or big buttons on a phone. We improved it with Betty, a blind tester from Sibu.
+Earth Jukebox lets everyone hear them. It reads the color key of each NASA map, so every spot on Earth gets a note: warmer places sing higher. Tap the globe like an instrument, or press Play to hear your town month by month from 1880 to 2025 and hear the notes climb. Each visualization has its own instrument: temperature on marimba, ocean on harp, lightning on drums. Fly one orbit with the Space Station and hear the Earth pass below. Ask the Earth a question, or turn your own story, like where and when you were born, into an Earth song you can share.
 
-NASA's maps are beautiful but visual only. Earth Jukebox makes them something everyone can hear.
+A voice guide in English or Chinese talks you through every step, and it works with a screen reader or on an ordinary phone. Betty, a blind tester from Sibu, helped us shape it.
+
+Now NASA's Earth is something everyone can hear.
 ```
-（199 字，1103 字元）
+（191 字，1060 字元）
 
 ## Project Demonstration（30 秒以内的视频，公开链接）
 ```
