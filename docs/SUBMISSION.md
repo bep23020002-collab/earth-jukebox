@@ -14,7 +14,7 @@ Earth Jukebox: Hear Our Changing Planet
 ```
 NASA's Earth Information Center (EIC) shows our planet changing in stunning visualizations: a globe that warms year by year, swirling ocean currents, lightning seen from the Space Station. But they can only be seen. For the 43 million people who are blind, they are silent.
 
-Earth Jukebox lets everyone hear them. It reads the color key of each NASA map, so every spot on Earth gets a note: warmer places sing higher. Tap the globe like an instrument, or press Play to hear your town year by year from 1880 to 2025 and hear the notes climb. Each visualization has its own instrument: temperature on marimba, ocean on harp, lightning on drums. Fly one orbit with the Space Station and hear the Earth pass below. Ask the Earth a question, or turn your own story, like where and when you were born, into an Earth song you can share.
+Earth Jukebox lets everyone hear them. It reads the color key of each NASA map, so every spot on Earth gets a note: warmer places sing higher. Tap the globe like an instrument, or press Play to hear your town year by year from 1880 to 2025 and hear the notes climb. Each visualization has its own instrument: temperature on marimba, ocean on harp, lightning on drums. Fly one orbit with the Space Station, ask the Earth a question, or turn your story into an Earth song you can share. Checked against NASA's published record, the global average we read differs by 0.07 °C on average.
 
 A voice guide in English or Chinese talks you through every step, and it works with screen readers and ordinary phones. Betty, a blind tester from Sibu, helped us shape it; she says the new guide makes it clearer to use.
 
