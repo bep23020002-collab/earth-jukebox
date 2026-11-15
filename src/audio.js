@@ -22,8 +22,15 @@ export class Sound {
       this.master = this.ctx.createGain(); this.master.gain.value = 0.8;
       this.master.connect(this.out).connect(this.ctx.destination);
     }
-    if (this.ctx.state !== 'running') await this.ctx.resume();
+    // iPhone: resume() can wait forever (during a phone or video call, or before a real tap), so never wait long for it
+    if (this.ctx.state !== 'running') await Promise.race([this.ctx.resume().catch(() => {}), new Promise(r => setTimeout(r, 700))]);
     return this.ctx.state === 'running';
+  }
+  // Call from a tap or key press: wakes the sound up again after iPhone paused it (a call, the lock screen, another app).
+  wake() {
+    if (!this.ctx || this.ctx.state === 'running') return;
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch { /* not supported */ }
+    this.ctx.resume().catch(() => {});
   }
 
   get now() { return this.ctx ? this.ctx.currentTime : 0; }

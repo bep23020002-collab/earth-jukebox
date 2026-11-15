@@ -733,7 +733,8 @@ async function hearLegend() {
 
 function setHint() { // the hint on the globe says how to listen; with Voice guide on, moving listens
   $('#globeHint .hint-mouse').textContent = state.voice ? 'Move the mouse to listen. Click to add a place.' : 'Tap to play. Drag to spin the Earth.';
-  $('#globeHint .hint-touch').textContent = state.voice ? 'Slide a finger to listen. Two fingers spin.' : 'Tap to play. Drag to spin the Earth.';
+  $('#globeHint .hint-touch').textContent = state.voice ? 'Slide a finger to listen. Two fingers spin.' : 'Tap to play. Swipe sideways to spin.';
+  $('#globe').classList.toggle('explore', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
 function toggle(act) {
   if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' : 'Voice guide off.'); }
@@ -1015,7 +1016,8 @@ let welcomed = false;
 function talk(text, opts) { const v = state.voice; state.voice = true; const p = speak(text, opts); state.voice = v; return p; } // speak even before Voice guide is on
 const talking = () => state.voice || (welcomed && startOpen());
 const welcomeText = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
-  + (byKey ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
+  + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
+    : byKey === 'touch' ? 'There are two buttons: Start listening, and Start with voice guide. If you use VoiceOver or TalkBack, choose Start listening.'
     : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.');
 function welcome(byKey) { welcomed = true; talk(welcomeText(byKey)); }
 // Say hello as soon as the page opens. Most computer browsers allow this; where a browser blocks speech until the
@@ -1024,7 +1026,7 @@ function welcomeOnOpen() {
   if (!('speechSynthesis' in window)) return;
   const go = () => {
     if (welcomed || !startOpen()) return;
-    const u = new SpeechSynthesisUtterance(welcomeText(true));
+    const u = new SpeechSynthesisUtterance(welcomeText(matchMedia('(hover: none) and (pointer: coarse)').matches ? 'touch' : true));
     if (voicePick) u.voice = voicePick;
     u.lang = voicePick?.lang || 'en-US'; u.rate = 1.05;
     u.onstart = () => { welcomed = true; };
@@ -1043,7 +1045,11 @@ function setupStartTalk() {
       e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
     }
   }, true);
-  document.addEventListener('pointerdown', e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(false); }, true);
+  // a click says hello on pointerdown; a finger only on lifting (the browser allows speech only then)
+  const firstTap = e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(e.pointerType === 'mouse' ? 'mouse' : 'touch'); };
+  document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') firstTap(e); }, true);
+  document.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') firstTap(e); }, true);
+  if (startOpen()) setInert(true);
   welcomeOnOpen();
 }
 function setupSayOnHover() {
@@ -1359,12 +1365,32 @@ async function shareSong() {
 // ---------- start ----------
 async function start(withVoice = false) {
   state.voice = withVoice; setHint(); document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
-  const ok = await sound.start();
-  $('#start').hidden = true; $('#globe').focus();
+  const sounding = sound.start(); // not awaited first: iPhone only lets the page speak during the tap itself
+  $('#start').hidden = true; setInert(false); $('#globe').focus();
   draw(); preloadAll();
-  if (!ok) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
-  if (state.mode === 'song') { speak('Someone shared their Earth song with you. Press Play my Earth song to hear it.'); $('#playSong').focus(); return; }
-  resetGuide(); // step 1: "Tap anywhere on the Earth" (also read aloud)
+  if (state.mode === 'song') { speak('Someone shared their Earth song with you. Press Play my Earth song to hear it.'); $('#playSong').focus(); }
+  else resetGuide(); // step 1: "Tap anywhere on the Earth" (also read aloud)
+  if (!(await sounding)) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
+}
+// While the first screen is open, VoiceOver and TalkBack must not wander into the page behind it
+function setInert(on) { for (const el of document.querySelectorAll('body > .skip, body > header, body > main, body > footer')) el.inert = on; }
+// Browsers (iPhone most strictly) only start sound and speech during a real key press or tap. Every one of those
+// wakes the sound if the phone paused it, and the first one unlocks speech, so later steps can talk.
+let speechUnlocked = false;
+function unlock() {
+  sound.wake();
+  if (speechUnlocked || !('speechSynthesis' in window)) return;
+  speechUnlocked = true;
+  if (!speechSynthesis.speaking && !speechSynthesis.pending) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
+}
+function setupUnlock() {
+  const opt = { capture: true, passive: true };
+  document.addEventListener('keydown', unlock, opt);
+  document.addEventListener('click', unlock, opt); // VoiceOver's double tap arrives as a click
+  document.addEventListener('touchend', unlock, opt);
+  document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') unlock(); }, opt);
+  document.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') unlock(); }, opt);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) sound.wake(); });
 }
 function buildJumps() {
   $('#jumps').innerHTML = JUMPS.map((p, i) => `<button type="button" data-jump="${i}"><kbd>${i + 1}</kbd> ${p.name.replace(/^the /, '')}</button>`).join('');
@@ -1402,7 +1428,7 @@ async function init() {
   $('#storyBtn').addEventListener('click', () => { sound.start(); storyToSong(); });
   $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
   $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
-  setupMic(); setupSayOnHover(); setupStartTalk();
+  setupUnlock(); setupMic(); setupSayOnHover(); setupStartTalk();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));

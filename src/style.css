@@ -22,6 +22,10 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.55; background: var(--body); }
+/* phones: quick taps (North, North, North) must not zoom the page; holding a finger on the Earth or a key must not select text */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, a, summary, input, select, textarea, label { touch-action: manipulation; }
+.globe-wrap, .pad, .pad-side, .track-picker, .iss-btn, .timeline { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 h1, h2, h3 { line-height: 1.12; margin: 0; font-weight: 500; text-wrap: balance; letter-spacing: -0.015em; }
 p { margin: 0; text-wrap: pretty; }
 strong { font-weight: 500; }
@@ -106,7 +110,8 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   background: url("../assets/background/airglow.jpg") center top / cover no-repeat;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 55%); mask-image: linear-gradient(to bottom, transparent 0%, #000 55%); }
 .globe-wrap { position: relative; width: min(100%, 640px, 72vh); aspect-ratio: 1; }
-#globe { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; border-radius: 50%; }
+#globe { width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; border-radius: 50%; } /* a finger swiping up or down still scrolls the page */
+#globe.explore { touch-action: none; } /* Voice guide on: the finger listens instead */
 #globe:active { cursor: grabbing; }
 .year-big { position: absolute; left: -4px; top: -4px; font-family: var(--mono); font-weight: 500; font-size: clamp(2rem, 6vw, 3.6rem); line-height: 1; color: var(--screen-ink);
   font-variant-numeric: tabular-nums; pointer-events: none; }
