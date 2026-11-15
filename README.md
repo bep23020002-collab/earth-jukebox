@@ -20,3 +20,10 @@ Files containing AI-assisted code say so in their header comment.
 
 ## Data
 NASA Scientific Visualization Studio (SVS). Credits and links are listed in `REFERENCES.md`.
+
+## License
+The code, text and scripts of this project are open source under the MIT License (see `LICENSE`).
+
+Not covered by that license:
+- NASA images and data (the map frames, the background photo, GISTEMP numbers). They come from NASA and are credited in `REFERENCES.md`.
+- The video, photo, subtitles and transcript of Betty in `assets/video/`. She agreed to them being shown on this project's website with her name. Please do not reuse them elsewhere without asking her.

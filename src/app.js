@@ -458,7 +458,6 @@ function moveTo(lat, lon, opts = {}) {
 
 // ---------- play the Earth like an instrument ----------
 function tapAt(lat, lon, { record = true } = {}) {
-  if (tour.i === 0) noteHeard(lat, lon);
   tourHit('tap');
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
@@ -508,7 +507,7 @@ function setGuide({ label, title, text, btn, alt, say, sayZh, quiet = false }) {
 }
 function resetGuide({ quiet = false } = {}) {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
-  setGuide({ label: 'Make a tune · 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
+  setGuide({ label: 'Make a tune', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
     say: state.voice ? 'If I speak too fast or too slow, press Slower or Faster at the top of the page. ' + (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null,
     sayZh: state.voice ? '如果我讲太快或太慢，按页面最上面的"慢一点"或"快一点"。' + (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。或者按住不动，再滑动手指，手指经过的东西都会念出来。' : '')
       + '把鼠标或手指在地球上移动，就会听到声音。越暖的地方，音越高。停一下，我会告诉你在哪里。要做一段旋律，加三个地方：点一个地方，或按大按钮里的"把这里加进旋律"。'
@@ -518,14 +517,14 @@ function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
-    setGuide({ label: 'Make a tune · 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.`,
+    setGuide({ label: 'Make a tune', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.`,
       say: state.voice ? `That was ${place}: ${feeling(v).toLowerCase()}. ${n === 1 ? 'Add 2 more places.' : 'Add 1 more place.'}` : null,
       sayZh: `那是${placeZ(place)}：${feelingZ(v)}。${n === 1 ? '再加两个地方。' : '再加一个地方。'}` });
     return;
   }
   guide.step = 2;
   setGuide({
-    label: 'Make a tune · 2 of 3', title: 'Now go back in time',
+    label: 'Make a tune', title: 'Now go back in time',
     text: `You made a tune of ${n} notes. Let's hear the same tune in 1880, before the Earth warmed up.`,
     sayZh: `你做了一段 ${n} 个音的旋律。我们来听同一段旋律在 1880 年的样子，那时候地球还没变暖。按"在 1880 年播放我的旋律"。`,
     btn: ['Play my tune in 1880', async () => { await playTuneIn(1880); guideStep3(); }, '在 1880 年播放我的旋律'],
@@ -534,7 +533,7 @@ function guideAfterTap(v) {
 function guideStep3() {
   guide.step = 3;
   setGuide({
-    label: 'Make a tune · 3 of 3', title: 'Now hear it today',
+    label: 'Make a tune', title: 'Now hear it today',
     text: 'Same places, same tune. This time in 2025. Listen: is it higher?',
     sayZh: '同样的地方，同样的旋律。这次是 2025 年。听听看：是不是比较高？按"在 2025 年播放我的旋律"。',
     btn: ['Play my tune in 2025', async () => { await playTuneIn(2025); guideDone(); }, '在 2025 年播放我的旋律'],
@@ -575,7 +574,6 @@ function moveUV(u, v, opts) {
 }
 async function setYear(yi, month = state.month) {
   if (isImage()) return;
-  tourHit('year');
   state.yi = Math.max(0, Math.min(state.track.years.length - 1, yi));
   state.month = hasMonths() ? month : null;
   await ensureMonthData();
@@ -1377,7 +1375,7 @@ function onKey(e) {
   if (!fn) return;
   if (e.target.closest?.('button, summary') && (k === 'Enter' || k === ' ')) return; // let buttons work normally
   e.preventDefault(); fn();
-  if (tour.i === 0 && !img && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(k)) { noteHeard(state.lat, state.lon); tourHit('tap'); } // keyboard and Controls count as "tap the Earth"
+  if (tour.i === 0 && !img && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(k)) tourHit('tap'); // keyboard and Controls count as "tap the Earth"
 }
 function pointerUV(e) { const r = $('#map').getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
 let lastMove = 0;
@@ -1638,10 +1636,6 @@ const TOUR = [
     zh: 'NASA 地图上每个地方都有一个音，越暖的地方音越高。点地球上任何地方试试。',
     sr: () => (coarse() ? ' Or press Controls, at the top of the page, for big buttons.' : ' On a keyboard, the arrow keys travel and Enter says where you are. Press N for the next step of this tour, or Escape to close it.'),
     srZh: () => (coarse() ? '也可以按页面最上面的"大按钮"。' : '用键盘的话，方向键是移动，Enter 会念出你在哪里。按 N 是引导的下一步，按 Esc 关掉引导。') },
-  { sel: '.year-range', on: 'year', title: 'Go back in time', zhTitle: '回到过去',
-    text: () => `${tour.heard ? `You just heard ${tour.heard.place}: ${tour.heard.feel} in ${tour.heard.when}. ` : ''}Now drag the year bar back toward 1880. You'll hear the same place in that year: a lower note means it was colder.`,
-    zh: () => `${tour.heard ? `你刚听到${tour.heard.placeZh}：${tour.heard.when}年${tour.heard.feelZh}。` : ''}现在把年份条往左拉，拉回 1880 年附近。你会听到同一个地方在那一年的音：音比较低，就是那时候比较冷。`,
-    sr: ' On a keyboard, press the left square bracket to go back one year.', srZh: '用键盘的话，按左方括号回到前一年。' },
   { sel: '#playBtn', on: 'playEnd', hideOn: 'playStart', title: 'Hear 145 years', zhTitle: '听 145 年',
     text: 'Press Play to hear this place every month from 1880 to 2025, in 30 seconds. Listen to the notes climb.',
     zh: '按"播放"，听这个地方从 1880 到 2025 年每个月的变化，只要 30 秒。听听音是不是一路往上。',
@@ -1657,16 +1651,13 @@ const TOUR = [
     text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese.',
     zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。' },
 ];
-const tour = { i: -1, hidden: false, advancing: false, heard: null, steps: TOUR };
-function noteHeard(lat, lon) { // what step 1 played, so step 2 can talk about it
-  const v = trackValue(state.yi, lat, lon), pl = placeName(lat, lon);
-  tour.heard = { place: pl.startsWith('near ') ? `a place ${pl}` : pl, placeZh: placeZ(pl), feel: feeling(v).toLowerCase(), feelZh: feelingZ(v), when: when() };
-}
+const tour = { i: -1, hidden: false, advancing: false, steps: TOUR };
 const tourText = (st, k) => (typeof st[k] === 'function' ? st[k]() : st[k]);
-const tourDone = () => false; // the tour runs every time the page is opened (judges and first-time users); Skip ends it
+const TOUR_KEY = 'ej-tour-v2'; // a new key, so people who saw an earlier tour get this one once
+const tourDone = () => { try { return localStorage.getItem(TOUR_KEY) === 'done'; } catch { return false; } }; // shown once; More ways to listen can replay it
 function startTour() {
   tour.steps = TOUR.filter(st => !(st.on === 'voice' && state.voice)); // Voice guide already on: no need to point at it
-  tour.i = 0; tour.advancing = false; tour.heard = null; $('#guide').hidden = true; // the tour replaces the step card while it runs
+  tour.i = 0; tour.advancing = false; $('#guide').hidden = true; // the tour replaces the step card while it runs
   addEventListener('scroll', placeTour, { passive: true }); addEventListener('resize', placeTour, { passive: true });
   showTourStep();
 }
@@ -1701,14 +1692,14 @@ function endTour() {
   if (tour.i < 0) return;
   tour.i = -1; hideTourForNow(); $('#guide').hidden = isImage() || state.mode !== 'track'; // the step card belongs to the Play tab only
   removeEventListener('scroll', placeTour); removeEventListener('resize', placeTour);
-  try { localStorage.setItem('ej-tour', 'done'); } catch { /* private window */ }
+  try { localStorage.setItem(TOUR_KEY, 'done'); } catch { /* private window */ }
 }
 function tourHit(ev) { // something the tour asked for happened
   if (tour.i < 0) return;
   const st = tour.steps[tour.i];
   if (ev === 'mode' && st.on !== 'mode') { endTour(); return; } // went to another tab mid-tour: the tour steps aside
   if (st.hideOn === ev) hideTourForNow(); // keep the screen clear while it plays
-  if (st.on === ev && !tour.advancing) { tour.advancing = true; setTimeout(nextTourStep, ev === 'tap' || ev === 'year' ? 1200 : 300); } // a moment to hear the note first
+  if (st.on === ev && !tour.advancing) { tour.advancing = true; setTimeout(nextTourStep, ev === 'tap' ? 1200 : 300); } // a moment to hear the note first
 }
 function setupTour() {
   $('#tourNext').addEventListener('click', () => { sound.start(); if (!tour.advancing) nextTourStep(); });
