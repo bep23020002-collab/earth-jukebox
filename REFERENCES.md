@@ -27,4 +27,5 @@
 - Cloudflare Workers: hosts the AI helper so the API key is never sent to the browser.
 - Web Audio API, Web Speech API (speech output and speech recognition), Canvas 2D.
 - FFmpeg and Node.js (data-processing scripts), @napi-rs/canvas (demo video rendering).
+- ElevenLabs text-to-speech: the narration in the demo video is an AI-generated voice (https://elevenlabs.io/). Demo video: https://youtu.be/oDcwB8Zi_rQ
 - Atkinson Hyperlegible Next typeface (Braille Institute, SIL Open Font License), via Google Fonts.
