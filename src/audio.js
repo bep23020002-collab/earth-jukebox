@@ -79,7 +79,7 @@ export class Sound {
     const at = Math.max(this.now, when || this.now);
     const i = noteIndex(t);
     this.#voice(FREQ[i], { at, dur, gain, pan, bright: t });
-    if (layers && t >= 0.75) this.#voice(FREQ[Math.min(FREQ.length - 1, i + 2)] , { at: at + 0.02, dur, gain: gain * 0.35, pan: -pan * 0.5, bright: t });
+    if (layers && t >= 0.75) this.#voice(this.#above(i, 2), { at: at + 0.02, dur, gain: gain * 0.35, pan: -pan * 0.5, bright: t });
     if (layers && t >= 0.9) this.#voice(FREQ[i] * 2, { at: at + 0.04, dur: dur * 0.8, gain: gain * 0.22, pan: pan * 0.5, bright: 1 });
   }
 
@@ -96,7 +96,7 @@ export class Sound {
       g.gain.exponentialRampToValueAtTime(0.0001, at + decay + 0.05);
       o.connect(g).connect(out); o.start(at); o.stop(at + decay + 0.1);
     });
-    if (t >= 0.75) this.#voice(FREQ[Math.min(FREQ.length - 1, noteIndex(t) + 2)], { at: at + 0.01, dur: 0.25, gain: gain * 0.25, pan: -pan * 0.5, bright: t });
+    if (t >= 0.75) this.#voice(this.#above(noteIndex(t), 2), { at: at + 0.01, dur: 0.25, gain: gain * 0.25, pan: -pan * 0.5, bright: t });
   }
 
   // Ocean: a plucked, harp-like note with a short shimmer above it (warmer water = higher, brighter).
@@ -111,7 +111,7 @@ export class Sound {
       o.connect(g).connect(out); o.start(at); o.stop(at + decay + 0.05);
     });
     // a second, softer pluck a fifth up a moment later, like water moving on
-    const o2 = c.createOscillator(), g2 = c.createGain(); o2.type = 'sine'; o2.frequency.value = FREQ[Math.min(FREQ.length - 1, noteIndex(t) + 3)];
+    const o2 = c.createOscillator(), g2 = c.createGain(); o2.type = 'sine'; o2.frequency.value = this.#above(noteIndex(t), 3);
     // The gain must be set from the very start: a gain node is at full volume until its first scheduled value,
     // and this pluck used to start 10 ms before that, so every harp note was followed by a 10 ms full-volume pop.
     g2.gain.setValueAtTime(0.0001, at); g2.gain.setValueAtTime(0.0001, at + 0.11); g2.gain.exponentialRampToValueAtTime(gain * 0.3, at + 0.118); g2.gain.exponentialRampToValueAtTime(0.0001, at + 0.9);
@@ -170,6 +170,10 @@ export class Sound {
       g.gain.linearRampToValueAtTime(0, this.now + 0.3); o.stop(this.now + 0.35);
     }
   }
+
+  // The note a few scale steps above, for the second voice. At the top of the scale there is none, and playing
+  // the same note again would partly cancel it (the hottest places got quieter, not richer): use a fifth above.
+  #above(i, steps) { const j = Math.min(FREQ.length - 1, i + steps); return j === i ? FREQ[i] * 1.5 : FREQ[j]; }
 
   #panner(pan) {
     const p = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
