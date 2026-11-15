@@ -75,7 +75,7 @@ If they don't agree to recording or the video, don't record. Just do the test.
 If they agreed to the video, this is the first moment to note the time.
 
 ## Step 4. Task B: Has it got warmer? (3 minutes)
-> "Please go back to Sibu, and press Play 1880 → 2025. It plays every month from 1880 to 2025 in about 30 seconds. Just listen."
+> "Please go back to Sibu, and press Play 1880 → 2025. It plays one note for each year from 1880 to 2025, in about 30 seconds. Just listen."
 (On a computer they can press the Space bar.)
 > "After listening, do you think it got warmer, colder, or stayed about the same here?"
 (Correct answer: warmer. Write down the words they use, for example "higher", "brighter".)

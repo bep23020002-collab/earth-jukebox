@@ -14,13 +14,13 @@ Earth Jukebox: Hear Our Changing Planet
 ```
 NASA's Earth Information Center (EIC) shows our planet changing in stunning visualizations: a globe that warms year by year, swirling ocean currents, lightning seen from the Space Station. But they can only be seen. For the 43 million people who are blind, they are silent.
 
-Earth Jukebox lets everyone hear them. It reads the color key of each NASA map, so every spot on Earth gets a note: warmer places sing higher. Tap the globe like an instrument, or press Play to hear your town month by month from 1880 to 2025 and hear the notes climb. Each visualization has its own instrument: temperature on marimba, ocean on harp, lightning on drums. Fly one orbit with the Space Station and hear the Earth pass below. Ask the Earth a question, or turn your own story, like where and when you were born, into an Earth song you can share.
+Earth Jukebox lets everyone hear them. It reads the color key of each NASA map, so every spot on Earth gets a note: warmer places sing higher. Tap the globe like an instrument, or press Play to hear your town year by year from 1880 to 2025 and hear the notes climb. Each visualization has its own instrument: temperature on marimba, ocean on harp, lightning on drums. Fly one orbit with the Space Station and hear the Earth pass below. Ask the Earth a question, or turn your own story, like where and when you were born, into an Earth song you can share.
 
 A voice guide in English or Chinese talks you through every step, and it works with a screen reader or on an ordinary phone. Betty, a blind tester from Sibu, helped us shape it.
 
 Now NASA's Earth is something everyone can hear.
 ```
-（191 字，1060 字元）
+（191 字，1058 字元）
 
 ## Project Demonstration（30 秒以内的视频，公开链接）
 ```
@@ -41,7 +41,7 @@ WHAT IT DOES
 Earth Jukebox is a web app that pairs NASA Earth Information Center (EIC) visual frames with sound generated in real time in the browser: every note is computed from the colors of NASA's own map at the moment you tap or press Play, and nothing is pre-recorded. A short tour shows a first-time visitor what to do: tap the Earth (each place plays a note; warmer places play higher), then hear 145 years in 30 seconds. Visitors can:
 - Tap a rotating 3D globe like an instrument, and drag to spin it.
 - Choose an EIC visualization (a "track"): Global Temperature 1880–2025 (marimba), Ocean Currents and Temperature (harp), Lightning from the Space Station 2017–2023 (drums), or All three together.
-- Press Play to hear one place month by month: 1,752 months of temperature from 1880 to 2025 in about 30 seconds, or lightning month by month from 2017 to 2023. The year bar also steps by month.
+- Press Play to hear one place through time: one note per year of temperature from 1880 to 2025 in about 30 seconds, or lightning month by month from 2017 to 2023. The year bar steps by month, so any single month since 1880 can be heard.
 - Fly with the Space Station: one orbit like the ISS's (51.6°, about 93 minutes) passes over your place and plays every place below it in 15 seconds, then names the warmest place under it.
 - Make "My Earth song": type or speak a family story in any language ("I was born in Kuching on 15 March 2006"). Each place and date, down to the month, becomes part of a song that can be shared as a link.
 - Ask the Earth: ask a question by typing or speaking, in any language ("How warm was Kuching in March 2006?"). The globe turns, plays the answer as sound, and says it in plain words, in English or in Chinese.

@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 16:25', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 17:00', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -748,24 +748,29 @@ async function playHistory({ quiet = false } = {}) {
   const place = placeName(state.lat, state.lon), years = state.track.years;
   if (!quiet) await speak(tr(`${place}, ${when(0)} to ${when(years.length - 1)}.`, `${placeZ(place)}，${whenZ(0)}到${whenZ(years.length - 1)}。`));
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
+  // A long series (temperature, 146 years) plays one clear note per year. A note per month was 1,752 notes in 30 seconds:
+  // a blur nobody could follow. With the voice guide on it goes a little slower and says the year every 50 years.
+  const yearly = !short && MONTH_SERIES[dataId()]?.stepMs < 100, forEar = yearly && state.voice;
   let series = null;
-  if (MONTH_SERIES[dataId()] && state.playing) {
+  if (!yearly && MONTH_SERIES[dataId()] && state.playing) {
     try { series = (await monthSeriesAt(dataId(), state.lat, state.lon, 6))?.filter(p => p.year >= years[0] && p.year <= years[years.length - 1]); } catch { series = null; }
   }
   if (series?.length && state.playing) await playMonths(series, place);
   else score.line(`${shortPlace(place)}, every year`, years.length, when(0), when(years.length - 1));
-  for (let i = 0; i < years.length && state.playing && !series?.length; i++) { // one note per year if the monthly data can't be loaded
+  const sea = yearly && inst === 'combo' ? seaNear(state.lat, state.lon) : null; // "All three": the nearest sea joins in on the harp every ten years
+  for (let i = 0; i < years.length && state.playing && !series?.length; i++) { // one note per year
     state.yi = i; draw();
     const v = boxMean(i, state.lat, state.lon, 6);
     if (v == null) sound.noData();
     else if (inst === 'drum') sound.drum(tOf(v)); // each track keeps its own instrument: more lightning, more drum hits
     else if (inst === 'harp') sound.harp(tOf(v));
-    else sound.note(tOf(v), { dur: short ? 0.4 : 0.16, gain: 0.45 });
+    else sound.note(tOf(v), { dur: short ? 0.4 : forEar ? 0.24 : 0.2, gain: 0.45 });
+    if (sea != null && years[i] % 10 === 0) sound.harp(seaT(sea), { gain: 0.2 });
     score.put(i, stepOf(v));
     if (short) announce(`${when(i)}. ${feeling(v)}.`);
-    else if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); announce(String(years[i])); }
+    else if (years[i] % 50 === 0) { sound.tick({ when: sound.now + 0.08 }); (forEar ? speak : announce)(tr(String(years[i]), `${years[i]}年`)); }
     showValue(v);
-    await sleep(short ? 650 : 140);
+    await sleep(short ? 650 : forEar ? 230 : 200);
   }
   const finished = state.playing;
   state.playing = false; setPlayingUI(false); draw();
@@ -1276,7 +1281,7 @@ const coach = { tried: new Set(), told: new Set() };
 const COACH = [
   ['where', 'Press Where am I? to hear the place, the year, and how warm it was.', '按"我在哪里"，会念出地方、年份，还有有多暖。'],
   ['move', 'Try North, South, East or West. Each one travels about 1,000 kilometres and plays the note there. A higher note means warmer.', '试试北、南、东、西。每按一次会移动大约一千公里，并弹出那里的音。音越高，代表越暖。'],
-  ['play', 'To hear how this place changed since 1880, press Play. It takes about 30 seconds.', '想听这个地方从 1880 年到现在怎么变，按"播放"。大约 30 秒。'],
+  ['play', 'To hear how this place changed since 1880, press Play: one note for each year, about 35 seconds.', '想听这个地方从 1880 年到现在怎么变，按"播放"：一年一个音，大约 35 秒。'],
   ['place', 'Press Next place to jump to another place, like the Arctic Ocean, and hear if it sounds higher.', '按"下一个地方"，可以跳到别的地方，例如北冰洋，听听它是不是比较高。'],
   ['legend', 'To hear the low, middle and high notes, press More, then What do the sounds mean?', '想听低音、中音和高音，按"更多"，再按"声音代表什么"。'],
 ];
@@ -1686,10 +1691,10 @@ const TOUR = [
     sr: () => (coarse() ? ' Or press Controls, at the top of the page, for big buttons.' : ' On a keyboard, the arrow keys travel and Enter says where you are. Press N for the next step of this tour, or Escape to close it.'),
     srZh: () => (coarse() ? '也可以按页面最上面的"大按钮"。' : '用键盘的话，方向键是移动，Enter 会念出你在哪里。按 N 是引导的下一步，按 Esc 关掉引导。') },
   { sel: '#playBtn', on: 'playEnd', hideOn: 'playStart', title: 'Hear 145 years', zhTitle: '听 145 年',
-    ear: 'Hear 145 years. Press the Space bar. You will hear this place every month from 1880 to 2025, in about 30 seconds. Listen to the notes climb. Press Space again to stop early.',
-    earZh: '听 145 年。按空白键，会听到这个地方从 1880 到 2025 年每个月的音，大约 30 秒。听听音是不是一路往上。再按一次空白键可以提早停。',
-    text: 'Press Play to hear this place every month from 1880 to 2025, in 30 seconds. Listen to the notes climb.',
-    zh: '按"播放"，听这个地方从 1880 到 2025 年每个月的变化，只要 30 秒。听听音是不是一路往上。',
+    ear: 'Hear 145 years. Press the Space bar. You will hear this place from 1880 to 2025, one note for each year, in about 35 seconds. I will say the year every 50 years. Listen to the notes climb. Press Space again to stop early.',
+    earZh: '听 145 年。按空白键，会听到这个地方从 1880 到 2025 年，一年一个音，大约 35 秒。每 50 年我会报一次年份。听听音是不是一路往上。再按一次空白键可以提早停。',
+    text: 'Press Play to hear this place year by year from 1880 to 2025, in 30 seconds. Listen to the notes climb.',
+    zh: '按"播放"，听这个地方从 1880 到 2025 年一年一年的变化，只要 30 秒。听听音是不是一路往上。',
     sr: () => (coarse() ? '' : ' On a keyboard, press Space.'), srZh: () => (coarse() ? '' : '用键盘的话，按空白键。') },
   { sel: '#trackPicker', on: 'track', title: 'More NASA maps', zhTitle: '更多 NASA 地图',
     ear: 'More NASA maps. Each map has its own instrument: temperature is a marimba, the ocean is a harp, lightning is drums. Press I to fly once around the Earth with the Space Station and hear every place below. To change the map, press Tab until you hear Ocean or Lightning, then press Enter. Press N for the next step.',

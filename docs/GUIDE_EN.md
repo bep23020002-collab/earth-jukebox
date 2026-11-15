@@ -59,7 +59,7 @@ After you start, a short tour shows what to do, one step at a time. Screen reade
 4. Next to it are **North**, **West**, **East** and **South**. Each one moves you about 1,000 kilometres and says where you are now.
 5. **Year before** and **Year after** change the year by one.
 6. **Add this place to my tune** adds the place you are at to your tune. Add 3 places, and the guide lets you hear your tune in 1880 and in 2025.
-7. To hear the whole history of a place, press **Play 1880 → 2025**. It plays every month from 1880 to 2025 in about 30 seconds, then says how much warmer it is than in the 1880s. Press it again to stop.
+7. To hear the whole history of a place, press **Play 1880 → 2025**. It plays one note for each year from 1880 to 2025, in about 30 seconds, then says how much warmer it is than in the 1880s. Press it again to stop.
 8. To jump to a place, open **More ways to listen**, then press a place under **Go to a place**: Sibu, the Arctic Ocean, the Sahara, the Amazon rainforest, Siberia, the middle of the Pacific Ocean, Europe, central Australia or Antarctica.
 
 You start at Sibu, Sarawak, in 2025.
@@ -77,7 +77,7 @@ Move to the globe with the Tab key. Then use these keys:
 - Arrow keys: move around the Earth. Hold Shift for small steps.
 - Enter: say where I am and how warm it is.
 - Square brackets [ and ]: the year before and the year after.
-- Space: play every month from 1880 to 2025.
+- Space: play every year from 1880 to 2025.
 - I: fly one orbit with the Space Station.
 - Numbers 1 to 9: go to a place. 1 is Sibu, 2 is the Arctic Ocean.
 - T: add this place to my tune. R: play my tune again.
