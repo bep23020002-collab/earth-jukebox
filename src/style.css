@@ -385,8 +385,10 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   .start-card { padding: 22px; }
   .globe-hint { white-space: normal; text-align: center; width: max-content; max-width: 92%; }
   .access-key { padding: 7px 10px; font-size: .8rem; flex: 1 1 auto; justify-content: center; }
-  /* on a phone the top of the page scrolls away, so Tutorial floats in the top right corner and stays in reach */
-  .access-key.tour-key { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; z-index: 30; flex: none; padding: 9px 16px; font-size: .9rem; border-radius: 999px; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
+  /* on a phone the top of the page scrolls away. While it is in view, Tutorial sits in its row like the other keys; once
+     the whole top has scrolled out (html.tour-float, set in app.js), it floats in the top right corner, so it never
+     covers Voice guide, Controls or the tabs */
+  html.tour-float .access-key.tour-key { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; z-index: 30; flex: none; padding: 9px 16px; font-size: .9rem; border-radius: 999px; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
   .controls { grid-template-columns: 1fr; padding: 14px; }
   .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pad-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }

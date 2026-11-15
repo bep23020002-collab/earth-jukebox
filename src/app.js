@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 17:40', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 17:55', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1772,6 +1772,9 @@ function tourHit(ev) { // something the tour asked for happened
   if (st.on === ev && !tour.advancing) { tour.advancing = true; setTimeout(nextTourStep, ev === 'tap' ? 1200 : 300); } // a moment to hear the note first
 }
 function setupTour() {
+  // Tutorial floats (on a phone, see style.css) only after the whole top of the page has scrolled out of view
+  const top = $('header.top'), float = () => document.documentElement.classList.toggle('tour-float', top.getBoundingClientRect().bottom < 0);
+  addEventListener('scroll', float, { passive: true }); addEventListener('resize', float, { passive: true }); float();
   $('#tourNext').addEventListener('click', () => { sound.start(); if (!tour.advancing) nextTourStep(); });
   $('#tourSkip').addEventListener('click', () => { endTour(); speak(tr('Tour closed.', '新手引导关掉了。')); });
   $('#tourAgain').addEventListener('click', () => { sound.start(); if ('speechSynthesis' in window) speechSynthesis.cancel(); if (isRemote()) openControls(false); startTour(); });
