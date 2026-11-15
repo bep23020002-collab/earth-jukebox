@@ -15,6 +15,18 @@ Every note is made live in the browser from the colors of NASA's own maps; nothi
 
 Earth Jukebox is a student project for the NASA Space Apps Challenge. It is not affiliated with or endorsed by NASA.
 
+## Screenshots
+
+![Press Play: Sibu from 1880 to 2025, one note per year, with the score display on the right](docs/screenshots/1-play-sibu.jpg)
+
+![On a phone: the first screen, the voice-guide remote control, and the tour for first-time visitors](docs/screenshots/2-phone-start-remote-tutorial.jpg)
+
+![Fly with the Space Station: one orbit drawn over the globe](docs/screenshots/3-space-station.jpg)
+
+![My Earth song: a sentence about your life becomes places and dates](docs/screenshots/4-my-earth-song.jpg)
+
+![Accuracy check: NASA's published global temperature and the global average Earth Jukebox reads from the map's colors](docs/screenshots/5-accuracy-check.jpg)
+
 ## Use of AI (Super Intelligence)
 Parts of this project's code are written with the help of an AI coding assistant (Anthropic Claude).
 Files containing AI-assisted code say so in their header comment.
