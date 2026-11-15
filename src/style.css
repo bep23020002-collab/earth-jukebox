@@ -401,4 +401,11 @@ html.remote.remote-more .pad, html.remote.remote-more .pad-side > :not(.more-btn
 html.remote.remote-more .controls { grid-template-rows: minmax(0, 1fr); }
 html.remote.remote-more .pad-side { grid-auto-rows: minmax(0, 1fr); }
 html.remote.remote-more .pad-side [data-act="back"] { grid-column: 1 / -1; }
+/* First-time tour: everything dims except the one thing to try; a bubble next to it says what to do */
+.tour-spot { position: fixed; z-index: 35; border-radius: 16px; box-shadow: 0 0 0 200vmax rgba(18, 18, 18, .58); outline: 3px solid var(--orange); outline-offset: 2px; pointer-events: none; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; }
+.tour-bubble { position: fixed; z-index: 36; width: min(340px, calc(100vw - 24px)); display: grid; gap: 8px; padding: 16px 18px; background: var(--paper); color: var(--ink); border-radius: 14px; box-shadow: 0 14px 40px rgba(0, 0, 0, .35); }
+.tour-step { font-family: var(--mono); font-size: .78rem; color: var(--orange); }
+.tour-bubble h2 { font-size: 1.25rem; letter-spacing: -0.01em; }
+.tour-bubble p:not(.tour-step) { color: var(--gray); }
+.tour-actions { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

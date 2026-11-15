@@ -440,6 +440,7 @@ function moveTo(lat, lon, opts = {}) {
 
 // ---------- play the Earth like an instrument ----------
 function tapAt(lat, lon, { record = true } = {}) {
+  tourHit('tap');
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
   const v = trackValue(state.yi, lat, lon), pan = panFor(lat, lon);
@@ -670,7 +671,7 @@ function setIssUI(on) { const b = $('#issBtn'); b.textContent = on ? 'Stop' : 'F
 async function flyISS() {
   if (isImage()) return;
   if (state.playing) { state.playing = false; return; }
-  state.playing = true; setIssUI(true); $('#playBtn').disabled = true;
+  state.playing = true; setIssUI(true); $('#playBtn').disabled = true; tourHit('track');
   const place = placeName(state.lat, state.lon), { pts, over } = issTrack(state.lat, state.lon), kd = state.track.kind;
   globe.clearStrokes(); globe.startStroke(); pts.forEach(p => globe.addPoint(p.lat, p.lon)); // the orbit line
   $('#nowBox').hidden = false; $('#globeHint').hidden = true;
@@ -705,7 +706,7 @@ async function flyISS() {
 async function playHistory({ quiet = false } = {}) {
   if (isImage()) return;
   if (state.playing) { state.playing = false; return; }
-  state.playing = true; state.month = null; state.hist = null; setPlayingUI(true); draw();
+  state.playing = true; state.month = null; state.hist = null; setPlayingUI(true); draw(); tourHit('playStart');
   const place = placeName(state.lat, state.lon), years = state.track.years;
   if (!quiet) await speak(tr(`${place}, ${when(0)} to ${when(years.length - 1)}.`, `${placeZ(place)}，${whenZ(0)}到${whenZ(years.length - 1)}。`));
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
@@ -730,7 +731,7 @@ async function playHistory({ quiet = false } = {}) {
   }
   const finished = state.playing;
   state.playing = false; setPlayingUI(false); draw();
-  if (!finished) return;
+  if (!finished) { tourHit('playEnd'); return; }
   const avg = (a, b) => { let s = 0, n = 0; for (let i = a; i <= b; i++) { const v = boxMean(i, state.lat, state.lon, 6); if (v != null) { s += v; n++; } } return n ? s / n : null; };
   // compare the start with the end: the first and last 10 years of a long series, the first and last year of a short one
   const L = years.length, n = short ? 1 : 10, mo = null;
@@ -750,6 +751,7 @@ async function playHistory({ quiet = false } = {}) {
     : `${pz}附近${short ? '这几年' : '早年'}没有 NASA 的测量，所以没办法比较以前和现在。换个地方试试。`;
   state.hist = { first, last, i0, i1, short };
   $('#desc').textContent = msg; if (!quiet) speak(tr(msg, msgZh));
+  tourHit('playEnd');
   if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
 function setPlayingUI(on) {
@@ -806,7 +808,7 @@ async function hearLegend() {
 function setHint() { // the hint on the globe says how to listen; with Voice guide on, moving listens
   $('#globeHint .hint-mouse').textContent = state.voice ? 'Move the mouse to listen. Click to add a place.' : 'Tap to play. Drag to spin the Earth.';
   $('#globeHint .hint-touch').textContent = state.voice ? 'Slide a finger to listen. Two fingers spin.' : 'Tap to play. Swipe sideways to spin.';
-  document.querySelectorAll('.speed-key').forEach(b => { b.hidden = !state.voice; }); // Slower and Faster: only for the voice guide
+  document.querySelectorAll('.speed-key, .voice-only').forEach(b => { b.hidden = !state.voice; }); // Slower, Faster and 中文: only for the voice guide
   syncRemote();
   $('#globe').classList.toggle('explore', state.voice); document.documentElement.classList.toggle('voice-on', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
@@ -834,6 +836,7 @@ function act(name) {
 
 // ---------- your own map ----------
 function setMode(mode) {
+  tourHit('mode');
   if (state.playing) state.playing = false;
   stopSong();
   state.mode = mode;
@@ -1424,6 +1427,7 @@ function onGlobeUp(e) {
 
 // ---------- choosing a NASA visualization (track) ----------
 function switchTrack(id) {
+  tourHit('track');
   if (!state.tracks[id] || state.track.id === id) return;
   state.playing = false; stopSong();
   useTrack(id); preloadAll();
@@ -1583,6 +1587,75 @@ async function shareSong() {
   catch { $('#songStatus').textContent = url; }
 }
 
+// ---------- first-time tour ----------
+// Four steps, one thing at a time. Each step dims the page except one thing; doing it (or Next) moves on.
+const TOUR = [
+  { sel: '#globeWrap', on: 'tap', title: 'Tap the Earth', zhTitle: '点地球',
+    text: "Every place on NASA's map has a note. Warmer places play higher. Tap anywhere on the globe.",
+    zh: 'NASA 地图上每个地方都有一个音，越暖的地方音越高。点地球上任何地方试试。',
+    sr: ' Or press Controls, at the top of the page, for big buttons.', srZh: '也可以按页面最上面的"大按钮"。' },
+  { sel: '#playBtn', on: 'playEnd', hideOn: 'playStart', title: 'Hear 145 years', zhTitle: '听 145 年',
+    text: 'Press Play to hear this place every month from 1880 to 2025, in 30 seconds. Listen to the notes climb.',
+    zh: '按"播放"，听这个地方从 1880 到 2025 年每个月的变化，只要 30 秒。听听音是不是一路往上。' },
+  { sel: '#trackPicker', on: 'track', title: 'More NASA maps', zhTitle: '更多 NASA 地图',
+    text: 'Each NASA visualization has its own instrument: temperature plays a marimba, the ocean a harp, lightning the drums. Or fly once around the Earth with the Space Station.',
+    zh: '每一种 NASA 视觉图都有自己的乐器：温度是木琴，海洋是竖琴，闪电是鼓。也可以跟着太空站绕地球飞一圈。' },
+  { sel: '.modes', on: 'mode', title: 'Make it yours', zhTitle: '变成你的',
+    text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese.',
+    zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。' },
+];
+const tour = { i: -1, hidden: false };
+const tourDone = () => { try { return localStorage.getItem('ej-tour') === 'done'; } catch { return false; } };
+function startTour() {
+  tour.i = 0; $('#guide').hidden = true; // the tour replaces the step card while it runs
+  addEventListener('scroll', placeTour, { passive: true }); addEventListener('resize', placeTour, { passive: true });
+  showTourStep();
+}
+function showTourStep() {
+  const st = TOUR[tour.i], el = $(st.sel); if (!el) { endTour(); return; }
+  tour.hidden = false;
+  $('#tourStep').textContent = `${tour.i + 1} of ${TOUR.length}`; $('#tourTitle').textContent = st.title; $('#tourText').textContent = st.text;
+  $('#tourNext').textContent = tour.i === TOUR.length - 1 ? 'Start exploring' : 'Next';
+  $('#tourNext').dataset.zh = tour.i === TOUR.length - 1 ? '开始自由探索' : '下一步';
+  $('#tour').hidden = false; $('#tourSpot').hidden = false;
+  el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  placeTour(); setTimeout(placeTour, 400); setTimeout(placeTour, 900);
+  speak(tr(`Tour, step ${tour.i + 1} of ${TOUR.length}. ${st.title}. ${st.text}${st.sr || ''}`, `新手引导，第 ${tour.i + 1} 步，共 ${TOUR.length} 步。${st.zhTitle}。${st.zh}${st.srZh || ''}`), { interrupt: false });
+}
+function placeTour() {
+  if (tour.i < 0 || tour.hidden) return;
+  {
+    const el = $(TOUR[tour.i].sel); if (!el) return;
+    const r = el.getBoundingClientRect(), pad = 8, spot = $('#tourSpot'), b = $('#tour');
+    Object.assign(spot.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
+    const bw = b.offsetWidth, bh = b.offsetHeight, vw = innerWidth, vh = innerHeight, gap = 14;
+    let top = r.bottom + pad + gap <= vh - bh - 8 ? r.bottom + pad + gap : r.top - pad - gap - bh >= 8 ? r.top - pad - gap - bh : vh - bh - 12; // below, else above, else at the bottom
+    const left = Math.max(12, Math.min(vw - bw - 12, r.left + r.width / 2 - bw / 2));
+    top = Math.max(8, top);
+    Object.assign(b.style, { left: `${left}px`, top: `${top}px` });
+  }
+}
+function hideTourForNow() { tour.hidden = true; $('#tour').hidden = true; $('#tourSpot').hidden = true; }
+function nextTourStep() { if (tour.i < 0) return; if (tour.i >= TOUR.length - 1) { endTour(); return; } tour.i++; showTourStep(); }
+function endTour() {
+  if (tour.i < 0) return;
+  tour.i = -1; hideTourForNow(); $('#guide').hidden = false;
+  removeEventListener('scroll', placeTour); removeEventListener('resize', placeTour);
+  try { localStorage.setItem('ej-tour', 'done'); } catch { /* private window */ }
+}
+function tourHit(ev) { // something the tour asked for happened
+  if (tour.i < 0) return;
+  const st = TOUR[tour.i];
+  if (st.hideOn === ev) hideTourForNow(); // keep the screen clear while it plays
+  if (st.on === ev) setTimeout(nextTourStep, ev === 'tap' ? 700 : 300); // a moment to hear the note first
+}
+function setupTour() {
+  $('#tourNext').addEventListener('click', () => { sound.start(); nextTourStep(); });
+  $('#tourSkip').addEventListener('click', () => { endTour(); speak(tr('Tour closed.', '新手引导关掉了。')); });
+  $('#tourAgain').addEventListener('click', () => { $('#moreBox').open = false; startTour(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && tour.i >= 0) endTour(); });
+}
+
 // ---------- start ----------
 async function start(withVoice = false, lang = null) {
   if (lang) setTalk(lang);
@@ -1592,14 +1665,14 @@ async function start(withVoice = false, lang = null) {
   draw(); preloadAll();
   if (state.mode === 'song') { speak(tr('Someone shared their Earth song with you. Press Play my Earth song to hear it.', '有人把他们的地球之歌分享给你。按"Play my Earth song"来听。')); $('#playSong').focus(); }
   else if (coarse()) { // a phone: open the big buttons and say exactly what to do first
-    resetGuide({ quiet: true }); openControls(true, { scroll: false });
+    resetGuide({ quiet: true }); if (state.voice) openControls(true, { scroll: false });
     const place = placeName(state.lat, state.lon);
     if (state.voice) speak(tr(`You are in ${place}, in ${when()}. ${remoteMap()} If I speak too fast, press More, then Slower. Start now: tap Where am I?, in the middle of the top half, then tap it again.`,
       `你现在在${placeZ(place)}，${whenZ()}。${remoteMap()}如果我讲太快，按"更多"，再按"慢一点"。现在开始：点一下上半部中间的"我在哪里"，再点一下。`));
-    else setTimeout(() => announce(tr('Big buttons are open, and you are on Where am I?. Press it to hear where you are. Then try North, South, East and West. Help is after Next place.',
-      '大按钮已经打开，你在 Where am I? 上。按下去会听到你在哪里。接着试试 North、South、East、West。Help 在 Next place 后面。')), 1200); // after the screen reader reads the button
+    else { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); } // screen readers land on Controls (big buttons); the screen stays clear // after the screen reader reads the button
   }
-  else resetGuide(); // step 1: "Tap anywhere on the Earth" (also read aloud)
+  else resetGuide({ quiet: !tourDone() }); // step 1: "Tap anywhere on the Earth" (also read aloud, unless the tour does the talking)
+  if (state.mode !== 'song' && !isRemote() && !tourDone()) startTour();
   if (!(await sounding)) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
 }
 // While the first screen is open, VoiceOver and TalkBack must not wander into the page behind it
@@ -1658,7 +1731,7 @@ async function init() {
   $('#storyBtn').addEventListener('click', () => { sound.start(); storyToSong(); });
   $('#askForm').addEventListener('submit', e => { e.preventDefault(); sound.start(); askEarth($('#askText').value); });
   $('#askExamples').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('#askText').value = c.textContent; sound.start(); askEarth(c.textContent); });
-  setupUnlock(); setupMic(); setupSayOnHover(); setupTouchReader(); setupStartTalk();
+  setupUnlock(); setupMic(); setupSayOnHover(); setupTouchReader(); setupTour(); setupStartTalk();
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));
