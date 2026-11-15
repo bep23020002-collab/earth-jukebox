@@ -1733,6 +1733,7 @@ function setupTour() {
 async function start(withVoice = false, lang = null) {
   if (lang) setTalk(lang);
   state.voice = withVoice; setHint(); document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
+  if (!withVoice && 'speechSynthesis' in window) speechSynthesis.cancel(); // the welcome may still be waiting to speak (iPhone holds it until a tap): a screen reader user must not get two voices
   const sounding = sound.start(); // not awaited first: iPhone only lets the page speak during the tap itself
   $('#start').hidden = true; setInert(false); $('#globe').focus();
   draw(); preloadAll();

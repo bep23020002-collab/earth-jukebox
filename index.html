@@ -51,11 +51,13 @@
       <noscript><p><strong>Earth Jukebox needs JavaScript to play sound. Please turn it on in your browser, or read <a href="about.html">about the project</a>.</strong></p></noscript>
       <div class="row">
         <button data-zh="开始听" data-zh-desc="用 VoiceOver 或 TalkBack 的人，或者看得见屏幕的人，选这个。" type="button" id="startBtn" class="primary big" aria-description="Choose this if you use VoiceOver or TalkBack, or if you can see the screen.">Start listening</button>
+      </div>
+      <p class="start-blind"><strong>Can't see the screen, and don't use a screen reader?</strong> Let the page read every step aloud:</p>
+      <div class="row">
         <button data-zh="英文语音导览" data-zh-desc="用英文一步一步带你。" type="button" id="startVoiceBtn" class="ghost big" aria-description="The page talks you through every step.">Start with voice guide</button>
         <button data-zh="中文语音导览" data-zh-desc="用中文一步一步带你。" type="button" id="startZhBtn" class="ghost big" lang="zh" aria-description="The page talks you through every step, in Chinese.">中文语音导览</button>
       </div>
-      <p class="hint"><strong>Can't see the screen? This page talks. If you hear nothing, press any key or tap the screen.</strong></p>
-      <p class="hint">No sound on iPhone? Turn off silent mode. <a href="guide.html">Guide for screen reader users (English, <span lang="zh">中文</span>)</a></p>
+      <p class="hint">If you hear nothing, press any key or tap the screen. No sound on iPhone? Turn off silent mode. <a href="guide.html">Guide for screen reader users (English, <span lang="zh">中文</span>)</a></p>
       <p class="hint"><a href="about.html" data-zh="关于这个项目：看全盲的 Betty 怎么测试它">About this project: watch Betty, who is blind, test it</a></p>
     </div>
   </div>
@@ -110,6 +112,7 @@
           <h3 id="controlsTitle">Use it without seeing it</h3>
           <p class="small">Move around the Earth and hear what NASA measured there. With Voice guide on, you can also slide a finger or move the mouse over the Earth to hear it. With a screen reader (VoiceOver, TalkBack), leave Voice guide off: your screen reader reads everything.</p>
         </div>
+        <p class="remote-note" aria-hidden="true">Voice guide remote, for use without seeing the screen. Tap a button once to hear it, again to press it. To see the Earth: More, then Close.</p>
         <div class="pad" role="group" aria-label="Move around the Earth">
           <button data-zh="北" data-zh-desc="往北移动大约一千公里，并弹出那里的音。" type="button" class="pad-n" data-key="ArrowUp" aria-keyshortcuts="ArrowUp" aria-description="Travels about 1,000 kilometres north, and plays the note there.">North <kbd aria-hidden="true">↑</kbd></button>
           <button data-zh="西" data-zh-desc="往西移动大约一千公里，并弹出那里的音。" type="button" class="pad-w" data-key="ArrowLeft" aria-keyshortcuts="ArrowLeft" aria-description="Travels about 1,000 kilometres west, and plays the note there.">West <kbd aria-hidden="true">←</kbd></button>

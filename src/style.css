@@ -348,6 +348,9 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .start-card p:not(.start-label) { font-size: 1.1rem; color: var(--gray); }
 .start-card p.hint { font-size: .9rem; }
 .start-card .row { margin-top: 6px; }
+.start-card p.start-blind { font-size: .95rem; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line-2); }
+.start-card .start-blind + .row { margin-top: 0; }
+.start-card .start-blind + .row .big { font-size: 1rem; padding: 10px 16px; }
 
 .hint-touch { display: none; }
 @media (hover: none) { .hint-touch { display: inline; } .hint-mouse { display: none; } }
@@ -390,6 +393,9 @@ html.remote, html.remote body { overflow: hidden; }
 html.remote .controls { position: fixed; inset: 0; z-index: 45; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px; align-items: stretch;
   border: 0; border-radius: 0; padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
 html.remote .controls-head, html.remote .keys-list { display: none; }
+.remote-note { display: none; }
+html.remote:not(.remote-more) .remote-note { display: block; margin: 0; font-size: .78rem; line-height: 1.3; color: var(--gray); text-align: center; }
+html.remote:not(.remote-more) .controls { grid-template-rows: auto minmax(0, 1fr) auto; }
 html.remote .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); min-height: 44vh; }
 html.remote .pad button { min-height: 0; font-size: 1.15rem; }
 html.remote .pad-side { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(76px, auto); }
