@@ -20,7 +20,7 @@ A voice guide in English or Chinese talks you through every step, and it works w
 
 Now NASA's Earth is something everyone can hear.
 ```
-（198 字，1101 字元）
+（200 字，1130 字元）
 
 ## Project Demonstration（30 秒以内的视频，公开链接）
 ```
