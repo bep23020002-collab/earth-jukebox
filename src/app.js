@@ -201,6 +201,8 @@ if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged 
 const hasHan = t => /[\u3400-\u9fff]/.test(t); // Chinese characters
 const zhVoice = () => { const vs = speechSynthesis.getVoices(); return vs.find(v => /^zh[-_](CN|Hans)/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; };
 function announce(text) { const el = $('#live'); el.lang = hasHan(text) ? 'zh' : 'en'; el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
+// Speaking speed: a little slower than the phone's normal, so a first-time listener can follow (testers said it was too fast)
+const RATE_EN = 0.85, RATE_ZH = 0.9;
 function speak(text, { interrupt = true } = {}) {
   announce(text);
   if (!state.voice || !('speechSynthesis' in window)) return Promise.resolve();
@@ -208,9 +210,9 @@ function speak(text, { interrupt = true } = {}) {
   return new Promise(res => {
     const u = new SpeechSynthesisUtterance(text), zh = hasHan(text), v = zh ? zhVoice() : voicePick;
     if (v) u.voice = v;
-    u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = zh ? 1 : 1.05;
+    u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = zh ? RATE_ZH : RATE_EN;
     u.onend = res; u.onerror = res;
-    setTimeout(res, 400 + text.length * (zh ? 260 : 75)); // never hang if the engine stays silent
+    setTimeout(res, 400 + text.length * (zh ? 300 : 100)); // never hang if the engine stays silent (sized for the slower speed)
     speechSynthesis.speak(u);
   });
 }
@@ -1028,7 +1030,7 @@ function welcomeOnOpen() {
     if (welcomed || !startOpen()) return;
     const u = new SpeechSynthesisUtterance(welcomeText(matchMedia('(hover: none) and (pointer: coarse)').matches ? 'touch' : true));
     if (voicePick) u.voice = voicePick;
-    u.lang = voicePick?.lang || 'en-US'; u.rate = 1.05;
+    u.lang = voicePick?.lang || 'en-US'; u.rate = RATE_EN;
     u.onstart = () => { welcomed = true; };
     speechSynthesis.speak(u);
   };
