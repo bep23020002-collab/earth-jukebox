@@ -36,7 +36,7 @@ There are three buttons:
 - **Start with voice guide**: choose this if you don't use a screen reader. On a phone, double-tapping the top half of the first screen does the same (the bottom half starts it in Chinese). 
 - **中文语音导览**: the voice guide in Chinese.
 
-After you start, a short tour shows what to do, one step at a time. Screen readers read each step. Press **Skip** or Escape to close it, or follow it.
+After you start, a short tour shows what to do, one step at a time. Screen readers read each step. Press **Skip** or Escape to close it, or follow it. To hear it again later, press **Tutorial**, next to Voice guide and Controls at the top of the page.
 
 ## What is on the page, from top to bottom
 

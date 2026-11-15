@@ -82,7 +82,7 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   padding: 8px 12px; font-family: var(--mono); font-size: .85rem; line-height: 1.2; cursor: pointer; box-shadow: var(--press); white-space: nowrap; }
 .access-key::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-2); flex: none; }
 .access-key[aria-pressed="true"]::before, .access-key[aria-expanded="true"]::before { background: var(--orange); }
-.speed-key::before, .lang-key::before { content: none; }
+.speed-key::before, .lang-key::before, .tour-key::before { content: none; }
 .access-key[hidden] { display: none; }
 .access-key:hover { background: var(--paper); }
 .access-key:active { transform: translateY(1px); box-shadow: none; }

@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 17:00', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 17:25', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -882,7 +882,7 @@ function act(name) {
 
 // ---------- your own map ----------
 function setMode(mode) {
-  tourHit('mode');
+  if (mode !== state.mode) tourHit('mode'); // only a real change of tab (choosing another map calls this too, and must not end the tour)
   if (state.playing) state.playing = false;
   stopSong();
   state.mode = mode;
@@ -1708,8 +1708,8 @@ const TOUR = [
   { sel: '.modes', on: 'mode', title: 'Make it yours', zhTitle: '变成你的',
     ear: 'Make it yours. You can turn a story about your life into a song, or ask the Earth a question, in English or Chinese. Press Tab until you hear My Earth song, or Ask the Earth, then press Enter. That is the end of the tour. Press the question mark key any time to hear all the keys.',
     earZh: '变成你的。你可以把人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。按 Tab 键，听到"我的地球之歌"或"问地球"时按 Enter。引导到这里结束。随时按问号键，可以听所有按键的说明。',
-    text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese.',
-    zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。',
+    text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese. To see this tour again, press Tutorial at the top of the page.',
+    zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。想再看一次这个引导，按页面最上面的 Tutorial。',
     sr: () => (coarse() ? '' : ' Press Tab to move through the page; these tabs are near the top. Press the question mark key any time to hear all the keys.'),
     srZh: () => (coarse() ? '' : '按 Tab 键可以在页面上移动，这几个分页在页面上方。随时按问号键，可以听所有按键的说明。') },
 ];
@@ -1747,8 +1747,11 @@ function placeTour() {
     const r = el.getBoundingClientRect(), pad = 8, spot = $('#tourSpot'), b = $('#tour');
     Object.assign(spot.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
     const bw = b.offsetWidth, bh = b.offsetHeight, vw = innerWidth, vh = innerHeight, gap = 14;
-    let top = r.bottom + pad + gap <= vh - bh - 8 ? r.bottom + pad + gap : r.top - pad - gap - bh >= 8 ? r.top - pad - gap - bh : vh - bh - 12; // below, else above, else at the bottom
-    const left = Math.max(12, Math.min(vw - bw - 12, r.left + r.width / 2 - bw / 2));
+    // below the thing, else above it, else beside it (wide screens, so it never covers the Earth), else over the bottom of the screen
+    const below = r.bottom + pad + gap <= vh - bh - 8, above = r.top - pad - gap - bh >= 8;
+    const right = r.right + pad + gap + bw <= vw - 8, leftSide = r.left - pad - gap - bw >= 8, beside = !below && !above && (right || leftSide);
+    let top = below ? r.bottom + pad + gap : above ? r.top - pad - gap - bh : beside ? Math.min(vh - bh - 12, Math.max(12, r.top + r.height / 2 - bh / 2)) : vh - bh - 12;
+    const left = beside ? (right ? r.right + pad + gap : r.left - pad - gap - bw) : Math.max(12, Math.min(vw - bw - 12, r.left + r.width / 2 - bw / 2));
     top = Math.max(8, top);
     Object.assign(b.style, { left: `${left}px`, top: `${top}px` });
   }
@@ -1771,7 +1774,7 @@ function tourHit(ev) { // something the tour asked for happened
 function setupTour() {
   $('#tourNext').addEventListener('click', () => { sound.start(); if (!tour.advancing) nextTourStep(); });
   $('#tourSkip').addEventListener('click', () => { endTour(); speak(tr('Tour closed.', '新手引导关掉了。')); });
-  $('#tourAgain').addEventListener('click', () => { $('#moreBox').open = false; startTour(); });
+  $('#tourAgain').addEventListener('click', () => { sound.start(); if ('speechSynthesis' in window) speechSynthesis.cancel(); if (isRemote()) openControls(false); startTour(); });
   document.addEventListener('keydown', e => {
     if (tour.i < 0 || e.target.matches?.('input, textarea')) return;
     if (e.key === 'Escape') { endTour(); speak(tr('Tour closed.', '新手引导关掉了。')); }
