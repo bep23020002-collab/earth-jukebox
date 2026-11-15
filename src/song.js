@@ -57,8 +57,8 @@ export function scheduleSong(song, sound) {
       [0.5, 2.5, 4.5, 6.5].forEach((b, i) => sound.harp(stepT(Math.max(0, Math.min(STEPS - 1, base + [0, 2, 1, 3][i]))), { when: at + b * spb, gain: 0.22, pan: i % 2 ? 0.4 : -0.4 }));
     }
     for (let b = 0; b < BEATS_PER_MOMENT; b++) {
-      if (b % 2 === 0) sound.kick({ when: at + b * spb, gain: 0.55 });
-      if (sec.busy >= 2 && b % 4 === 3) sound.kick({ when: at + (b + 0.5) * spb, gain: 0.35 });
+      if (b % 2 === 0) sound.kick({ when: at + b * spb, gain: 0.3 }); // under the melody (0.42), never above it
+      if (sec.busy >= 2 && b % 4 === 3) sound.kick({ when: at + (b + 0.5) * spb, gain: 0.2 });
       sound.hat({ when: at + b * spb, gain: 0.07 });
       if (sec.busy >= 1) sound.hat({ when: at + (b + 0.5) * spb, gain: 0.05, pan: 0.3 });
       if (sec.busy >= 2) { sound.hat({ when: at + (b + 0.25) * spb, gain: 0.035, pan: -0.3 }); sound.hat({ when: at + (b + 0.75) * spb, gain: 0.035, pan: -0.3 }); }

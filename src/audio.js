@@ -44,17 +44,19 @@ export class Sound {
     setTimeout(() => b.disconnect(), 300);
   }
 
-  // Drum kit and pad for songs.
-  kick({ when = 0, gain = 0.7 } = {}) {
+  // Drum kit and pad for songs. Every hit fades in over a few milliseconds: a hit that starts at full volume
+  // is heard as a pop, most of all on phone speakers, which can't play the low part of a kick.
+  kick({ when = 0, gain = 0.3 } = {}) {
     const c = this.ctx, at = Math.max(this.now, when), o = c.createOscillator(), g = c.createGain();
-    o.frequency.setValueAtTime(130, at); o.frequency.exponentialRampToValueAtTime(42, at + 0.18);
-    g.gain.setValueAtTime(gain, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.32);
-    o.connect(g).connect(this.dest); o.start(at); o.stop(at + 0.35);
+    o.frequency.setValueAtTime(115, at); o.frequency.exponentialRampToValueAtTime(48, at + 0.16);
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+    o.connect(g).connect(this.dest); o.start(at); o.stop(at + 0.33);
   }
   hat({ when = 0, gain = 0.12, pan = 0 } = {}) {
     const c = this.ctx, at = Math.max(this.now, when), len = 0.05;
     const buf = c.createBuffer(1, Math.floor(c.sampleRate * len), c.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const fade = c.sampleRate * 0.0015;
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / fade) * (1 - i / d.length);
     const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
     s.buffer = buf; f.type = 'highpass'; f.frequency.value = 7000; g.gain.value = gain;
     s.connect(f).connect(g).connect(this.#panner(pan)); s.start(at);
@@ -123,7 +125,7 @@ export class Sound {
     for (let i = 0; i < hits; i++) {
       const w = at + i * 0.09, c = this.ctx, o = c.createOscillator(), g = c.createGain();
       o.frequency.setValueAtTime(180 - i * 15, w); o.frequency.exponentialRampToValueAtTime(70, w + 0.15);
-      g.gain.setValueAtTime(gain * (1 - i * 0.12), w); g.gain.exponentialRampToValueAtTime(0.0001, w + 0.22);
+      g.gain.setValueAtTime(0, w); g.gain.linearRampToValueAtTime(gain * (1 - i * 0.12), w + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, w + 0.22);
       o.connect(g).connect(this.#panner(pan)); o.start(w); o.stop(w + 0.25);
     }
     if (t >= 0.4) this.hat({ when: at, gain: 0.08 + 0.1 * t, pan }); // the "crack"
@@ -135,7 +137,7 @@ export class Sound {
     const at = Math.max(this.now, when || this.now), len = 0.06;
     const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * len), this.ctx.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length / 6));
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / 48) * Math.exp(-i / (d.length / 6));
     const src = this.ctx.createBufferSource(); src.buffer = buf;
     const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.8;
     const g = this.ctx.createGain(); g.gain.value = 0.25;
@@ -147,7 +149,7 @@ export class Sound {
     if (!this.ctx) return;
     const at = Math.max(this.now, when || this.now);
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-    o.frequency.value = 1760; g.gain.setValueAtTime(gain, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
+    o.frequency.value = 1760; g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
     o.connect(g).connect(this.dest); o.start(at); o.stop(at + 0.06);
   }
 
