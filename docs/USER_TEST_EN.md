@@ -19,6 +19,7 @@ About 20 minutes per person. One person hosts; a second person (if you have one)
 > Please have headphones, and if possible two devices: one for the call and one for the website.
 > Website: https://bep23020002-collab.github.io/earth-jukebox/
 > How to use it: https://bep23020002-collab.github.io/earth-jukebox/guide.html
+> When the page opens, tap the screen once and it starts talking.
 > Please use your screen reader as usual."
 
 ---
@@ -46,8 +47,8 @@ If they don't agree to recording or the video, don't record. Just do the test.
 - Screen reader user:
   > "Please press Start listening. Please keep Voice guide off, because your screen reader already reads everything."
 - No screen reader:
-  > "Please press Start with voice guide."
-  (On a phone, Voice guide works like a screen reader: tap a button once to hear it, and tap it again to press it. Tell them this if they seem stuck.)
+  > "Please listen to what the page says, and do what it tells you."
+  (On a phone: double-tapping anywhere starts the voice guide, and the screen becomes a remote control. The page should explain itself, so don't explain how it works. That is what we are testing. If they are stuck for about a minute, say only: "Press Help, what can I do?, at the bottom left.")
 
 > "Can you hear any sound? Please tell me what you hear."
 

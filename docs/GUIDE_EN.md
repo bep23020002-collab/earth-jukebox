@@ -33,7 +33,7 @@ You start on the button **Start with voice guide**, so pressing Enter starts the
 There are two buttons:
 
 - **Start listening**: choose this if you use a screen reader.
-- **Start with voice guide**: choose this if you don't use a screen reader.
+- **Start with voice guide**: choose this if you don't use a screen reader. On a phone, double-tapping anywhere on the first screen does the same.
 
 ## What is on the page, from top to bottom
 
@@ -61,7 +61,9 @@ There are two buttons:
 
 You start at Sibu, Sarawak, in 2025.
 
-Without a screen reader, turn **Voice guide** on, and the phone works like a screen reader: tap anything once to hear it, and tap it again to press it. Touch and hold for a moment, then slide your finger, to hear everything under it; lift your finger, and a tap presses the last thing you heard. Swipe up or down to scroll.
+Without a screen reader, double-tap anywhere on the first screen: it starts with **Voice guide** on. The screen then becomes a remote control that stays still, so you can learn where each button is. In the top half, **Where am I?** is in the middle, **North** is above it, **South** below, **West** on the left and **East** on the right. The bottom half has **Play** and **Next place** at the top, then **Year before**, **Year after**, **What do the sounds mean?**, **Add this place to my tune**, **Slower** and **Faster**, and at the very bottom **Help: what can I do?** and **Close**. Tap a button once to hear what it does, and tap it again to press it. After each press, the guide suggests one new thing to try. Close puts the Earth back on the screen; **Controls**, at the top of the page, opens the remote again.
+
+Away from the remote, the phone works like a screen reader: tap anything once to hear it, and tap it again to press it. Touch and hold for a moment, then slide your finger, to hear everything under it; lift your finger, and a tap presses the last thing you heard. Swipe up or down to scroll.
 
 On the Earth, with **Voice guide** on, you can listen by touch: slide one finger over the Earth and it keeps playing notes. Stop for a moment and it tells you where you are. A quick tap adds the place to your tune. Two fingers spin the Earth. A tick means your finger left the Earth.
 
@@ -78,6 +80,7 @@ Move to the globe with the Tab key. Then use these keys:
 - T: add this place to my tune. R: play my tune again.
 - L: what do the sounds mean.
 - V: Voice guide on or off.
+- Minus and plus: the voice speaks slower or faster.
 - Question mark: hear all the keys.
 
 With **Voice guide** on, you can also move the mouse over the Earth: it keeps playing notes, and when you stop for a moment it tells you where you are. A click adds the place to your tune.

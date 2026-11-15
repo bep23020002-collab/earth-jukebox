@@ -203,16 +203,28 @@ const zhVoice = () => { const vs = speechSynthesis.getVoices(); return vs.find(v
 function announce(text) { const el = $('#live'); el.lang = hasHan(text) ? 'zh' : 'en'; el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
 // Speaking speed: a little slower than the phone's normal, so a first-time listener can follow (testers said it was too fast)
 const RATE_EN = 0.72, RATE_ZH = 0.8;
+// Slower and Faster (buttons at the top, or the - and + keys) change it for each listener; the choice is remembered
+const SPEEDS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 1.9];
+let speed = 1; try { const s = +localStorage.getItem('ej-speed'); if (SPEEDS.includes(s)) speed = s; } catch { /* private window */ }
+const rateOf = zh => (zh ? RATE_ZH : RATE_EN) * speed;
+function changeSpeed(dir) {
+  const i = SPEEDS.indexOf(speed), j = Math.max(0, Math.min(SPEEDS.length - 1, i + dir));
+  speed = SPEEDS[j]; try { localStorage.setItem('ej-speed', speed); } catch { /* private window */ }
+  const edge = j === i ? (dir < 0 ? ' This is the slowest.' : ' This is the fastest.') : '';
+  talk(`${dir < 0 ? 'Slower' : 'Faster'}.${edge} Speed ${j + 1} of ${SPEEDS.length}. This is how fast I speak now.`);
+}
+let nextHint = '', hintTimer = 0; // "Try this next", said after the result of a Controls press (see coach)
 function speak(text, { interrupt = true } = {}) {
+  if (nextHint) { text += ' ' + nextHint; nextHint = ''; clearTimeout(hintTimer); }
   announce(text);
   if (!state.voice || !('speechSynthesis' in window)) return Promise.resolve();
   if (interrupt) speechSynthesis.cancel();
   return new Promise(res => {
     const u = new SpeechSynthesisUtterance(text), zh = hasHan(text), v = zh ? zhVoice() : voicePick;
     if (v) u.voice = v;
-    u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = zh ? RATE_ZH : RATE_EN;
+    u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = rateOf(zh);
     u.onend = res; u.onerror = res;
-    setTimeout(res, 400 + text.length * (zh ? 340 : 120)); // never hang if the engine stays silent (sized for the slower speed)
+    setTimeout(res, 400 + text.length * (zh ? 340 : 120) / speed); // never hang if the engine stays silent (sized for the slower speed)
     speechSynthesis.speak(u);
   });
 }
@@ -429,19 +441,19 @@ async function replayTaps() {
 
 // ---------- step-by-step guide (first visit) ----------
 const guide = { step: 1, done: false };
-function setGuide({ label, title, text, btn, alt, say }) {
+function setGuide({ label, title, text, btn, alt, say, quiet = false }) {
   $('#guideStep').textContent = label || '';
   $('#guideTitle').textContent = title; $('#guideText').textContent = text || '';
   for (const [id, b] of [['#guideBtn', btn], ['#guideAlt', alt]]) {
     const el = $(id); el.hidden = !b; el.disabled = false;
     if (b) { el.textContent = b[0]; el.onclick = async () => { sound.start(); el.disabled = true; await b[1](); }; }
   }
-  speak(say || `${title}. ${text || ''}`);
+  if (!quiet) speak(say || `${title}. ${text || ''}`);
 }
-function resetGuide() {
+function resetGuide({ quiet = false } = {}) {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
   setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
-    say: state.voice ? (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null });
+    say: state.voice ? 'If I speak too fast or too slow, press Slower or Faster at the top of the page. ' + (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null, quiet });
 }
 function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
@@ -687,7 +699,11 @@ async function playHistory({ quiet = false } = {}) {
   $('#desc').textContent = msg; if (!quiet) speak(msg);
   if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
-function setPlayingUI(on) { const b = $('#playBtn'), y = state.track.years; b.textContent = on ? 'Stop' : `Play ${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
+function setPlayingUI(on) {
+  const y = state.track.years;
+  for (const b of [$('#playBtn'), $('#padPlay')]) { b.textContent = on ? 'Stop' : `Play ${y[0]} → ${y[y.length - 1]}`; b.setAttribute('aria-pressed', on); }
+  $('#padPlay').setAttribute('aria-label', on ? 'Stop' : `Play ${y[0]} to ${y[y.length - 1]}`);
+}
 
 async function sweep() {
   if (state.busy || (isImage() && !src.legend)) return;
@@ -736,10 +752,12 @@ async function hearLegend() {
 function setHint() { // the hint on the globe says how to listen; with Voice guide on, moving listens
   $('#globeHint .hint-mouse').textContent = state.voice ? 'Move the mouse to listen. Click to add a place.' : 'Tap to play. Drag to spin the Earth.';
   $('#globeHint .hint-touch').textContent = state.voice ? 'Slide a finger to listen. Two fingers spin.' : 'Tap to play. Swipe sideways to spin.';
+  document.querySelectorAll('.speed-key').forEach(b => { b.hidden = !state.voice; }); // Slower and Faster: only for the voice guide
+  syncRemote();
   $('#globe').classList.toggle('explore', state.voice); document.documentElement.classList.toggle('voice-on', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' + (coarse() ? ' Tap anything to hear it. Tap it again to press it.' : '') : 'Voice guide off.'); }
+  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' + (isRemote() ? ' ' + REMOTE_MAP : (coarse() ? ' Tap anything to hear it. Tap it again to press it.' : '') + ' Slower and Faster, at the top of the page, change how fast I speak.') : 'Voice guide off.'); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
   document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
@@ -748,6 +766,11 @@ function act(name) {
   if (name === 'sweep') sweep();
   if (name === 'describe') { const t = describe(); $('#desc').textContent = t; speak(t); }
   if (name === 'voice' || name === 'ref') toggle(name);
+  if (name === 'slower') changeSpeed(-1);
+  if (name === 'faster') changeSpeed(1);
+  if (name === 'nextplace') nextPlace();
+  if (name === 'help') talk(helpText());
+  if (name === 'closeControls') { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); speak('Big buttons closed. To open them again, press Controls, at the top of the page.'); }
 }
 
 // ---------- your own map ----------
@@ -1018,8 +1041,8 @@ let welcomed = false;
 function talk(text, opts) { const v = state.voice; state.voice = true; const p = speak(text, opts); state.voice = v; return p; } // speak even before Voice guide is on
 const talking = () => state.voice || (welcomed && startOpen());
 const welcomeText = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
-  + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead.'
-    : byKey === 'touch' ? 'There are two buttons: Start listening, and Start with voice guide. Tap a button once to hear it, and tap it again to choose it. If you use VoiceOver or TalkBack, choose Start listening.'
+  + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead. Press minus or plus to make me speak slower or faster.'
+    : byKey === 'touch' ? 'To start, double-tap anywhere on the screen, and I will guide you step by step. If you use VoiceOver or TalkBack, choose the button Start listening instead.'
     : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.');
 function welcome(byKey) { welcomed = true; talk(welcomeText(byKey)); }
 // Say hello as soon as the page opens. Most computer browsers allow this; where a browser blocks speech until the
@@ -1030,7 +1053,7 @@ function welcomeOnOpen() {
     if (welcomed || !startOpen()) return;
     const u = new SpeechSynthesisUtterance(welcomeText(matchMedia('(hover: none) and (pointer: coarse)').matches ? 'touch' : true));
     if (voicePick) u.voice = voicePick;
-    u.lang = voicePick?.lang || 'en-US'; u.rate = RATE_EN;
+    u.lang = voicePick?.lang || 'en-US'; u.rate = rateOf(false);
     u.onstart = () => { welcomed = true; };
     speechSynthesis.speak(u);
   };
@@ -1040,6 +1063,7 @@ function setupStartTalk() {
   $('#startVoiceBtn').focus({ preventScroll: true }); // Enter right away starts the voice guide
   document.addEventListener('keydown', e => {
     if (!startOpen()) return;
+    if (welcomed && ['-', '=', '+'].includes(e.key)) { e.preventDefault(); changeSpeed(e.key === '-' ? -1 : 1); return; }
     const onKeyButton = e.target.closest?.('#start button, #start a') && (e.key === 'Enter' || e.key === ' ');
     if (!welcomed && !onKeyButton) { e.preventDefault(); welcome(true); return; }
     if (e.key === 'Tab') { // keep Tab inside the first screen
@@ -1051,6 +1075,15 @@ function setupStartTalk() {
   const firstTap = e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(e.pointerType === 'mouse' ? 'mouse' : 'touch'); };
   document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') firstTap(e); }, true);
   document.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') firstTap(e); }, true);
+  // On a phone, a quick double tap anywhere (not on a button) starts the voice guide: no need to find a button first
+  let last = { t: 0, x: 0, y: 0 };
+  document.addEventListener('touchend', e => {
+    if (!startOpen() || e.changedTouches.length !== 1) return;
+    const t = e.changedTouches[0], now = performance.now();
+    if (document.elementFromPoint(t.clientX, t.clientY)?.closest('#start button, #start a')) { last.t = 0; return; }
+    if (now - last.t < 500 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 80) { last.t = 0; if (e.cancelable) e.preventDefault(); start(true); return; }
+    last = { t: now, x: t.clientX, y: t.clientY };
+  }, { capture: true, passive: false });
   if (startOpen()) setInert(true);
   welcomeOnOpen();
 }
@@ -1067,12 +1100,58 @@ function setupSayOnHover() {
   document.addEventListener('focusin', e => {
     if (!talking()) return;
     const el = sayable(e.target); if (!el || el === sayOver) return;
-    const t = nameOf(el); if (t) talk(t);
+    const t = nameOf(el), d = el.getAttribute('aria-description'); if (t) talk(d && el.matches(CONTROL) ? `${t}. ${d}` : t);
   });
 }
 // Voice guide on a phone works like a screen reader: tap anything to hear it, tap it again to press it.
 // Touch and hold for a moment, then slide, to hear everything under the finger. (On the Earth, sliding plays its notes.)
 const CONTROL = 'button, a[href], summary, input, select, textarea, label';
+// ---------- the phone remote ----------
+// On a phone with Voice guide on, Controls fill the whole screen and never scroll, so a blind person can learn
+// where each button is: the top half moves you (Where am I? in the middle, North above, South below, West left,
+// East right), the bottom half has the rest.
+const isRemote = () => document.documentElement.classList.contains('remote');
+function syncRemote() { document.documentElement.classList.toggle('remote', !$('#controls').hidden && state.voice && coarse()); }
+const REMOTE_MAP = 'Your screen is now a remote control. Tap a button once to hear it, and tap it again to press it. '
+  + 'In the top half of the screen, Where am I? is in the middle. North is above it, South is below it, West is on the left, and East is on the right. '
+  + 'The bottom half has more buttons: Play and Next place at the top of it, and Help and Close at the very bottom.';
+function openControls(open, { scroll = true, focus = true } = {}) {
+  const ctl = $('#controls'); ctl.hidden = !open; $('#controlsBtn').setAttribute('aria-expanded', open); syncRemote();
+  if (!open) return;
+  if (scroll && !isRemote()) ctl.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  if (focus) ctl.querySelector('.pad-c').focus({ preventScroll: true });
+}
+function helpText() {
+  const here = `You are in ${placeName(state.lat, state.lon)}, in ${when()}. `;
+  const what = 'Where am I? says the place and how warm it was. North, South, East and West each travel about 1,000 kilometres and play the note there: a higher note means warmer. '
+    + 'Play 1880 to 2025 plays the history of this place. Next place jumps to places like the Arctic Ocean. What do the sounds mean? plays the low, middle and high notes.';
+  if (isRemote()) return here + REMOTE_MAP + ' ' + what + ' Close puts the Earth back on the screen.';
+  if ($('#controls').hidden) return here + 'Press Controls, at the top of the page, for big buttons. ' + what + (coarse() ? '' : ' ' + help());
+  return here + what + (coarse() ? '' : ' ' + help());
+}
+// Each Controls press says what happened, then, the first time, one thing to try next that you haven't tried yet
+const coach = { tried: new Set(), told: new Set() };
+const COACH = [
+  ['where', 'Press Where am I? to hear the place, the year, and how warm it was.'],
+  ['move', 'Try North, South, East or West. Each one travels about 1,000 kilometres and plays the note there. A higher note means warmer.'],
+  ['play', 'To hear how this place changed since 1880, press Play 1880 to 2025. It takes about 30 seconds.'],
+  ['place', 'Press Next place to jump to another place, like the Arctic Ocean, and hear if it sounds higher.'],
+  ['legend', 'Press What do the sounds mean? to hear the low, middle and high notes.'],
+];
+const COACH_OF = { Enter: 'where', ArrowUp: 'move', ArrowDown: 'move', ArrowLeft: 'move', ArrowRight: 'move', ' ': 'play', nextplace: 'place', legend: 'legend' };
+function coachFor(what) {
+  coach.tried.add(what);
+  if (!['where', 'move', 'place'].includes(what)) return; // these say their result at once; the hint goes right after it
+  const next = COACH.find(([k]) => !coach.tried.has(k) && !coach.told.has(k));
+  if (!next) return;
+  coach.told.add(next[0]); nextHint = 'Try this next. ' + next[1];
+  clearTimeout(hintTimer); hintTimer = setTimeout(() => { nextHint = ''; }, 2000);
+}
+let placeAt = 0; // Next place walks through the list of places (Sibu is first)
+function nextPlace() {
+  placeAt = (placeAt + 1) % JUMPS.length; const p = JUMPS[placeAt];
+  const v = moveTo(p.lat, p.lon, { center: true }); speak(`${p.name}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`);
+}
 const coarse = () => matchMedia('(hover: none) and (pointer: coarse)').matches;
 let armed = null; // the control read last; tapping it again presses it
 const tch = { on: false, x: 0, y: 0, hold: 0, exploring: false, item: null };
@@ -1088,7 +1167,8 @@ function touchWords(el) {
   if (el.tagName === 'SELECT') return `${n}. Tap again to choose.`;
   if (el.tagName === 'A') return `${n}, link. Tap again to open it.`;
   if (el.tagName === 'LABEL') return `${n}. Tap again to use it.`;
-  return `${n}, button. Tap again to press it.`;
+  const d = el.getAttribute('aria-description');
+  return `${n}, button.${d ? ' ' + d : ''} Tap again to press it.`;
 }
 function setupTouchReader() {
   const stop = () => { tch.on = false; clearTimeout(tch.hold); };
@@ -1145,7 +1225,7 @@ function help() { // spoken key help; the year keys only matter when the track h
     + (many ? `Square brackets, or page up and page down, change the year. Space plays ${y[0]} to ${y[y.length - 1]}. ` : '')
     + 'T taps here, R replays your taps. Enter reads this spot. I flies one orbit with the Space Station. S goes once around the Earth. L plays the legend. '
     + (many ? 'D describes the year. ' : 'D describes the map. ')
-    + 'B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off.';
+    + 'B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off. Minus and plus make me speak slower or faster.';
 }
 const runKey = key => onKey({ key, shiftKey: false, target: document.body, preventDefault() {} });
 function onKey(e) {
@@ -1162,7 +1242,7 @@ function onKey(e) {
     ']': () => yr(state.yi + 1), '[': () => yr(state.yi - 1), '}': () => yr(state.yi + 10), '{': () => yr(state.yi - 10),
     Home: () => yr(0), End: () => yr(state.track.years.length - 1),
     Enter: () => updateReadout({ speakIt: true }), ' ': () => playHistory(),
-    i: () => flyISS(), s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '?': () => speak(help()),
+    i: () => flyISS(), s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '-': () => act('slower'), '=': () => act('faster'), '+': () => act('faster'), '?': () => speak(help()),
     t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
   };
   let fn = map[k] || map[k.toLowerCase?.()];
@@ -1425,6 +1505,11 @@ async function start(withVoice = false) {
   $('#start').hidden = true; setInert(false); $('#globe').focus();
   draw(); preloadAll();
   if (state.mode === 'song') { speak('Someone shared their Earth song with you. Press Play my Earth song to hear it.'); $('#playSong').focus(); }
+  else if (coarse()) { // a phone: open the big buttons and say exactly what to do first
+    resetGuide({ quiet: true }); openControls(true, { scroll: false });
+    if (state.voice) speak(`You are in ${placeName(state.lat, state.lon)}, in ${when()}. ${REMOTE_MAP} If I speak too fast, press Slower, just above Help. Start now: tap Where am I?, in the middle of the top half, then tap it again.`);
+    else setTimeout(() => announce('Big buttons are open, and you are on Where am I?. Press it to hear where you are. Then try North, South, East and West. Help is near the end of the buttons.'), 1200); // after the screen reader reads the button
+  }
   else resetGuide(); // step 1: "Tap anywhere on the Earth" (also read aloud)
   if (!(await sounding)) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
 }
@@ -1502,12 +1587,15 @@ async function init() {
   // Controls: the same actions as the keys, as big buttons (phones have no arrow keys)
   const ctl = $('#controls'), ctlBtn = $('#controlsBtn');
   ctlBtn.addEventListener('click', () => {
-    const open = ctl.hidden; ctl.hidden = !open; ctlBtn.setAttribute('aria-expanded', open);
-    if (!open) return;
-    ctl.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    ctl.querySelector('.pad-c').focus({ preventScroll: true });
+    const open = ctl.hidden; openControls(open);
+    if (open && isRemote()) speak(REMOTE_MAP);
+    else if (open && state.voice) speak('Big buttons are open, below the Earth. You are on Where am I?.');
   });
-  ctl.addEventListener('click', e => { const b = e.target.closest('[data-key]'); if (!b) return; sound.start(); runKey(b.dataset.key); });
+  ctl.addEventListener('click', e => {
+    const b = e.target.closest('[data-key], [data-act]'); if (!b) return;
+    const what = COACH_OF[b.dataset.key ?? b.dataset.act]; if (what) coachFor(what);
+    if (b.dataset.key) { sound.start(); runKey(b.dataset.key); }
+  }, true); // capture: the hint is ready before the button speaks
   const g = $('#globe');
   g.addEventListener('pointerdown', onGlobeDown);
   g.addEventListener('pointermove', onGlobeMove);

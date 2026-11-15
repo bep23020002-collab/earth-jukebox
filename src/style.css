@@ -65,7 +65,7 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .primary.big, .ghost.big { font-size: 1.1rem; padding: 14px 22px; }
 
 /* header: the top plate of the device */
-.top { display: flex; align-items: center; gap: 12px 24px; padding: 18px max(16px, 3vw); max-width: 1460px; margin: 0 auto; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 18px max(16px, 3vw); max-width: 1460px; margin: 0 auto; }
 .brand { display: grid; gap: 1px; flex: none; }
 .wordmark { font-weight: 500; font-size: 1.25rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
 .tagline { font-family: var(--mono); font-size: .76rem; color: var(--gray); padding-left: 18px; }
@@ -77,11 +77,13 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .mode-btn[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: var(--press); }
 .mode-btn[aria-pressed="true"]::before { background: var(--orange); }
 /* Voice guide and Controls: always in view at the top, with a light that turns orange when on */
-.access { display: flex; gap: 6px; flex: none; }
+.access { display: flex; flex-wrap: wrap; gap: 6px; flex: none; max-width: 100%; }
 .access-key { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--plate); color: var(--ink); border-radius: var(--r-key);
   padding: 8px 12px; font-family: var(--mono); font-size: .85rem; line-height: 1.2; cursor: pointer; box-shadow: var(--press); white-space: nowrap; }
 .access-key::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-2); flex: none; }
 .access-key[aria-pressed="true"]::before, .access-key[aria-expanded="true"]::before { background: var(--orange); }
+.speed-key::before { content: none; }
+.access-key[hidden] { display: none; }
 .access-key:hover { background: var(--paper); }
 .access-key:active { transform: translateY(1px); box-shadow: none; }
 
@@ -350,10 +352,20 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   .year-range { order: 3; flex-basis: 100%; }
   .start-card { padding: 22px; }
   .globe-hint { white-space: normal; text-align: center; width: max-content; max-width: 92%; }
-  .access-key { padding: 7px 10px; font-size: .8rem; }
+  .access-key { padding: 7px 10px; font-size: .8rem; flex: 1 1 auto; justify-content: center; }
   .controls { grid-template-columns: 1fr; padding: 14px; }
   .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pad-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pad-side button { padding: 8px 6px; }
 }
+/* Phone + Voice guide: the big buttons fill the screen like a remote control and never scroll, so a blind person
+   can learn where each one is. Top half: Where am I? in the middle, North above, South below, West left, East right. */
+html.remote, html.remote body { overflow: hidden; }
+html.remote .controls { position: fixed; inset: 0; z-index: 45; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px; align-items: stretch;
+  border: 0; border-radius: 0; padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
+html.remote .controls-head, html.remote .keys-list { display: none; }
+html.remote .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); min-height: 44vh; }
+html.remote .pad button { min-height: 0; font-size: 1.15rem; }
+html.remote .pad-side { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(52px, auto); }
+html.remote .pad-side button { font-size: .95rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

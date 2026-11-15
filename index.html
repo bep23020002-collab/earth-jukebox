@@ -22,13 +22,15 @@
     </div>
     <div class="grille" aria-hidden="true"></div>
     <div class="access" role="group" aria-label="Use it without seeing it">
-      <button type="button" class="access-key" data-act="voice" aria-pressed="false" aria-keyshortcuts="V">Voice guide</button>
-      <button type="button" class="access-key" id="controlsBtn" aria-expanded="false" aria-controls="controls">Controls</button>
+      <button type="button" class="access-key" data-act="voice" aria-pressed="false" aria-keyshortcuts="V" aria-description="Turns the talking guide on or off.">Voice guide</button>
+      <button type="button" class="access-key speed-key" data-act="slower" aria-keyshortcuts="-" hidden aria-description="Makes the voice speak slower.">Slower</button>
+      <button type="button" class="access-key speed-key" data-act="faster" aria-keyshortcuts="+" hidden aria-description="Makes the voice speak faster.">Faster</button>
+      <button type="button" class="access-key" id="controlsBtn" aria-expanded="false" aria-controls="controls" aria-description="Big buttons to move around the Earth.">Controls</button>
     </div>
     <nav class="modes" aria-label="Choose what to listen to">
-      <button type="button" class="mode-btn" data-mode="track" aria-pressed="true">Play</button>
-      <button type="button" class="mode-btn" data-mode="song" aria-pressed="false">My Earth song</button>
-      <button type="button" class="mode-btn" data-mode="ask" aria-pressed="false">Ask the Earth</button>
+      <button type="button" class="mode-btn" data-mode="track" aria-pressed="true" aria-description="Listen to NASA maps of the Earth.">Play</button>
+      <button type="button" class="mode-btn" data-mode="song" aria-pressed="false" aria-description="Turns a story about your life into music.">My Earth song</button>
+      <button type="button" class="mode-btn" data-mode="ask" aria-pressed="false" aria-description="Ask a question about the climate, and hear the answer.">Ask the Earth</button>
     </nav>
   </header>
 
@@ -38,8 +40,8 @@
       <h1 id="startTitle">Tap the Earth.<br>Hear it change.</h1>
       <p>Every spot on this NASA map has a note. Warmer places sing higher. Put on headphones, then tap anywhere on the globe.</p>
       <div class="row">
-        <button type="button" id="startBtn" class="primary big">Start listening</button>
-        <button type="button" id="startVoiceBtn" class="ghost big">Start with voice guide</button>
+        <button type="button" id="startBtn" class="primary big" aria-description="Choose this if you use VoiceOver or TalkBack, or if you can see the screen.">Start listening</button>
+        <button type="button" id="startVoiceBtn" class="ghost big" aria-description="The page talks you through every step.">Start with voice guide</button>
       </div>
       <p class="hint"><strong>Can't see the screen? This page talks. If you hear nothing, press any key or tap the screen.</strong></p>
       <p class="hint">Made for people who can't see NASA's maps, and for everyone else too. The voice guide reads every step aloud, and screen readers work. Turn the voice guide on or off, or open Controls, at the top of the page any time. <a href="guide.html">Guide for screen reader users (English, <span lang="zh">中文</span>)</a></p>
@@ -62,7 +64,7 @@
       </div>
 
       <div class="screen">
-      <button type="button" id="issBtn" class="iss-btn" aria-pressed="false">Fly with the Space Station</button>
+      <button type="button" id="issBtn" class="iss-btn" aria-pressed="false" aria-description="Flies once around the Earth, like the Space Station, and plays every place below.">Fly with the Space Station</button>
       <div class="globe-wrap" id="globeWrap">
         <canvas id="globe" width="760" height="760" tabindex="0" role="application"
           aria-roledescription="sound globe"
@@ -82,7 +84,7 @@
       </div>
 
       <div class="timeline">
-        <button type="button" id="playBtn" class="primary">Play 1880 → 2025</button>
+        <button type="button" id="playBtn" class="primary" aria-description="Plays every month from 1880 to 2025 for this place, in about 30 seconds.">Play 1880 → 2025</button>
         <label class="year-range">
           <span class="sr-only">Year</span>
           <input type="range" id="year" min="0" max="145" step="1" value="145">
@@ -98,17 +100,23 @@
           <p class="small">Move around the Earth and hear what NASA measured there. With Voice guide on, you can also slide a finger or move the mouse over the Earth to hear it. With a screen reader (VoiceOver, TalkBack), leave Voice guide off: your screen reader reads everything.</p>
         </div>
         <div class="pad" role="group" aria-label="Move around the Earth">
-          <button type="button" class="pad-n" data-key="ArrowUp" aria-keyshortcuts="ArrowUp">North <kbd aria-hidden="true">↑</kbd></button>
-          <button type="button" class="pad-w" data-key="ArrowLeft" aria-keyshortcuts="ArrowLeft">West <kbd aria-hidden="true">←</kbd></button>
-          <button type="button" class="pad-c" data-key="Enter" aria-keyshortcuts="Enter">Where am I? <kbd aria-hidden="true">Enter</kbd></button>
-          <button type="button" class="pad-e" data-key="ArrowRight" aria-keyshortcuts="ArrowRight">East <kbd aria-hidden="true">→</kbd></button>
-          <button type="button" class="pad-s" data-key="ArrowDown" aria-keyshortcuts="ArrowDown">South <kbd aria-hidden="true">↓</kbd></button>
+          <button type="button" class="pad-n" data-key="ArrowUp" aria-keyshortcuts="ArrowUp" aria-description="Travels about 1,000 kilometres north, and plays the note there.">North <kbd aria-hidden="true">↑</kbd></button>
+          <button type="button" class="pad-w" data-key="ArrowLeft" aria-keyshortcuts="ArrowLeft" aria-description="Travels about 1,000 kilometres west, and plays the note there.">West <kbd aria-hidden="true">←</kbd></button>
+          <button type="button" class="pad-c" data-key="Enter" aria-keyshortcuts="Enter" aria-description="Says the place, the year, and how warm it was.">Where am I? <kbd aria-hidden="true">Enter</kbd></button>
+          <button type="button" class="pad-e" data-key="ArrowRight" aria-keyshortcuts="ArrowRight" aria-description="Travels about 1,000 kilometres east, and plays the note there.">East <kbd aria-hidden="true">→</kbd></button>
+          <button type="button" class="pad-s" data-key="ArrowDown" aria-keyshortcuts="ArrowDown" aria-description="Travels about 1,000 kilometres south, and plays the note there.">South <kbd aria-hidden="true">↓</kbd></button>
         </div>
         <div class="pad-side">
-          <button type="button" data-key="[" data-years aria-keyshortcuts="[">Year before <kbd aria-hidden="true">[</kbd></button>
-          <button type="button" data-key="]" data-years aria-keyshortcuts="]">Year after <kbd aria-hidden="true">]</kbd></button>
-          <button type="button" data-act="legend" aria-keyshortcuts="L">What do the sounds mean? <kbd aria-hidden="true">L</kbd></button>
-          <button type="button" data-key="t" aria-keyshortcuts="T">Add this place to my tune <kbd aria-hidden="true">T</kbd></button>
+          <button type="button" id="padPlay" data-key=" " data-years aria-label="Play 1880 to 2025" aria-description="Plays every month from 1880 to 2025 for this place, in about 30 seconds.">Play 1880 → 2025</button>
+          <button type="button" data-act="nextplace" aria-description="Jumps to a well-known place, like the Arctic Ocean or the Sahara.">Next place</button>
+          <button type="button" data-key="[" data-years aria-keyshortcuts="[" aria-description="Goes back one year.">Year before <kbd aria-hidden="true">[</kbd></button>
+          <button type="button" data-key="]" data-years aria-keyshortcuts="]" aria-description="Goes forward one year.">Year after <kbd aria-hidden="true">]</kbd></button>
+          <button type="button" data-act="legend" aria-keyshortcuts="L" aria-description="Plays the low, middle and high notes, and says what they mean.">What do the sounds mean? <kbd aria-hidden="true">L</kbd></button>
+          <button type="button" data-key="t" aria-keyshortcuts="T" aria-description="Adds this place's note to your tune. Add 3 places, then hear your tune in 1880 and in 2025.">Add this place to my tune <kbd aria-hidden="true">T</kbd></button>
+          <button type="button" class="speed-key" data-act="slower" hidden aria-description="Makes the voice speak slower.">Slower</button>
+          <button type="button" class="speed-key" data-act="faster" hidden aria-description="Makes the voice speak faster.">Faster</button>
+          <button type="button" data-act="help" aria-description="Says where you are and what you can do.">Help: what can I do?</button>
+          <button type="button" data-act="closeControls" aria-description="Closes the big buttons.">Close</button>
         </div>
         <div class="keys keys-list">
           <h4>More keys on a computer</h4>
@@ -119,6 +127,7 @@
             <li><kbd>T</kbd> tap here, <kbd>R</kbd> play your tune again</li>
             <li><kbd>Shift</kbd> + arrows: small steps</li>
             <li><kbd>V</kbd> voice guide on or off</li>
+            <li><kbd>-</kbd> and <kbd>+</kbd> voice slower or faster</li>
             <li><kbd>?</kbd> hear all the keys</li>
           </ul>
         </div>
