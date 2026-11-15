@@ -86,6 +86,9 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
 .access-key[hidden] { display: none; }
 .access-key:hover { background: var(--paper); }
 .access-key:active { transform: translateY(1px); box-shadow: none; }
+/* Tutorial: orange, so it is the one button you find at a glance */
+.access-key.tour-key { background: var(--orange); border-color: transparent; color: var(--ink); font-weight: 500; }
+.access-key.tour-key:hover { background: var(--orange-hover); }
 
 /* layout */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 24px 32px; padding: 4px max(16px, 3vw) 64px; max-width: 1460px; margin: 0 auto; }
@@ -382,6 +385,8 @@ kbd { font-family: var(--mono); font-size: .78em; line-height: 1; display: inlin
   .start-card { padding: 22px; }
   .globe-hint { white-space: normal; text-align: center; width: max-content; max-width: 92%; }
   .access-key { padding: 7px 10px; font-size: .8rem; flex: 1 1 auto; justify-content: center; }
+  /* on a phone the top of the page scrolls away, so Tutorial floats in the top right corner and stays in reach */
+  .access-key.tour-key { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; z-index: 30; flex: none; padding: 9px 16px; font-size: .9rem; border-radius: 999px; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
   .controls { grid-template-columns: 1fr; padding: 14px; }
   .pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pad-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
