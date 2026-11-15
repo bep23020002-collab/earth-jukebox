@@ -181,11 +181,16 @@ export class Sound {
     o1.type = 'triangle'; o1.frequency.value = freq;
     o2.type = 'sine'; o2.frequency.value = freq / 2;
     const o2g = c.createGain(); o2g.gain.value = 0.35;
-    f.type = 'lowpass'; f.frequency.value = 700 + 3800 * clamp01(bright); f.Q.value = 0.7;
+    // Phone speakers play almost nothing below about 400 Hz, where most of these notes sit. Two overtones (2x, 3x)
+    // let a phone play the same pitch clearly (a blind tester could not hear these notes on her iPhone).
+    const o3 = c.createOscillator(), o3g = c.createGain(), o4 = c.createOscillator(), o4g = c.createGain();
+    o3.type = 'sine'; o3.frequency.value = freq * 2; o3g.gain.value = 0.55;
+    o4.type = 'sine'; o4.frequency.value = freq * 3; o4g.gain.value = 0.3;
+    f.type = 'lowpass'; f.frequency.value = 1400 + 3400 * clamp01(bright); f.Q.value = 0.7;
     g.gain.setValueAtTime(0.0001, at);
     g.gain.exponentialRampToValueAtTime(gain, at + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.25);
-    o1.connect(f); o2.connect(o2g).connect(f); f.connect(g).connect(this.#panner(pan));
-    o1.start(at); o2.start(at); o1.stop(at + dur + 0.3); o2.stop(at + dur + 0.3);
+    o1.connect(f); o2.connect(o2g).connect(f); o3.connect(o3g).connect(f); o4.connect(o4g).connect(f); f.connect(g).connect(this.#panner(pan));
+    for (const o of [o1, o2, o3, o4]) { o.start(at); o.stop(at + dur + 0.3); }
   }
 }
