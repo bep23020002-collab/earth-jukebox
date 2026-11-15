@@ -440,6 +440,7 @@ function moveTo(lat, lon, opts = {}) {
 
 // ---------- play the Earth like an instrument ----------
 function tapAt(lat, lon, { record = true } = {}) {
+  if (tour.i === 0) { const v0 = trackValue(state.yi, lat, lon), pl = placeName(lat, lon); tour.heard = { place: pl.startsWith('near ') ? `a place ${pl}` : pl, placeZh: placeZ(pl), feel: feeling(v0).toLowerCase(), feelZh: feelingZ(v0), when: when() }; }
   tourHit('tap');
   $('#nowBox').hidden = false;
   state.lat = lat; state.lon = lon;
@@ -556,6 +557,7 @@ function moveUV(u, v, opts) {
 }
 async function setYear(yi, month = state.month) {
   if (isImage()) return;
+  tourHit('year');
   state.yi = Math.max(0, Math.min(state.track.years.length - 1, yi));
   state.month = hasMonths() ? month : null;
   await ensureMonthData();
@@ -813,7 +815,7 @@ function setHint() { // the hint on the globe says how to listen; with Voice gui
   $('#globe').classList.toggle('explore', state.voice); document.documentElement.classList.toggle('voice-on', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? tr('Voice guide on. I will read every step aloud.', '语音导览开了。我会把每一步念出来。') + ' ' + (isRemote() ? remoteMap()
+  if (act === 'voice') { state.voice = !state.voice; setHint(); if (state.voice) tourHit('voice'); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? tr('Voice guide on. I will read every step aloud.', '语音导览开了。我会把每一步念出来。') + ' ' + (isRemote() ? remoteMap()
     : tr((coarse() ? 'Tap anything to hear it. Tap it again to press it. ' : '') + 'Slower and Faster, at the top of the page, change how fast I speak.', (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。' : '') + '页面最上面的"慢一点"和"快一点"可以改变我讲话的速度。'))
     : tr('Voice guide off.', '语音导览关了。')); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
@@ -1594,33 +1596,41 @@ const TOUR = [
     text: "Every place on NASA's map has a note. Warmer places play higher. Tap anywhere on the globe.",
     zh: 'NASA 地图上每个地方都有一个音，越暖的地方音越高。点地球上任何地方试试。',
     sr: ' Or press Controls, at the top of the page, for big buttons.', srZh: '也可以按页面最上面的"大按钮"。' },
+  { sel: '.year-range', on: 'year', title: 'Go back in time', zhTitle: '回到过去',
+    text: () => `${tour.heard ? `You just heard ${tour.heard.place}: ${tour.heard.feel} in ${tour.heard.when}. ` : ''}Now drag the year bar back toward 1880. You'll hear the same place in that year: a lower note means it was colder.`,
+    zh: () => `${tour.heard ? `你刚听到${tour.heard.placeZh}：${tour.heard.when}年${tour.heard.feelZh}。` : ''}现在把年份条往左拉，拉回 1880 年附近。你会听到同一个地方在那一年的音：音比较低，就是那时候比较冷。`,
+    sr: ' On a keyboard, press the left square bracket to go back one year.', srZh: '用键盘的话，按左方括号回到前一年。' },
   { sel: '#playBtn', on: 'playEnd', hideOn: 'playStart', title: 'Hear 145 years', zhTitle: '听 145 年',
     text: 'Press Play to hear this place every month from 1880 to 2025, in 30 seconds. Listen to the notes climb.',
     zh: '按"播放"，听这个地方从 1880 到 2025 年每个月的变化，只要 30 秒。听听音是不是一路往上。' },
   { sel: '#trackPicker', on: 'track', title: 'More NASA maps', zhTitle: '更多 NASA 地图',
     text: 'Each NASA visualization has its own instrument: temperature plays a marimba, the ocean a harp, lightning the drums. Or fly once around the Earth with the Space Station.',
     zh: '每一种 NASA 视觉图都有自己的乐器：温度是木琴，海洋是竖琴，闪电是鼓。也可以跟着太空站绕地球飞一圈。' },
+  { sel: '.access', on: 'voice', title: "Made for people who can't see it", zhTitle: '为看不见地图的人而做',
+    text: 'Turn on Voice guide and close your eyes: it reads every step aloud. Controls gives big buttons for phones and screen readers.',
+    zh: '打开语音导览，闭上眼睛试试：它会把每一步念出来。"大按钮"给手机和读屏软件用。' },
   { sel: '.modes', on: 'mode', title: 'Make it yours', zhTitle: '变成你的',
     text: 'Turn a story about your life into a song, or ask the Earth a question, in English or Chinese.',
     zh: '把你人生的故事变成一首歌，或者问地球一个问题，英文或中文都可以。' },
 ];
-const tour = { i: -1, hidden: false };
-const tourDone = () => { try { return localStorage.getItem('ej-tour') === 'done'; } catch { return false; } };
+const tour = { i: -1, hidden: false, advancing: false, heard: null };
+const tourText = (st, k) => (typeof st[k] === 'function' ? st[k]() : st[k]);
+const tourDone = () => false; // the tour runs every time the page is opened (judges and first-time users); Skip ends it
 function startTour() {
-  tour.i = 0; $('#guide').hidden = true; // the tour replaces the step card while it runs
+  tour.i = 0; tour.advancing = false; tour.heard = null; $('#guide').hidden = true; // the tour replaces the step card while it runs
   addEventListener('scroll', placeTour, { passive: true }); addEventListener('resize', placeTour, { passive: true });
   showTourStep();
 }
 function showTourStep() {
   const st = TOUR[tour.i], el = $(st.sel); if (!el) { endTour(); return; }
   tour.hidden = false;
-  $('#tourStep').textContent = `${tour.i + 1} of ${TOUR.length}`; $('#tourTitle').textContent = st.title; $('#tourText').textContent = st.text;
+  $('#tourStep').textContent = `${tour.i + 1} of ${TOUR.length}`; $('#tourTitle').textContent = st.title; $('#tourText').textContent = tourText(st, 'text');
   $('#tourNext').textContent = tour.i === TOUR.length - 1 ? 'Start exploring' : 'Next';
   $('#tourNext').dataset.zh = tour.i === TOUR.length - 1 ? '开始自由探索' : '下一步';
   $('#tour').hidden = false; $('#tourSpot').hidden = false;
   el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   placeTour(); setTimeout(placeTour, 400); setTimeout(placeTour, 900);
-  speak(tr(`Tour, step ${tour.i + 1} of ${TOUR.length}. ${st.title}. ${st.text}${st.sr || ''}`, `新手引导，第 ${tour.i + 1} 步，共 ${TOUR.length} 步。${st.zhTitle}。${st.zh}${st.srZh || ''}`), { interrupt: false });
+  speak(tr(`Tour, step ${tour.i + 1} of ${TOUR.length}. ${st.title}. ${tourText(st, 'text')}${st.sr || ''}`, `新手引导，第 ${tour.i + 1} 步，共 ${TOUR.length} 步。${st.zhTitle}。${tourText(st, 'zh')}${st.srZh || ''}`), { interrupt: false });
 }
 function placeTour() {
   if (tour.i < 0 || tour.hidden) return;
@@ -1636,7 +1646,7 @@ function placeTour() {
   }
 }
 function hideTourForNow() { tour.hidden = true; $('#tour').hidden = true; $('#tourSpot').hidden = true; }
-function nextTourStep() { if (tour.i < 0) return; if (tour.i >= TOUR.length - 1) { endTour(); return; } tour.i++; showTourStep(); }
+function nextTourStep() { tour.advancing = false; if (tour.i < 0) return; if (tour.i >= TOUR.length - 1) { endTour(); return; } tour.i++; showTourStep(); }
 function endTour() {
   if (tour.i < 0) return;
   tour.i = -1; hideTourForNow(); $('#guide').hidden = false;
@@ -1647,10 +1657,10 @@ function tourHit(ev) { // something the tour asked for happened
   if (tour.i < 0) return;
   const st = TOUR[tour.i];
   if (st.hideOn === ev) hideTourForNow(); // keep the screen clear while it plays
-  if (st.on === ev) setTimeout(nextTourStep, ev === 'tap' ? 700 : 300); // a moment to hear the note first
+  if (st.on === ev && !tour.advancing) { tour.advancing = true; setTimeout(nextTourStep, ev === 'tap' || ev === 'year' ? 1200 : 300); } // a moment to hear the note first
 }
 function setupTour() {
-  $('#tourNext').addEventListener('click', () => { sound.start(); nextTourStep(); });
+  $('#tourNext').addEventListener('click', () => { sound.start(); if (!tour.advancing) nextTourStep(); });
   $('#tourSkip').addEventListener('click', () => { endTour(); speak(tr('Tour closed.', '新手引导关掉了。')); });
   $('#tourAgain').addEventListener('click', () => { $('#moreBox').open = false; startTour(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && tour.i >= 0) endTour(); });
