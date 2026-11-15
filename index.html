@@ -22,15 +22,16 @@
     </div>
     <div class="grille" aria-hidden="true"></div>
     <div class="access" role="group" aria-label="Use it without seeing it">
-      <button type="button" class="access-key" data-act="voice" aria-pressed="false" aria-keyshortcuts="V" aria-description="Turns the talking guide on or off.">Voice guide</button>
-      <button type="button" class="access-key speed-key" data-act="slower" aria-keyshortcuts="-" hidden aria-description="Makes the voice speak slower.">Slower</button>
-      <button type="button" class="access-key speed-key" data-act="faster" aria-keyshortcuts="+" hidden aria-description="Makes the voice speak faster.">Faster</button>
-      <button type="button" class="access-key" id="controlsBtn" aria-expanded="false" aria-controls="controls" aria-description="Big buttons to move around the Earth.">Controls</button>
+      <button data-zh="语音导览" data-zh-desc="打开或关掉说话的导览。" type="button" class="access-key" data-act="voice" aria-pressed="false" aria-keyshortcuts="V" aria-description="Turns the talking guide on or off.">Voice guide</button>
+      <button data-zh="慢一点" data-zh-desc="让声音讲慢一点。" type="button" class="access-key speed-key" data-act="slower" aria-keyshortcuts="-" hidden aria-description="Makes the voice speak slower.">Slower</button>
+      <button data-zh="快一点" data-zh-desc="让声音讲快一点。" type="button" class="access-key speed-key" data-act="faster" aria-keyshortcuts="+" hidden aria-description="Makes the voice speak faster.">Faster</button>
+      <button data-zh="中文" data-zh-desc="把语音换成中文。" type="button" class="access-key lang-key" data-act="lang" aria-label="Chinese" aria-description="Switches the voice to Chinese.">中文</button>
+      <button data-zh="大按钮" data-zh-desc="打开大按钮，用来在地球上移动。" type="button" class="access-key" id="controlsBtn" aria-expanded="false" aria-controls="controls" aria-description="Big buttons to move around the Earth.">Controls</button>
     </div>
     <nav class="modes" aria-label="Choose what to listen to">
-      <button type="button" class="mode-btn" data-mode="track" aria-pressed="true" aria-description="Listen to NASA maps of the Earth.">Play</button>
-      <button type="button" class="mode-btn" data-mode="song" aria-pressed="false" aria-description="Turns a story about your life into music.">My Earth song</button>
-      <button type="button" class="mode-btn" data-mode="ask" aria-pressed="false" aria-description="Ask a question about the climate, and hear the answer.">Ask the Earth</button>
+      <button data-zh="播放地图" data-zh-desc="听 NASA 的地球地图。" type="button" class="mode-btn" data-mode="track" aria-pressed="true" aria-description="Listen to NASA maps of the Earth.">Play</button>
+      <button data-zh="我的地球之歌" data-zh-desc="把你人生的故事变成音乐。" type="button" class="mode-btn" data-mode="song" aria-pressed="false" aria-description="Turns a story about your life into music.">My Earth song</button>
+      <button data-zh="问地球" data-zh-desc="问一个关于气候的问题，再听答案。" type="button" class="mode-btn" data-mode="ask" aria-pressed="false" aria-description="Ask a question about the climate, and hear the answer.">Ask the Earth</button>
     </nav>
   </header>
 
@@ -40,8 +41,9 @@
       <h1 id="startTitle">Tap the Earth.<br>Hear it change.</h1>
       <p>Every spot on this NASA map has a note. Warmer places sing higher. Put on headphones, then tap anywhere on the globe.</p>
       <div class="row">
-        <button type="button" id="startBtn" class="primary big" aria-description="Choose this if you use VoiceOver or TalkBack, or if you can see the screen.">Start listening</button>
-        <button type="button" id="startVoiceBtn" class="ghost big" aria-description="The page talks you through every step.">Start with voice guide</button>
+        <button data-zh="开始听" data-zh-desc="用 VoiceOver 或 TalkBack 的人，或者看得见屏幕的人，选这个。" type="button" id="startBtn" class="primary big" aria-description="Choose this if you use VoiceOver or TalkBack, or if you can see the screen.">Start listening</button>
+        <button data-zh="英文语音导览" data-zh-desc="用英文一步一步带你。" type="button" id="startVoiceBtn" class="ghost big" aria-description="The page talks you through every step.">Start with voice guide</button>
+        <button data-zh="中文语音导览" data-zh-desc="用中文一步一步带你。" type="button" id="startZhBtn" class="ghost big" lang="zh" aria-description="The page talks you through every step, in Chinese.">中文语音导览</button>
       </div>
       <p class="hint"><strong>Can't see the screen? This page talks. If you hear nothing, press any key or tap the screen.</strong></p>
       <p class="hint">Made for people who can't see NASA's maps, and for everyone else too. The voice guide reads every step aloud, and screen readers work. Turn the voice guide on or off, or open Controls, at the top of the page any time. <a href="guide.html">Guide for screen reader users (English, <span lang="zh">中文</span>)</a></p>
@@ -56,15 +58,15 @@
         <h2 id="trackTitle">Global temperature, 1880–2025</h2>
         <p id="trackSub" class="sub"></p>
         <div class="track-picker" id="trackPicker" role="group" aria-label="Choose a NASA visualization to listen to">
-          <button type="button" data-track="temperature" aria-pressed="true"><span class="tt-num" aria-hidden="true">01</span><img src="assets/temperature/frames/2025.jpg" alt=""><span class="tt-name">Temperature</span> <span class="tt-inst">marimba</span></button>
-          <button type="button" data-track="ocean" aria-pressed="false" hidden><span class="tt-num" aria-hidden="true">02</span><img src="assets/ocean/frames/2007.jpg" alt=""><span class="tt-name">Ocean</span> <span class="tt-inst">harp</span></button>
-          <button type="button" data-track="lightning" aria-pressed="false" hidden><span class="tt-num" aria-hidden="true">03</span><img src="assets/lightning/frames/2020.jpg" alt=""><span class="tt-name">Lightning</span> <span class="tt-inst">drums</span></button>
-          <button type="button" data-track="combo" aria-pressed="false" hidden><span class="tt-num" aria-hidden="true">04</span><img src="assets/temperature/frames/2025.jpg" alt=""><span class="tt-name">All three</span> <span class="tt-inst">together</span></button>
+          <button data-zh="温度，木琴" data-zh-desc="每个地方比正常暖或冷多少。" type="button" data-track="temperature" aria-pressed="true"><span class="tt-num" aria-hidden="true">01</span><img src="assets/temperature/frames/2025.jpg" alt=""><span class="tt-name">Temperature</span> <span class="tt-inst">marimba</span></button>
+          <button data-zh="海洋，竖琴" data-zh-desc="海水有多暖。" type="button" data-track="ocean" aria-pressed="false" hidden><span class="tt-num" aria-hidden="true">02</span><img src="assets/ocean/frames/2007.jpg" alt=""><span class="tt-name">Ocean</span> <span class="tt-inst">harp</span></button>
+          <button data-zh="闪电，鼓" data-zh-desc="太空站多常看到闪电。" type="button" data-track="lightning" aria-pressed="false" hidden><span class="tt-num" aria-hidden="true">03</span><img src="assets/lightning/frames/2020.jpg" alt=""><span class="tt-name">Lightning</span> <span class="tt-inst">drums</span></button>
+          <button data-zh="三个一起" data-zh-desc="温度、海水和闪电一起响。" type="button" data-track="combo" aria-pressed="false" hidden><span class="tt-num" aria-hidden="true">04</span><img src="assets/temperature/frames/2025.jpg" alt=""><span class="tt-name">All three</span> <span class="tt-inst">together</span></button>
         </div>
       </div>
 
       <div class="screen">
-      <button type="button" id="issBtn" class="iss-btn" aria-pressed="false" aria-description="Flies once around the Earth, like the Space Station, and plays every place below.">Fly with the Space Station</button>
+      <button data-zh="跟着太空站飞一圈" data-zh-desc="像太空站一样绕地球飞一圈，弹出下面每个地方的音。" type="button" id="issBtn" class="iss-btn" aria-pressed="false" aria-description="Flies once around the Earth, like the Space Station, and plays every place below.">Fly with the Space Station</button>
       <div class="globe-wrap" id="globeWrap">
         <canvas id="globe" width="760" height="760" tabindex="0" role="application"
           aria-roledescription="sound globe"
@@ -84,7 +86,7 @@
       </div>
 
       <div class="timeline">
-        <button type="button" id="playBtn" class="primary" aria-description="Plays every month from 1880 to 2025 for this place, in about 30 seconds.">Play 1880 → 2025</button>
+        <button data-zh="播放" data-zh-desc="把这个地方从 1880 到 2025 年每个月弹一遍，大约 30 秒。" type="button" id="playBtn" class="primary" aria-description="Plays every month from 1880 to 2025 for this place, in about 30 seconds.">Play 1880 → 2025</button>
         <label class="year-range">
           <span class="sr-only">Year</span>
           <input type="range" id="year" min="0" max="145" step="1" value="145">
@@ -100,23 +102,26 @@
           <p class="small">Move around the Earth and hear what NASA measured there. With Voice guide on, you can also slide a finger or move the mouse over the Earth to hear it. With a screen reader (VoiceOver, TalkBack), leave Voice guide off: your screen reader reads everything.</p>
         </div>
         <div class="pad" role="group" aria-label="Move around the Earth">
-          <button type="button" class="pad-n" data-key="ArrowUp" aria-keyshortcuts="ArrowUp" aria-description="Travels about 1,000 kilometres north, and plays the note there.">North <kbd aria-hidden="true">↑</kbd></button>
-          <button type="button" class="pad-w" data-key="ArrowLeft" aria-keyshortcuts="ArrowLeft" aria-description="Travels about 1,000 kilometres west, and plays the note there.">West <kbd aria-hidden="true">←</kbd></button>
-          <button type="button" class="pad-c" data-key="Enter" aria-keyshortcuts="Enter" aria-description="Says the place, the year, and how warm it was.">Where am I? <kbd aria-hidden="true">Enter</kbd></button>
-          <button type="button" class="pad-e" data-key="ArrowRight" aria-keyshortcuts="ArrowRight" aria-description="Travels about 1,000 kilometres east, and plays the note there.">East <kbd aria-hidden="true">→</kbd></button>
-          <button type="button" class="pad-s" data-key="ArrowDown" aria-keyshortcuts="ArrowDown" aria-description="Travels about 1,000 kilometres south, and plays the note there.">South <kbd aria-hidden="true">↓</kbd></button>
+          <button data-zh="北" data-zh-desc="往北移动大约一千公里，并弹出那里的音。" type="button" class="pad-n" data-key="ArrowUp" aria-keyshortcuts="ArrowUp" aria-description="Travels about 1,000 kilometres north, and plays the note there.">North <kbd aria-hidden="true">↑</kbd></button>
+          <button data-zh="西" data-zh-desc="往西移动大约一千公里，并弹出那里的音。" type="button" class="pad-w" data-key="ArrowLeft" aria-keyshortcuts="ArrowLeft" aria-description="Travels about 1,000 kilometres west, and plays the note there.">West <kbd aria-hidden="true">←</kbd></button>
+          <button data-zh="我在哪里" data-zh-desc="念出地方、年份，还有有多暖。" type="button" class="pad-c" data-key="Enter" aria-keyshortcuts="Enter" aria-description="Says the place, the year, and how warm it was.">Where am I? <kbd aria-hidden="true">Enter</kbd></button>
+          <button data-zh="东" data-zh-desc="往东移动大约一千公里，并弹出那里的音。" type="button" class="pad-e" data-key="ArrowRight" aria-keyshortcuts="ArrowRight" aria-description="Travels about 1,000 kilometres east, and plays the note there.">East <kbd aria-hidden="true">→</kbd></button>
+          <button data-zh="南" data-zh-desc="往南移动大约一千公里，并弹出那里的音。" type="button" class="pad-s" data-key="ArrowDown" aria-keyshortcuts="ArrowDown" aria-description="Travels about 1,000 kilometres south, and plays the note there.">South <kbd aria-hidden="true">↓</kbd></button>
         </div>
         <div class="pad-side">
-          <button type="button" id="padPlay" data-key=" " data-years aria-label="Play 1880 to 2025" aria-description="Plays every month from 1880 to 2025 for this place, in about 30 seconds.">Play 1880 → 2025</button>
-          <button type="button" data-act="nextplace" aria-description="Jumps to a well-known place, like the Arctic Ocean or the Sahara.">Next place</button>
-          <button type="button" data-key="[" data-years aria-keyshortcuts="[" aria-description="Goes back one year.">Year before <kbd aria-hidden="true">[</kbd></button>
-          <button type="button" data-key="]" data-years aria-keyshortcuts="]" aria-description="Goes forward one year.">Year after <kbd aria-hidden="true">]</kbd></button>
-          <button type="button" data-act="legend" aria-keyshortcuts="L" aria-description="Plays the low, middle and high notes, and says what they mean.">What do the sounds mean? <kbd aria-hidden="true">L</kbd></button>
-          <button type="button" data-key="t" aria-keyshortcuts="T" aria-description="Adds this place's note to your tune. Add 3 places, then hear your tune in 1880 and in 2025.">Add this place to my tune <kbd aria-hidden="true">T</kbd></button>
-          <button type="button" class="speed-key" data-act="slower" hidden aria-description="Makes the voice speak slower.">Slower</button>
-          <button type="button" class="speed-key" data-act="faster" hidden aria-description="Makes the voice speak faster.">Faster</button>
-          <button type="button" data-act="help" aria-description="Says where you are and what you can do.">Help: what can I do?</button>
-          <button type="button" data-act="closeControls" aria-description="Closes the big buttons.">Close</button>
+          <button data-zh="播放" data-zh-desc="把这个地方从 1880 到 2025 年每个月弹一遍，大约 30 秒。" type="button" id="padPlay" data-key=" " data-years aria-label="Play 1880 to 2025" aria-description="Plays every month from 1880 to 2025 for this place, in about 30 seconds.">Play 1880 → 2025</button>
+          <button data-zh="下一个地方" data-zh-desc="跳到一个有名的地方，例如北冰洋或撒哈拉沙漠。" type="button" data-act="nextplace" aria-description="Jumps to a well-known place, like the Arctic Ocean or the Sahara.">Next place</button>
+          <button data-zh="帮助：我可以做什么" data-zh-desc="说出你在哪里，还有你可以做什么。" type="button" data-act="help" aria-description="Says where you are and what you can do.">Help: what can I do?</button>
+          <button data-zh="更多" data-zh-desc="打开其他按钮，例如慢一点和快一点。" type="button" class="remote-only" data-act="more" aria-description="Opens the other buttons, like Slower and Faster.">More</button>
+          <button data-zh="返回" data-zh-desc="回到遥控器。" type="button" class="remote-only more-btn" data-act="back" aria-description="Goes back to the remote.">Back</button>
+          <button data-zh="声音代表什么" data-zh-desc="弹出低音、中音和高音，并说出它们代表什么。" type="button" class="more-btn" data-act="legend" aria-keyshortcuts="L" aria-description="Plays the low, middle and high notes, and says what they mean.">What do the sounds mean? <kbd aria-hidden="true">L</kbd></button>
+          <button data-zh="把这里加进旋律" data-zh-desc="把这个地方的音加进你的旋律。加满三个地方，再听你的旋律在 1880 年和 2025 年的样子。" type="button" class="more-btn" data-key="t" aria-keyshortcuts="T" aria-description="Adds this place's note to your tune. Add 3 places, then hear your tune in 1880 and in 2025.">Add this place to my tune <kbd aria-hidden="true">T</kbd></button>
+          <button data-zh="前一年" data-zh-desc="回到前一年。" type="button" class="more-btn" data-key="[" data-years aria-keyshortcuts="[" aria-description="Goes back one year.">Year before <kbd aria-hidden="true">[</kbd></button>
+          <button data-zh="后一年" data-zh-desc="去后一年。" type="button" class="more-btn" data-key="]" data-years aria-keyshortcuts="]" aria-description="Goes forward one year.">Year after <kbd aria-hidden="true">]</kbd></button>
+          <button data-zh="慢一点" data-zh-desc="让声音讲慢一点。" type="button" class="more-btn speed-key" data-act="slower" hidden aria-description="Makes the voice speak slower.">Slower</button>
+          <button data-zh="快一点" data-zh-desc="让声音讲快一点。" type="button" class="more-btn speed-key" data-act="faster" hidden aria-description="Makes the voice speak faster.">Faster</button>
+          <button data-zh="中文" data-zh-desc="把语音换成中文。" type="button" class="more-btn lang-key" data-act="lang" aria-label="Chinese" aria-description="Switches the voice to Chinese.">中文</button>
+          <button data-zh="关闭" data-zh-desc="关掉大按钮，回到地球。" type="button" class="more-btn" data-act="closeControls" aria-description="Closes the big buttons.">Close</button>
         </div>
         <div class="keys keys-list">
           <h4>More keys on a computer</h4>
@@ -246,7 +251,7 @@
         <summary>More ways to listen</summary>
         <div class="more-body">
           <div class="actions">
-            <button type="button" data-act="legend">What do the sounds mean?</button>
+            <button data-zh="声音代表什么" data-zh-desc="弹出低音、中音和高音，并说出它们代表什么。" type="button" data-act="legend">What do the sounds mean?</button>
             <button type="button" data-act="sweep">Spin the Earth</button>
             <button type="button" data-act="describe">Tell me about this year</button>
             <button type="button" id="replayBtn" disabled>Play my tune again</button>

@@ -33,7 +33,7 @@ You start on the button **Start with voice guide**, so pressing Enter starts the
 There are two buttons:
 
 - **Start listening**: choose this if you use a screen reader.
-- **Start with voice guide**: choose this if you don't use a screen reader. On a phone, double-tapping anywhere on the first screen does the same.
+- **Start with voice guide**: choose this if you don't use a screen reader. On a phone, double-tapping the top half of the first screen does the same (the bottom half starts it in Chinese). **中文语音导览** starts the voice guide in Chinese.
 
 ## What is on the page, from top to bottom
 
@@ -61,7 +61,7 @@ There are two buttons:
 
 You start at Sibu, Sarawak, in 2025.
 
-Without a screen reader, double-tap anywhere on the first screen: it starts with **Voice guide** on. The screen then becomes a remote control that stays still, so you can learn where each button is. In the top half, **Where am I?** is in the middle, **North** is above it, **South** below, **West** on the left and **East** on the right. The bottom half has **Play** and **Next place** at the top, then **Year before**, **Year after**, **What do the sounds mean?**, **Add this place to my tune**, **Slower** and **Faster**, and at the very bottom **Help: what can I do?** and **Close**. Tap a button once to hear what it does, and tap it again to press it. After each press, the guide suggests one new thing to try. Close puts the Earth back on the screen; **Controls**, at the top of the page, opens the remote again.
+Without a screen reader, double-tap anywhere on the first screen: the top half starts the voice guide in English, the bottom half in Chinese. (The first screen says this in both languages. On a computer, press **Start with voice guide** or **中文语音导览**.) The screen then becomes a remote control that stays still, so you can learn where each button is. In the top half, **Where am I?** is in the middle, **North** is above it, **South** below, **West** on the left and **East** on the right. At the bottom are four buttons: **Play** and **Next place**, and under them **Help: what can I do?** and **More**. More opens a second screen: **Back** across the top, then **What do the sounds mean?**, **Add this place to my tune**, **Year before**, **Year after**, **Slower**, **Faster**, **中文** (or **English**) and **Close**. Tap a button once to hear what it does, and tap it again to press it. After each press, the guide suggests one new thing to try. Close puts the Earth back on the screen; **Controls**, at the top of the page, opens the remote again.
 
 Away from the remote, the phone works like a screen reader: tap anything once to hear it, and tap it again to press it. Touch and hold for a moment, then slide your finger, to hear everything under it; lift your finger, and a tap presses the last thing you heard. Swipe up or down to scroll.
 

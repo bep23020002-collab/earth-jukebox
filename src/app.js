@@ -5,7 +5,7 @@
 //   image - any NASA picture with a color bar, calibrated on the spot
 import { Sound, noteIndex } from './audio.js';
 import { Score } from './score.js';
-import { JUMPS, placeName, formatCoord, PLACE_NAMES, findPlace } from './places.js';
+import { JUMPS, placeName, formatCoord, PLACE_NAMES, findPlace, zhPlace } from './places.js';
 import { ImageSource, describeSpot } from './image-source.js';
 import { Globe } from './globe.js';
 import { composeSong, scheduleSong, BPM, BEATS_PER_MOMENT } from './song.js';
@@ -170,6 +170,23 @@ function say(v) {
   if (v >= max - span * 0.008) s += ' or more'; else if (v <= min + span * 0.008) s += ' or less';
   return s;
 }
+// The same readings, in Chinese, for the voice guide
+const placeZ = name => zhPlace(name);
+const whenZ = (yi = state.yi, T = state.track) => (monthOn(T) ? `${T.years[yi]}年${state.month}月` : `${T.years[yi]}年`);
+function feelingZ(v, k = isImage() ? null : kind()) {
+  if (v == null && !isImage() && !monthCovered()) return '这个月没有资料';
+  if (v == null) return k?.noDataWordZh || '没有资料';
+  if (!k || !k.wordsZh) { const t = tOf(v); return t < 0.15 ? '很低' : t < 0.4 ? '低' : t < 0.6 ? '中间' : t < 0.85 ? '高' : '很高'; }
+  return k.wordsZh(v);
+}
+function sayZ(v) {
+  if (v == null) return '这里没有资料';
+  const { min, max, unit } = scale(), span = max - min, n = nice(Math.abs(v));
+  let t = min < 0 && max > 0 ? `${v < 0 ? '低' : '高'} ${n} 度` : `${v < 0 ? '负 ' : ''}${n} ${unit === '°C' ? '度' : unit}`;
+  if (v >= max - span * 0.008) t += '或以上'; else if (v <= min + span * 0.008) t += '或以下';
+  return t;
+}
+const reading = (place, v) => tr(`${place}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`, `${placeZ(place)}。${feelingZ(v)}${v == null ? '' : `，${sayZ(v)}`}。`);
 function describe() {
   if (isImage()) {
     if (!src.legend) return 'Mark the color bar first.';
@@ -207,11 +224,31 @@ const RATE_EN = 0.72, RATE_ZH = 0.8;
 const SPEEDS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 1.9];
 let speed = 1; try { const s = +localStorage.getItem('ej-speed'); if (SPEEDS.includes(s)) speed = s; } catch { /* private window */ }
 const rateOf = zh => (zh ? RATE_ZH : RATE_EN) * speed;
+// The voice guide speaks English or Chinese (chosen on the first screen, or with the 中文 / English button).
+// The words on screen stay English. tr(english, chinese) picks the sentence for the voice.
+let talkLang = (() => { try { const l = localStorage.getItem('ej-talk'); if (l === 'en' || l === 'zh') return l; } catch { /* private window */ } return /^zh/i.test(navigator.language || '') ? 'zh' : 'en'; })();
+const ZH = () => talkLang === 'zh';
+const tr = (en, zh) => (ZH() ? zh : en);
+function syncLangKeys() {
+  document.querySelectorAll('[data-act="lang"]').forEach(b => {
+    const toEn = ZH(); b.textContent = toEn ? 'English' : '中文'; b.lang = toEn ? 'en' : 'zh';
+    b.setAttribute('aria-label', toEn ? 'English' : 'Chinese'); b.setAttribute('aria-description', `Switches the voice to ${toEn ? 'English' : 'Chinese'}.`);
+    b.dataset.zh = toEn ? '英文' : '中文'; b.dataset.zhDesc = `把语音换成${toEn ? '英文' : '中文'}。`;
+  });
+}
+function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
+function utter(text) {
+  const u = new SpeechSynthesisUtterance(text), zh = hasHan(text), v = zh ? zhVoice() : voicePick;
+  if (v) u.voice = v;
+  u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = rateOf(zh);
+  return u;
+}
 function changeSpeed(dir) {
   const i = SPEEDS.indexOf(speed), j = Math.max(0, Math.min(SPEEDS.length - 1, i + dir));
   speed = SPEEDS[j]; try { localStorage.setItem('ej-speed', speed); } catch { /* private window */ }
   const edge = j === i ? (dir < 0 ? ' This is the slowest.' : ' This is the fastest.') : '';
-  talk(`${dir < 0 ? 'Slower' : 'Faster'}.${edge} Speed ${j + 1} of ${SPEEDS.length}. This is how fast I speak now.`);
+  const edgeZh = j === i ? (dir < 0 ? '这已经是最慢了。' : '这已经是最快了。') : '';
+  talk(tr(`${dir < 0 ? 'Slower' : 'Faster'}.${edge} Speed ${j + 1} of ${SPEEDS.length}. This is how fast I speak now.`, `${dir < 0 ? '慢一点' : '快一点'}。${edgeZh}第 ${j + 1} 档，一共 ${SPEEDS.length} 档。我现在就是这个速度。`));
 }
 let nextHint = '', hintTimer = 0; // "Try this next", said after the result of a Controls press (see coach)
 function speak(text, { interrupt = true } = {}) {
@@ -220,9 +257,7 @@ function speak(text, { interrupt = true } = {}) {
   if (!state.voice || !('speechSynthesis' in window)) return Promise.resolve();
   if (interrupt) speechSynthesis.cancel();
   return new Promise(res => {
-    const u = new SpeechSynthesisUtterance(text), zh = hasHan(text), v = zh ? zhVoice() : voicePick;
-    if (v) u.voice = v;
-    u.lang = v?.lang || (zh ? 'zh-CN' : 'en-US'); u.rate = rateOf(zh);
+    const u = utter(text), zh = hasHan(text);
     u.onend = res; u.onerror = res;
     setTimeout(res, 400 + text.length * (zh ? 340 : 120) / speed); // never hang if the engine stays silent (sized for the slower speed)
     speechSynthesis.speak(u);
@@ -335,7 +370,8 @@ function updateReadout({ play = true, speakIt = false, sayShort = false } = {}) 
   showValue(v, place);
   if (play) { if (v == null && state.track.kind !== 'combo') sound.noData({ pan: currentPan() }); else playValue(tOf(v), { pan: currentPan(), soft: true, at: { lat: state.lat, lon: state.lon }, v }); score.live(stepOf(v), shortPlace(place)); }
   const inWhen = isImage() ? '' : ` in ${when()}`;
-  if (speakIt) speak(`${place}${inWhen}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`); else (sayShort ? speak : announce)(`${place}. ${feeling(v)}.`); // sayShort: arrow keys and Controls, so the voice guide says where you went
+  if (speakIt) speak(tr(`${place}${inWhen}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`, `${placeZ(place)}，${isImage() ? '' : whenZ() + '。'}${feelingZ(v)}${v == null ? '' : `，${sayZ(v)}`}。`));
+  else (sayShort ? speak : announce)(tr(`${place}. ${feeling(v)}.`, `${placeZ(place)}。${feelingZ(v)}。`)); // sayShort: arrow keys and Controls, so the voice guide says where you went
   return v;
 }
 // The "now hearing" card glows from ice blue (low) to ember (high), like NASA's colour bar.
@@ -429,7 +465,7 @@ function updateTapUI() {
 async function replayTaps() {
   if (state.replaying || !state.taps.length) return;
   state.replaying = true; $('#replayBtn').disabled = true;
-  announce(`Playing your tune in ${year()}.`);
+  announce(tr(`Playing your tune in ${year()}.`, `播放你的旋律，${year()}年。`));
   score.take(String(year()), state.taps.length);
   for (const t of state.taps) {
     await sleep(Math.max(250, Math.min(700, t.gap)));
@@ -441,33 +477,38 @@ async function replayTaps() {
 
 // ---------- step-by-step guide (first visit) ----------
 const guide = { step: 1, done: false };
-function setGuide({ label, title, text, btn, alt, say, quiet = false }) {
+function setGuide({ label, title, text, btn, alt, say, sayZh, quiet = false }) {
   $('#guideStep').textContent = label || '';
   $('#guideTitle').textContent = title; $('#guideText').textContent = text || '';
   for (const [id, b] of [['#guideBtn', btn], ['#guideAlt', alt]]) {
     const el = $(id); el.hidden = !b; el.disabled = false;
-    if (b) { el.textContent = b[0]; el.onclick = async () => { sound.start(); el.disabled = true; await b[1](); }; }
+    if (b) { el.textContent = b[0]; el.dataset.zh = b[2] || ''; el.onclick = async () => { sound.start(); el.disabled = true; await b[1](); }; }
   }
-  if (!quiet) speak(say || `${title}. ${text || ''}`);
+  if (!quiet) speak(ZH() && sayZh ? sayZh : say || `${title}. ${text || ''}`);
 }
 function resetGuide({ quiet = false } = {}) {
   state.taps = []; updateTapUI(); guide.step = 1; globe.clearStrokes(); score.clear();
   setGuide({ label: 'Step 1 of 3', title: 'Tap 3 places on the Earth', text: 'Every place plays a note. Warmer places play higher notes. Your 3 notes become a tune.',
-    say: state.voice ? 'If I speak too fast or too slow, press Slower or Faster at the top of the page. ' + (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null, quiet });
+    say: state.voice ? 'If I speak too fast or too slow, press Slower or Faster at the top of the page. ' + (coarse() ? 'Tap anything on the page to hear it, and tap it again to press it. Or touch and hold, then slide your finger, to hear everything under it. ' : '') + 'Move your mouse or finger over the Earth to hear it. Warmer places play higher notes. Stop for a moment, and I will tell you where you are. To make a tune, add 3 places: tap a place, or press Add this place in Controls, at the top of the page.' : null,
+    sayZh: state.voice ? '如果我讲太快或太慢，按页面最上面的"慢一点"或"快一点"。' + (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。或者按住不动，再滑动手指，手指经过的东西都会念出来。' : '')
+      + '把鼠标或手指在地球上移动，就会听到声音。越暖的地方，音越高。停一下，我会告诉你在哪里。要做一段旋律，加三个地方：点一个地方，或按大按钮里的"把这里加进旋律"。'
+      : '在地球上点三个地方。每个地方都有一个音，越暖的地方音越高。你的三个音会变成一段旋律。', quiet });
 }
 function guideAfterTap(v) {
   if (state.mode !== 'track' || guide.step !== 1 || state.track.id !== 'temperature') return;
   const n = state.taps.length, place = placeName(state.lat, state.lon);
   if (n < 3) {
     setGuide({ label: 'Step 1 of 3', title: n === 1 ? 'Nice! Tap 2 more places' : 'Tap 1 more place', text: `That was ${place}: ${feeling(v).toLowerCase()}.`,
-      say: state.voice ? `That was ${place}: ${feeling(v).toLowerCase()}. ${n === 1 ? 'Add 2 more places.' : 'Add 1 more place.'}` : null });
+      say: state.voice ? `That was ${place}: ${feeling(v).toLowerCase()}. ${n === 1 ? 'Add 2 more places.' : 'Add 1 more place.'}` : null,
+      sayZh: `那是${placeZ(place)}：${feelingZ(v)}。${n === 1 ? '再加两个地方。' : '再加一个地方。'}` });
     return;
   }
   guide.step = 2;
   setGuide({
     label: 'Step 2 of 3', title: 'Now go back in time',
     text: `You made a tune of ${n} notes. Let's hear the same tune in 1880, before the Earth warmed up.`,
-    btn: ['Play my tune in 1880', async () => { await playTuneIn(1880); guideStep3(); }],
+    sayZh: `你做了一段 ${n} 个音的旋律。我们来听同一段旋律在 1880 年的样子，那时候地球还没变暖。按"在 1880 年播放我的旋律"。`,
+    btn: ['Play my tune in 1880', async () => { await playTuneIn(1880); guideStep3(); }, '在 1880 年播放我的旋律'],
   });
 }
 function guideStep3() {
@@ -475,7 +516,8 @@ function guideStep3() {
   setGuide({
     label: 'Step 3 of 3', title: 'Now hear it today',
     text: 'Same places, same tune. This time in 2025. Listen: is it higher?',
-    btn: ['Play my tune in 2025', async () => { await playTuneIn(2025); guideDone(); }],
+    sayZh: '同样的地方，同样的旋律。这次是 2025 年。听听看：是不是比较高？按"在 2025 年播放我的旋律"。',
+    btn: ['Play my tune in 2025', async () => { await playTuneIn(2025); guideDone(); }, '在 2025 年播放我的旋律'],
   });
 }
 function guideDone() {
@@ -489,10 +531,14 @@ function guideDone() {
     : d > 0.2 ? `Your tune went higher. The places you chose are about ${d.toFixed(1)} °C warmer than in 1880${pairs.length < state.taps.length ? ' (counting only places NASA measured back then)' : ''}. That is what climate change sounds like.`
       : d < -0.2 ? `Your tune went lower. The places you chose were cooler in 2025 than in 1880, which is rare. Most of the world got warmer.`
         : 'Your tune stayed about the same. These places changed less than most of the world. Try tapping the Arctic.';
+  const textZh = d == null ? '你选的地方有些没有 1880 年的资料，试试资料比较多的地方，例如欧洲或美国。'
+    : d > 0.2 ? `你的旋律变高了。你选的地方比 1880 年暖了大约 ${d.toFixed(1)} 度。这就是气候变化的声音。`
+      : d < -0.2 ? '你的旋律变低了。你选的地方 2025 年比 1880 年冷，这很少见。世界上大部分地方都变暖了。'
+        : '你的旋律差不多一样。这些地方变化比世界上大部分地方少。试试北极。';
   setGuide({
-    label: 'You did it', title: d != null && d > 0.2 ? 'Did you hear it go higher?' : 'What did you hear?', text,
-    btn: ['Make my own Earth song', async () => setMode('song')],
-    alt: ['Try other places', async () => resetGuide()],
+    label: 'You did it', title: d != null && d > 0.2 ? 'Did you hear it go higher?' : 'What did you hear?', text, sayZh: textZh,
+    btn: ['Make my own Earth song', async () => setMode('song'), '做我自己的地球之歌'],
+    alt: ['Try other places', async () => resetGuide(), '试试别的地方'],
   });
 }
 async function playTuneIn(y) {
@@ -514,7 +560,7 @@ async function setYear(yi, month = state.month) {
   await ensureMonthData();
   draw(); updateReadout({ play: true });
   if (guide.done) $('#desc').textContent = describe(); // keep the sentence under the card in step with the year bar
-  announce(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`);
+  announce(tr(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`, `${whenZ()}。${placeZ(placeName(state.lat, state.lon))}：${sayZ(currentValue())}。`));
 }
 
 // ---------- actions ----------
@@ -628,7 +674,8 @@ async function flyISS() {
   const place = placeName(state.lat, state.lon), { pts, over } = issTrack(state.lat, state.lon), kd = state.track.kind;
   globe.clearStrokes(); globe.startStroke(); pts.forEach(p => globe.addPoint(p.lat, p.lon)); // the orbit line
   $('#nowBox').hidden = false; $('#globeHint').hidden = true;
-  await speak(over ? `One orbit with the Space Station, passing over ${place}.` : `The Space Station never flies over ${place}. This orbit passes as close as it can.`);
+  await speak(tr(over ? `One orbit with the Space Station, passing over ${place}.` : `The Space Station never flies over ${place}. This orbit passes as close as it can.`,
+    over ? `跟着太空站绕地球一圈，会经过${placeZ(place)}。` : `太空站从来不会飞过${placeZ(place)}。这一圈会尽量靠近它。`));
   score.line('One orbit with the Space Station', pts.length, '−46 min', '+46 min');
   let best = null, bestSea = null, bestLt = null;
   for (let k = 0; k < pts.length && state.playing; k++) {
@@ -651,7 +698,8 @@ async function flyISS() {
   const top = best ? `${kd === 'lightning' ? 'The most lightning' : kd === 'ocean' ? 'The warmest water' : 'The warmest place'} under it was ${placeName(best.lat, best.lon)} (${fmt(best.v)}).` : 'NASA has no data along this orbit.';
   const more = kd === 'combo' ? [bestSea && `The warmest sea was ${placeName(bestSea.lat, bestSea.lon)} (${Math.round(bestSea.v)} °C).`, bestLt && `The most lightning was ${placeName(bestLt.lat, bestLt.lon)}.`].filter(Boolean).join(' ') : '';
   const msg = `That was one orbit of the Space Station: about 93 minutes, played in 15 seconds${over ? `, right over ${place}` : ''}. ${top}${more ? ' ' + more : ''}`;
-  $('#desc').textContent = msg; speak(msg);
+  const topZh = best ? `经过${kd === 'lightning' ? '闪电最多' : kd === 'ocean' ? '海水最暖' : '最暖'}的地方是${placeZ(placeName(best.lat, best.lon))}，${sayZ(best.v)}。` : '这条轨道上 NASA 没有资料。';
+  $('#desc').textContent = msg; speak(tr(msg, `太空站绕地球一圈：大约 93 分钟，这里用 15 秒弹完${over ? `，正好经过${placeZ(place)}` : ''}。${topZh}`));
 }
 
 async function playHistory({ quiet = false } = {}) {
@@ -659,7 +707,7 @@ async function playHistory({ quiet = false } = {}) {
   if (state.playing) { state.playing = false; return; }
   state.playing = true; state.month = null; state.hist = null; setPlayingUI(true); draw();
   const place = placeName(state.lat, state.lon), years = state.track.years;
-  if (!quiet) await speak(`${place}, ${when(0)} to ${when(years.length - 1)}.`);
+  if (!quiet) await speak(tr(`${place}, ${when(0)} to ${when(years.length - 1)}.`, `${placeZ(place)}，${whenZ(0)}到${whenZ(years.length - 1)}。`));
   const short = years.length < 40, inst = kind().instrument; // a short series (lightning: 7 years) plays slower, one year at a time
   let series = null;
   if (MONTH_SERIES[dataId()] && state.playing) {
@@ -695,8 +743,13 @@ async function playHistory({ quiet = false } = {}) {
       ? `Near ${place}: ${mo ? `${mo} in the 1880s was` : 'the 1880s were'} ${feeling(first).toLowerCase()}. ${mo ? `${mo} in recent years is` : 'Today it is'} ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
       : `Near ${place}: ${feeling(first).toLowerCase()} in ${when(i0)}, ${feeling(last).toLowerCase()} in ${when(i1)}.`)
     : `NASA has no measurements near ${place} ${short ? 'in these years' : 'in the early years'}, so we can't compare then and now. Try another place.`;
+  const pz = placeZ(place), msgZh = first != null && last != null
+    ? (state.track.kind === 'temperature'
+      ? `${pz}附近：1880 年代${feelingZ(first)}，现在${feelingZ(last)}。比 1880 年代${last >= first ? '暖' : '冷'}了大约 ${Math.abs(last - first).toFixed(1)} 度。`
+      : `${pz}附近：${whenZ(i0)}${feelingZ(first)}，${whenZ(i1)}${feelingZ(last)}。`)
+    : `${pz}附近${short ? '这几年' : '早年'}没有 NASA 的测量，所以没办法比较以前和现在。换个地方试试。`;
   state.hist = { first, last, i0, i1, short };
-  $('#desc').textContent = msg; if (!quiet) speak(msg);
+  $('#desc').textContent = msg; if (!quiet) speak(tr(msg, msgZh));
   if (first != null && last != null && state.track.kind === 'temperature') score.setNote(`About ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s`);
 }
 function setPlayingUI(on) {
@@ -744,7 +797,8 @@ async function hearLegend() {
   const { min, max } = scale();
   const parts = isImage()
     ? [[0, `This low note means the lowest value on the color bar.`], [0.5, `This middle note means the middle of the color bar.`], [1, `This high note means the highest value.`]]
-    : [[0, 'This low note means colder than normal.'], [0.5, 'This middle note means normal.'], [1, 'This high note means much hotter than normal. When it is very warm, a second voice joins in.']];
+    : [[0, tr('This low note means colder than normal.', '这个低音代表比正常冷。')], [0.5, tr('This middle note means normal.', '这个中音代表正常。')],
+      [1, tr('This high note means much hotter than normal. When it is very warm, a second voice joins in.', '这个高音代表比正常热很多。很暖的时候，会多一个声音一起响。')]];
   for (const [t, text] of parts) { await speak(text); sound.note(t, { dur: 0.6 }); score.live(noteIndex(t), t === 0 ? 'low' : t === 1 ? 'high' : 'middle', { tap: true }); await sleep(900); }
   state.busy = false;
 }
@@ -757,7 +811,9 @@ function setHint() { // the hint on the globe says how to listen; with Voice gui
   $('#globe').classList.toggle('explore', state.voice); document.documentElement.classList.toggle('voice-on', state.voice); // phones: Voice guide on, a finger listens; off, swiping up or down scrolls the page
 }
 function toggle(act) {
-  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? 'Voice guide on. I will read every step aloud.' + (isRemote() ? ' ' + REMOTE_MAP : (coarse() ? ' Tap anything to hear it. Tap it again to press it.' : '') + ' Slower and Faster, at the top of the page, change how fast I speak.') : 'Voice guide off.'); }
+  if (act === 'voice') { state.voice = !state.voice; setHint(); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? tr('Voice guide on. I will read every step aloud.', '语音导览开了。我会把每一步念出来。') + ' ' + (isRemote() ? remoteMap()
+    : tr((coarse() ? 'Tap anything to hear it. Tap it again to press it. ' : '') + 'Slower and Faster, at the top of the page, change how fast I speak.', (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。' : '') + '页面最上面的"慢一点"和"快一点"可以改变我讲话的速度。'))
+    : tr('Voice guide off.', '语音导览关了。')); }
   if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
   document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
@@ -770,7 +826,10 @@ function act(name) {
   if (name === 'faster') changeSpeed(1);
   if (name === 'nextplace') nextPlace();
   if (name === 'help') talk(helpText());
-  if (name === 'closeControls') { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); speak('Big buttons closed. To open them again, press Controls, at the top of the page.'); }
+  if (name === 'more') { document.documentElement.classList.add('remote-more'); speak(moreMap()); }
+  if (name === 'back') { document.documentElement.classList.remove('remote-more'); speak(tr('Back to the remote. Where am I? is in the middle of the top half.', '回到遥控器。"我在哪里"在上半部的中间。')); }
+  if (name === 'lang') { setTalk(ZH() ? 'en' : 'zh'); speak(tr('English. I will speak English now.', '中文。我现在讲中文。')); }
+  if (name === 'closeControls') { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); speak(tr('Big buttons closed. To open them again, press Controls, at the top of the page.', '大按钮关掉了。要再打开，按页面最上面的"大按钮"。')); }
 }
 
 // ---------- your own map ----------
@@ -1040,22 +1099,26 @@ const startOpen = () => !$('#start').hidden;
 let welcomed = false;
 function talk(text, opts) { const v = state.voice; state.voice = true; const p = speak(text, opts); state.voice = v; return p; } // speak even before Voice guide is on
 const talking = () => state.voice || (welcomed && startOpen());
-const welcomeText = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
-  + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Tab and choose Start listening instead. Press minus or plus to make me speak slower or faster.'
-    : byKey === 'touch' ? 'To start, double-tap anywhere on the screen, and I will guide you step by step. If you use VoiceOver or TalkBack, choose the button Start listening instead.'
-    : 'There are two buttons: Start listening, and Start with voice guide. Rest the mouse on one and I will read it.');
-function welcome(byKey) { welcomed = true; talk(welcomeText(byKey)); }
+// The first screen speaks both languages, the phone's own language first: English, then Chinese (or the other way round)
+const welcomeEn = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
+  + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Shift and Tab, and choose Start listening instead. Press minus or plus to make me speak slower or faster.'
+    : byKey === 'touch' ? 'To start in English, double-tap the top half of the screen, and I will guide you step by step. If you use VoiceOver or TalkBack, choose the button Start listening instead.'
+    : 'There are three buttons: Start listening, Start with voice guide, and Chinese voice guide. Rest the mouse on one and I will read it.');
+const welcomeZh = byKey => '欢迎来到地球点唱机。我们把 NASA 的地球地图变成声音：越暖的地方，音越高。请戴上耳机。'
+  + (byKey === true ? '要用中文语音导览，请按一下 Tab 键，再按 Enter。'
+    : byKey === 'touch' ? '要用中文，请在屏幕下半部快速点两下，我会一步一步带你。用 VoiceOver 或 TalkBack 的话，请选 Start listening 这个按钮。'
+    : '要用中文，请按"中文语音导览"按钮。');
+const welcomeBoth = byKey => (ZH() ? [welcomeZh(byKey), welcomeEn(byKey)] : [welcomeEn(byKey), welcomeZh(byKey)]);
+function welcome(byKey) { welcomed = true; const [a, b] = welcomeBoth(byKey); talk(a); talk(b, { interrupt: false }); }
 // Say hello as soon as the page opens. Most computer browsers allow this; where a browser blocks speech until the
 // first key press or tap (iPhone Safari), nothing is lost: the first key press or tap says it instead.
 function welcomeOnOpen() {
   if (!('speechSynthesis' in window)) return;
   const go = () => {
     if (welcomed || !startOpen()) return;
-    const u = new SpeechSynthesisUtterance(welcomeText(matchMedia('(hover: none) and (pointer: coarse)').matches ? 'touch' : true));
-    if (voicePick) u.voice = voicePick;
-    u.lang = voicePick?.lang || 'en-US'; u.rate = rateOf(false);
+    const [a, b] = welcomeBoth(coarse() ? 'touch' : true), u = utter(a);
     u.onstart = () => { welcomed = true; };
-    speechSynthesis.speak(u);
+    speechSynthesis.speak(u); speechSynthesis.speak(utter(b));
   };
   if (speechSynthesis.getVoices().length) go(); else { speechSynthesis.addEventListener('voiceschanged', go, { once: true }); setTimeout(go, 1200); }
 }
@@ -1075,13 +1138,13 @@ function setupStartTalk() {
   const firstTap = e => { if (startOpen() && !welcomed && !e.target.closest('#start button, #start a')) welcome(e.pointerType === 'mouse' ? 'mouse' : 'touch'); };
   document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') firstTap(e); }, true);
   document.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') firstTap(e); }, true);
-  // On a phone, a quick double tap anywhere (not on a button) starts the voice guide: no need to find a button first
+  // On a phone, a quick double tap anywhere starts the voice guide: the top half in English, the bottom half in Chinese.
+  // It wins over a button or link under the finger, so a blind person can't open the guide page or skip the voice by accident.
   let last = { t: 0, x: 0, y: 0 };
   document.addEventListener('touchend', e => {
     if (!startOpen() || e.changedTouches.length !== 1) return;
     const t = e.changedTouches[0], now = performance.now();
-    if (document.elementFromPoint(t.clientX, t.clientY)?.closest('#start button, #start a')) { last.t = 0; return; }
-    if (now - last.t < 500 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 80) { last.t = 0; if (e.cancelable) e.preventDefault(); start(true); return; }
+    if (now - last.t < 500 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 80) { last.t = 0; if (e.cancelable) e.preventDefault(); start(true, t.clientY > innerHeight / 2 ? 'zh' : 'en'); return; }
     last = { t: now, x: t.clientX, y: t.clientY };
   }, { capture: true, passive: false });
   if (startOpen()) setInert(true);
@@ -1092,7 +1155,7 @@ function setupSayOnHover() {
     if (!talking() || e.pointerType !== 'mouse') return;
     const el = sayable(e.target); if (!el || el === sayOver || el.closest('#globeWrap')) return;
     sayOver = el; clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => { if (sayOver !== el || !talking()) return; const t = nameOf(el); if (t) talk(t); }, 180); // also while music plays: words always come first
+    sayTimer = setTimeout(() => { if (sayOver !== el || !talking()) return; const t = spokenName(el); if (t) talk(t); }, 180); // also while music plays: words always come first
   });
   document.addEventListener('pointerout', e => { if (sayOver && !sayOver.contains(e.relatedTarget)) { sayOver = null; clearTimeout(sayTimer); } });
   // a quick click must not be followed by the button's name, which would cut off what the click says
@@ -1100,7 +1163,7 @@ function setupSayOnHover() {
   document.addEventListener('focusin', e => {
     if (!talking()) return;
     const el = sayable(e.target); if (!el || el === sayOver) return;
-    const t = nameOf(el), d = el.getAttribute('aria-description'); if (t) talk(d && el.matches(CONTROL) ? `${t}. ${d}` : t);
+    const t = spokenName(el), d = spokenDesc(el); if (t) talk(d && el.matches(CONTROL) ? tr(`${t}. ${d}`, `${t}。${d}`) : t);
   });
 }
 // Voice guide on a phone works like a screen reader: tap anything to hear it, tap it again to press it.
@@ -1111,10 +1174,17 @@ const CONTROL = 'button, a[href], summary, input, select, textarea, label';
 // where each button is: the top half moves you (Where am I? in the middle, North above, South below, West left,
 // East right), the bottom half has the rest.
 const isRemote = () => document.documentElement.classList.contains('remote');
-function syncRemote() { document.documentElement.classList.toggle('remote', !$('#controls').hidden && state.voice && coarse()); }
-const REMOTE_MAP = 'Your screen is now a remote control. Tap a button once to hear it, and tap it again to press it. '
+function syncRemote() {
+  const on = !$('#controls').hidden && state.voice && coarse(), html = document.documentElement;
+  html.classList.toggle('remote', on); if (!on) html.classList.remove('remote-more');
+}
+const remoteMap = () => tr('Your screen is now a remote control. Tap a button once to hear it, and tap it again to press it. '
   + 'In the top half of the screen, Where am I? is in the middle. North is above it, South is below it, West is on the left, and East is on the right. '
-  + 'The bottom half has more buttons: Play and Next place at the top of it, and Help and Close at the very bottom.';
+  + 'At the bottom of the screen are four buttons: Play and Next place, and under them, Help and More. More has the other buttons, like Slower and Faster.',
+  '你的屏幕现在是一个遥控器。按钮点一下会念出来，再点一下才是按下去。屏幕上半部的中间是"我在哪里"。它的上面是北，下面是南，左边是西，右边是东。'
+  + '屏幕最下面有四个按钮：播放和下一个地方，再下面是帮助和更多。"更多"里面有其他按钮，例如慢一点和快一点。');
+const moreMap = () => tr('More buttons. The top of the screen is Back. Under it: What do the sounds mean?, and Add this place to my tune. Then Year before and Year after. Then Slower and Faster. At the very bottom: Chinese, and Close.',
+  '更多按钮。屏幕最上面是返回。下面是：声音代表什么，和把这里加进旋律。接着是前一年和后一年。再来是慢一点和快一点。最下面是英文，和关闭。');
 function openControls(open, { scroll = true, focus = true } = {}) {
   const ctl = $('#controls'); ctl.hidden = !open; $('#controlsBtn').setAttribute('aria-expanded', open); syncRemote();
   if (!open) return;
@@ -1122,21 +1192,22 @@ function openControls(open, { scroll = true, focus = true } = {}) {
   if (focus) ctl.querySelector('.pad-c').focus({ preventScroll: true });
 }
 function helpText() {
-  const here = `You are in ${placeName(state.lat, state.lon)}, in ${when()}. `;
-  const what = 'Where am I? says the place and how warm it was. North, South, East and West each travel about 1,000 kilometres and play the note there: a higher note means warmer. '
-    + 'Play 1880 to 2025 plays the history of this place. Next place jumps to places like the Arctic Ocean. What do the sounds mean? plays the low, middle and high notes.';
-  if (isRemote()) return here + REMOTE_MAP + ' ' + what + ' Close puts the Earth back on the screen.';
-  if ($('#controls').hidden) return here + 'Press Controls, at the top of the page, for big buttons. ' + what + (coarse() ? '' : ' ' + help());
+  const here = tr(`You are in ${placeName(state.lat, state.lon)}, in ${when()}. `, `你现在在${placeZ(placeName(state.lat, state.lon))}，${whenZ()}。`);
+  const what = tr('Where am I? says the place and how warm it was. North, South, East and West each travel about 1,000 kilometres and play the note there: a higher note means warmer. '
+    + 'Play 1880 to 2025 plays the history of this place. Next place jumps to places like the Arctic Ocean. What do the sounds mean? plays the low, middle and high notes.',
+    '"我在哪里"会念出地方和有多暖。北、南、东、西每按一次移动大约一千公里，并弹出那里的音：音越高，代表越暖。"播放"会弹出这个地方从 1880 年到现在的历史。"下一个地方"会跳到北冰洋这些地方。"声音代表什么"会弹出低音、中音和高音。');
+  if (isRemote()) return here + remoteMap() + ' ' + what;
+  if ($('#controls').hidden) return here + tr('Press Controls, at the top of the page, for big buttons. ', '按页面最上面的"大按钮"（Controls），会打开大按钮。') + what + (coarse() ? '' : ' ' + help());
   return here + what + (coarse() ? '' : ' ' + help());
 }
 // Each Controls press says what happened, then, the first time, one thing to try next that you haven't tried yet
 const coach = { tried: new Set(), told: new Set() };
 const COACH = [
-  ['where', 'Press Where am I? to hear the place, the year, and how warm it was.'],
-  ['move', 'Try North, South, East or West. Each one travels about 1,000 kilometres and plays the note there. A higher note means warmer.'],
-  ['play', 'To hear how this place changed since 1880, press Play 1880 to 2025. It takes about 30 seconds.'],
-  ['place', 'Press Next place to jump to another place, like the Arctic Ocean, and hear if it sounds higher.'],
-  ['legend', 'Press What do the sounds mean? to hear the low, middle and high notes.'],
+  ['where', 'Press Where am I? to hear the place, the year, and how warm it was.', '按"我在哪里"，会念出地方、年份，还有有多暖。'],
+  ['move', 'Try North, South, East or West. Each one travels about 1,000 kilometres and plays the note there. A higher note means warmer.', '试试北、南、东、西。每按一次会移动大约一千公里，并弹出那里的音。音越高，代表越暖。'],
+  ['play', 'To hear how this place changed since 1880, press Play. It takes about 30 seconds.', '想听这个地方从 1880 年到现在怎么变，按"播放"。大约 30 秒。'],
+  ['place', 'Press Next place to jump to another place, like the Arctic Ocean, and hear if it sounds higher.', '按"下一个地方"，可以跳到别的地方，例如北冰洋，听听它是不是比较高。'],
+  ['legend', 'To hear the low, middle and high notes, press More, then What do the sounds mean?', '想听低音、中音和高音，按"更多"，再按"声音代表什么"。'],
 ];
 const COACH_OF = { Enter: 'where', ArrowUp: 'move', ArrowDown: 'move', ArrowLeft: 'move', ArrowRight: 'move', ' ': 'play', nextplace: 'place', legend: 'legend' };
 function coachFor(what) {
@@ -1144,13 +1215,13 @@ function coachFor(what) {
   if (!['where', 'move', 'place'].includes(what)) return; // these say their result at once; the hint goes right after it
   const next = COACH.find(([k]) => !coach.tried.has(k) && !coach.told.has(k));
   if (!next) return;
-  coach.told.add(next[0]); nextHint = 'Try this next. ' + next[1];
+  coach.told.add(next[0]); nextHint = tr('Try this next. ' + next[1], '接下来可以试试：' + next[2]);
   clearTimeout(hintTimer); hintTimer = setTimeout(() => { nextHint = ''; }, 2000);
 }
 let placeAt = 0; // Next place walks through the list of places (Sibu is first)
 function nextPlace() {
   placeAt = (placeAt + 1) % JUMPS.length; const p = JUMPS[placeAt];
-  const v = moveTo(p.lat, p.lon, { center: true }); speak(`${p.name}. ${feeling(v)}${v == null ? '' : `, ${say(v)}`}.`);
+  speak(reading(p.name, moveTo(p.lat, p.lon, { center: true })));
 }
 const coarse = () => matchMedia('(hover: none) and (pointer: coarse)').matches;
 let armed = null; // the control read last; tapping it again presses it
@@ -1159,16 +1230,29 @@ function touchItem(x, y) {
   const t = document.elementFromPoint(x, y); if (!t) return null;
   return t.closest('#globeWrap') || sayable(t) || null;
 }
+function zhName(el) { // the Chinese name of a button, with its state, or null
+  let n = el.dataset?.zh; if (!n) return null;
+  if (el.id === 'playBtn' || el.id === 'padPlay') { const y = state.track?.years || [1880, 2025]; n = el.getAttribute('aria-pressed') === 'true' ? '停止' : `播放 ${y[0]} 到 ${y[y.length - 1]}`; }
+  const pressed = el.getAttribute('aria-pressed'), exp = el.getAttribute('aria-expanded');
+  if (el.id === 'issBtn' && pressed === 'true') n = '停止';
+  if (pressed != null && el.dataset.act === 'voice') n += pressed === 'true' ? '，开着' : '，关着';
+  else if (pressed === 'true' && !['issBtn', 'playBtn', 'padPlay'].includes(el.id)) n += '，已选';
+  if (exp != null) n += exp === 'true' ? '，打开了' : '，关着';
+  if (el.disabled) n += '，现在还不能用';
+  return n;
+}
+const spokenName = el => (ZH() && zhName(el)) || nameOf(el);
+const spokenDesc = el => (ZH() && el.dataset?.zhDesc) || el.getAttribute('aria-description');
 function touchWords(el) {
-  if (el.id === 'globeWrap') return 'The Earth. Lift your finger, then slide it on the Earth to hear the notes.';
-  const n = nameOf(el); if (!n || !el.matches(CONTROL) || el.disabled) return n;
-  if (el.type === 'range') return `${n}, slider. Slide left or right to change it.`;
-  if (el.matches('input, textarea')) return `${n}. Tap again to type.`;
-  if (el.tagName === 'SELECT') return `${n}. Tap again to choose.`;
-  if (el.tagName === 'A') return `${n}, link. Tap again to open it.`;
-  if (el.tagName === 'LABEL') return `${n}. Tap again to use it.`;
-  const d = el.getAttribute('aria-description');
-  return `${n}, button.${d ? ' ' + d : ''} Tap again to press it.`;
+  if (el.id === 'globeWrap') return tr('The Earth. Lift your finger, then slide it on the Earth to hear the notes.', '地球。手指放开，再在地球上滑，就会听到音。');
+  const n = spokenName(el); if (!n || !el.matches(CONTROL) || el.disabled) return n;
+  if (el.type === 'range') return tr(`${n}, slider. Slide left or right to change it.`, `年份条，${el.getAttribute('aria-valuetext') || el.value}，滑杆。左右滑动来改变。`);
+  if (el.matches('input, textarea')) return tr(`${n}. Tap again to type.`, `${n}。再点一下就可以打字。`);
+  if (el.tagName === 'SELECT') return tr(`${n}. Tap again to choose.`, `${n}。再点一下就可以选。`);
+  if (el.tagName === 'A') return tr(`${n}, link. Tap again to open it.`, `${n}，链接。再点一下就会打开。`);
+  if (el.tagName === 'LABEL') return tr(`${n}. Tap again to use it.`, `${n}。再点一下就可以用。`);
+  const d = spokenDesc(el);
+  return tr(`${n}, button.${d ? ' ' + d : ''} Tap again to press it.`, `${n}，按钮。${d || ''}再点一下就会按下去。`);
 }
 function setupTouchReader() {
   const stop = () => { tch.on = false; clearTimeout(tch.hold); };
@@ -1213,6 +1297,7 @@ function setLang(l) { // English or 中文, for speaking (Speak buttons) and for
 function setupMic() {
   let saved = null; try { saved = localStorage.getItem('ej-lang'); } catch { /* private window */ }
   setLang(saved === 'zh' || saved === 'en' ? saved : /^zh/i.test(navigator.language || '') ? 'zh' : 'en');
+  syncLangKeys();
   document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); announce(b.dataset.lang === 'zh' ? '中文' : 'English'); }));
   attachMic($('#micBtn'), $('#askText'), { onDone: t => askEarth(t) });
   attachMic($('#storyMic'), $('#storyText'), { story: true });
@@ -1234,7 +1319,7 @@ function onKey(e) {
   const k = e.key, img = isImage();
   if (img && !src.legend && k !== '?') return;
   const step = img ? (e.shiftKey ? 0.01 : 0.05) : (e.shiftKey ? 2 : 10);
-  const yr = n => setYear(n).then(() => { if (state.voice) speak(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`); });
+  const yr = n => setYear(n).then(() => { if (state.voice) speak(tr(`${when()}. ${placeName(state.lat, state.lon)}: ${fmt(currentValue())}.`, `${whenZ()}。${placeZ(placeName(state.lat, state.lon))}：${sayZ(currentValue())}。`)); });
   const move = (dy, dx) => (img ? moveUV(state.u + dx * step, state.v + dy * step) : moveTo(state.lat - dy * step, state.lon + dx * step, { center: true, sayShort: true }));
   const map = {
     ArrowLeft: () => move(0, -1), ArrowRight: () => move(0, 1), ArrowUp: () => move(-1, 0), ArrowDown: () => move(1, 0),
@@ -1246,7 +1331,7 @@ function onKey(e) {
     t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
   };
   let fn = map[k] || map[k.toLowerCase?.()];
-  if (!fn && !img && /^[1-9]$/.test(k)) { const p = JUMPS[+k - 1]; fn = () => { moveTo(p.lat, p.lon, { center: true }); speak(`${p.name}. ${say(currentValue())}.`); }; }
+  if (!fn && !img && /^[1-9]$/.test(k)) { const p = JUMPS[+k - 1]; fn = () => { placeAt = +k - 1; speak(reading(p.name, moveTo(p.lat, p.lon, { center: true }))); }; }
   if (!fn) return;
   if (e.target.closest?.('button, summary') && (k === 'Enter' || k === ' ')) return; // let buttons work normally
   e.preventDefault(); fn();
@@ -1294,7 +1379,7 @@ function hearUnder(e) {
   clearTimeout(hover.t);
   hover.t = setTimeout(() => {
     if (state.playing || state.busy || state.replaying || !hover.on) return;
-    hover.talking = true; speak(`${currentPlace()}. ${feeling(currentValue())}.`).then(() => { hover.talking = false; });
+    hover.talking = true; speak(tr(`${currentPlace()}. ${feeling(currentValue())}.`, `${placeZ(currentPlace())}。${feelingZ(currentValue())}。`)).then(() => { hover.talking = false; });
   }, 650);
 }
 function onGlobeDown(e) {
@@ -1499,16 +1584,20 @@ async function shareSong() {
 }
 
 // ---------- start ----------
-async function start(withVoice = false) {
+async function start(withVoice = false, lang = null) {
+  if (lang) setTalk(lang);
   state.voice = withVoice; setHint(); document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
   const sounding = sound.start(); // not awaited first: iPhone only lets the page speak during the tap itself
   $('#start').hidden = true; setInert(false); $('#globe').focus();
   draw(); preloadAll();
-  if (state.mode === 'song') { speak('Someone shared their Earth song with you. Press Play my Earth song to hear it.'); $('#playSong').focus(); }
+  if (state.mode === 'song') { speak(tr('Someone shared their Earth song with you. Press Play my Earth song to hear it.', '有人把他们的地球之歌分享给你。按"Play my Earth song"来听。')); $('#playSong').focus(); }
   else if (coarse()) { // a phone: open the big buttons and say exactly what to do first
     resetGuide({ quiet: true }); openControls(true, { scroll: false });
-    if (state.voice) speak(`You are in ${placeName(state.lat, state.lon)}, in ${when()}. ${REMOTE_MAP} If I speak too fast, press Slower, just above Help. Start now: tap Where am I?, in the middle of the top half, then tap it again.`);
-    else setTimeout(() => announce('Big buttons are open, and you are on Where am I?. Press it to hear where you are. Then try North, South, East and West. Help is near the end of the buttons.'), 1200); // after the screen reader reads the button
+    const place = placeName(state.lat, state.lon);
+    if (state.voice) speak(tr(`You are in ${place}, in ${when()}. ${remoteMap()} If I speak too fast, press More, then Slower. Start now: tap Where am I?, in the middle of the top half, then tap it again.`,
+      `你现在在${placeZ(place)}，${whenZ()}。${remoteMap()}如果我讲太快，按"更多"，再按"慢一点"。现在开始：点一下上半部中间的"我在哪里"，再点一下。`));
+    else setTimeout(() => announce(tr('Big buttons are open, and you are on Where am I?. Press it to hear where you are. Then try North, South, East and West. Help is after Next place.',
+      '大按钮已经打开，你在 Where am I? 上。按下去会听到你在哪里。接着试试 North、South、East、West。Help 在 Next place 后面。')), 1200); // after the screen reader reads the button
   }
   else resetGuide(); // step 1: "Tap anywhere on the Earth" (also read aloud)
   if (!(await sounding)) $('#desc').textContent = 'Sound is blocked. Tap anywhere on the page, and on iPhone turn off silent mode.';
@@ -1537,7 +1626,7 @@ function buildJumps() {
   $('#jumps').innerHTML = JUMPS.map((p, i) => `<button type="button" data-jump="${i}"><kbd>${i + 1}</kbd> ${p.name.replace(/^the /, '')}</button>`).join('');
   $('#jumps').addEventListener('click', e => {
     const b = e.target.closest('[data-jump]'); if (!b) return;
-    sound.start(); const p = JUMPS[+b.dataset.jump]; moveTo(p.lat, p.lon, { center: true }); speak(`${p.name}. ${say(currentValue())}.`);
+    sound.start(); placeAt = +b.dataset.jump; const p = JUMPS[placeAt]; speak(reading(p.name, moveTo(p.lat, p.lon, { center: true })));
   });
 }
 
@@ -1573,7 +1662,8 @@ async function init() {
   $('#shareSong').addEventListener('click', shareSong);
   setMode(shared ? 'song' : 'track');
   $('#startBtn').addEventListener('click', () => start(false));
-  $('#startVoiceBtn').addEventListener('click', () => start(true));
+  $('#startVoiceBtn').addEventListener('click', () => start(true, 'en'));
+  $('#startZhBtn').addEventListener('click', () => start(true, 'zh'));
   $('#playBtn').addEventListener('click', () => { sound.start(); playHistory(); });
   $('#issBtn').addEventListener('click', () => { sound.start(); flyISS(); });
   $('#year').addEventListener('input', e => { // 12 steps per year: the bar lands on a month
@@ -1588,8 +1678,8 @@ async function init() {
   const ctl = $('#controls'), ctlBtn = $('#controlsBtn');
   ctlBtn.addEventListener('click', () => {
     const open = ctl.hidden; openControls(open);
-    if (open && isRemote()) speak(REMOTE_MAP);
-    else if (open && state.voice) speak('Big buttons are open, below the Earth. You are on Where am I?.');
+    if (open && isRemote()) speak(remoteMap());
+    else if (open && state.voice) speak(tr('Big buttons are open, below the Earth. You are on Where am I?.', '大按钮打开了，在地球下面。你在"我在哪里"上。'));
   });
   ctl.addEventListener('click', e => {
     const b = e.target.closest('[data-key], [data-act]'); if (!b) return;

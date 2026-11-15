@@ -19,7 +19,7 @@ About 20 minutes per person. One person hosts; a second person (if you have one)
 > Please have headphones, and if possible two devices: one for the call and one for the website.
 > Website: https://bep23020002-collab.github.io/earth-jukebox/
 > How to use it: https://bep23020002-collab.github.io/earth-jukebox/guide.html
-> When the page opens, tap the screen once and it starts talking.
+> When the page opens, tap the screen once and it starts talking, in English and in Chinese.
 > Please use your screen reader as usual."
 
 ---
@@ -48,13 +48,14 @@ If they don't agree to recording or the video, don't record. Just do the test.
   > "Please press Start listening. Please keep Voice guide off, because your screen reader already reads everything."
 - No screen reader:
   > "Please listen to what the page says, and do what it tells you."
-  (On a phone: double-tapping anywhere starts the voice guide, and the screen becomes a remote control. The page should explain itself, so don't explain how it works. That is what we are testing. If they are stuck for about a minute, say only: "Press Help, what can I do?, at the bottom left.")
+  (On a phone: double-tapping the top half starts the voice guide in English, the bottom half in Chinese, and the screen becomes a remote control. The page should explain itself, so don't explain how it works. That is what we are testing. If they are stuck for about a minute, say only: "Press Help, at the bottom left.")
 
 > "Can you hear any sound? Please tell me what you hear."
 
 ## Step 2. Learn the sounds (3 minutes)
 > "At the very top of the page there is a button called Controls. Please find it and press it."
 > "Now please find the button What do the sounds mean? and press it. Listen to the three notes."
+(With the voice guide on a phone, Controls is already open as the remote, and What do the sounds mean? is under More.)
 
 > "What does a high note mean?"
 (Expected: warmer than normal. Write down their exact words.)
@@ -66,7 +67,7 @@ If they don't agree to recording or the video, don't record. Just do the test.
 > "Where are you now, roughly? Is it warmer or colder than normal there?"
 
 > "Next, please find More ways to listen, open it, and under Go to a place, press Arctic Ocean. Listen. Then press Sibu, Sarawak. Listen."
-(On a computer they can also press the keys 2 and 1.)
+(On a computer they can also press the keys 2 and 1. On the phone remote, Next place goes from Sibu to the Arctic Ocean.)
 > "Of these two places, which one is much warmer than normal?"
 (Correct answer: the Arctic Ocean. Note whether they hesitated.)
 
