@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 15:45', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 16:05', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1772,7 +1772,9 @@ async function start(withVoice = false, lang = null, { back = false } = {}) {
   backPending = false; tch.on = false; clearTimeout(tch.hold); // the tap that started it must not also be read as a tap on what appears next
   helloAgain = back ? tr('Welcome back. The voice guide is on, like last time. ', '欢迎回来。语音导览已经打开，和上次一样。') : '';
   state.voice = withVoice; setHint(); document.querySelector('[data-act="voice"]')?.setAttribute('aria-pressed', withVoice);
-  if (!withVoice && 'speechSynthesis' in window) speechSynthesis.cancel(); // the welcome may still be waiting to speak (iPhone holds it until a tap): a screen reader user must not get two voices
+  // Clear anything still waiting to speak: the welcome is queued when the page opens, and browsers hold it until the first
+  // tap or key. Left there, a screen reader user gets two voices, and the tour (which waits its turn) is never heard at all.
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
   const sounding = sound.start(); // not awaited first: iPhone only lets the page speak during the tap itself
   $('#start').hidden = true; setInert(false); $('#globe').focus();
   draw(); preloadAll();
