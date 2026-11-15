@@ -166,6 +166,7 @@ function say(v) {
   if (v == null) return 'no data here';
   const { min, max, unit } = scale(), span = max - min;
   const unitWord = unit === '°C' ? 'degrees' : unit;
+  if (Number(nice(Math.abs(v))) === 0) return `0 ${unitWord}`; // not "plus 0.0"
   let s = `${v < 0 ? 'minus ' : (min < 0 ? 'plus ' : '')}${nice(Math.abs(v))} ${unitWord}`;
   if (v >= max - span * 0.008) s += ' or more'; else if (v <= min + span * 0.008) s += ' or less';
   return s;
@@ -182,6 +183,7 @@ function feelingZ(v, k = isImage() ? null : kind()) {
 function sayZ(v) {
   if (v == null) return '这里没有资料';
   const { min, max, unit } = scale(), span = max - min, n = nice(Math.abs(v));
+  if (Number(n) === 0) return `0 ${unit === '°C' ? '度' : unit}`;
   let t = min < 0 && max > 0 ? `${v < 0 ? '低' : '高'} ${n} 度` : `${v < 0 ? '负 ' : ''}${n} ${unit === '°C' ? '度' : unit}`;
   if (v >= max - span * 0.008) t += '或以上'; else if (v <= min + span * 0.008) t += '或以下';
   return t;
@@ -208,6 +210,20 @@ function describe() {
   return `In ${when()}, ${overall}. The warmest part was ${top.name}. Near ${near}, it was ${feeling(here).toLowerCase()}.${extra}`;
 }
 
+const BANDS_ZH = { 'the Arctic': '北极', 'the northern mid-latitudes': '北半球的中纬度地区', 'the tropics': '热带', 'the southern mid-latitudes': '南半球的中纬度地区', Antarctica: '南极洲' };
+function describeZh() {
+  if (isImage()) return null;
+  if (!monthCovered()) return `NASA 的资料没有${whenZ()}。换一个月份试试。`;
+  const st = yearStats(state.yi);
+  if (!st.bands.length) return `NASA 没有${whenZ()}的资料。`;
+  const top = st.bands.reduce((a, b) => (b.mean > a.mean ? b : a)), topZ = BANDS_ZH[top.name] || top.name;
+  const here = currentValue() ?? boxMean(state.yi, state.lat, state.lon, 4), nz = placeZ(placeName(state.lat, state.lon).replace(/^near /, ''));
+  if (state.track.kind === 'ocean') return `最暖的海水在${topZ}，最冷的在两极附近。${nz}附近：${feelingZ(here)}。`;
+  if (state.track.kind === 'lightning') return `${whenZ()}，NASA 看到最多闪电的地方是${topZ}。${nz}附近：${feelingZ(here)}。`;
+  const overall = st.mean < -0.3 ? '世界大部分地方比正常冷' : st.mean < 0.3 ? '整个世界差不多正常' : st.mean < 1 ? '世界大部分地方比正常暖' : '世界大部分地方比正常暖很多';
+  return `${whenZ()}，${overall}。最暖的是${topZ}。${nz}附近${feelingZ(here)}。`;
+}
+
 // ---------- speech ----------
 let voicePick = null;
 function pickVoice() {
@@ -217,7 +233,8 @@ function pickVoice() {
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 const hasHan = t => /[\u3400-\u9fff]/.test(t); // Chinese characters
 const zhVoice = () => { const vs = speechSynthesis.getVoices(); return vs.find(v => /^zh[-_](CN|Hans)/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; };
-function announce(text) { const el = $('#live'); el.lang = hasHan(text) ? 'zh' : 'en'; el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
+const cap = t => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+function announce(text) { text = cap(text); const el = $('#live'); el.lang = hasHan(text) ? 'zh' : 'en'; el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
 // Speaking speed: a little slower than the phone's normal, so a first-time listener can follow (testers said it was too fast)
 const RATE_EN = 0.72, RATE_ZH = 0.8;
 // Slower and Faster (buttons at the top, or the - and + keys) change it for each listener; the choice is remembered
@@ -253,6 +270,7 @@ function changeSpeed(dir) {
 let nextHint = '', hintTimer = 0; // "Try this next", said after the result of a Controls press (see coach)
 function speak(text, { interrupt = true } = {}) {
   if (nextHint) { text += ' ' + nextHint; nextHint = ''; clearTimeout(hintTimer); }
+  text = cap(text);
   announce(text);
   if (!state.voice || !('speechSynthesis' in window)) return Promise.resolve();
   if (interrupt) speechSynthesis.cancel();
@@ -707,6 +725,7 @@ async function flyISS() {
 
 async function playHistory({ quiet = false } = {}) {
   if (isImage()) return;
+  if (state.track.years.length < 2) { speak(tr(`This map shows one moment (${when(0)}), so there is no history to play. Tap different places to compare them.`, `这张地图只有一个时间（${whenZ(0)}），所以没有历史可以播放。点不同的地方来比较。`)); return; }
   if (state.playing) { state.playing = false; return; }
   state.playing = true; state.month = null; state.hist = null; setPlayingUI(true); draw(); tourHit('playStart');
   const place = placeName(state.lat, state.lon), years = state.track.years;
@@ -741,12 +760,13 @@ async function playHistory({ quiet = false } = {}) {
   const has = i => boxMean(i, state.lat, state.lon, 6) != null;
   const i0 = short ? Math.max(0, years.findIndex((_, i) => has(i))) : 0, i1 = short ? Math.max(i0, L - 1 - [...years].reverse().findIndex((_, j) => has(L - 1 - j))) : L - 1;
   const first = avg(i0, i0 + n - 1), last = avg(i1 - n + 1, i1);
+  const base = place.replace(/^near /, ''); // the place name may already say "near"
   const msg = first != null && last != null
     ? (state.track.kind === 'temperature'
-      ? `Near ${place}: ${mo ? `${mo} in the 1880s was` : 'the 1880s were'} ${feeling(first).toLowerCase()}. ${mo ? `${mo} in recent years is` : 'Today it is'} ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
-      : `Near ${place}: ${feeling(first).toLowerCase()} in ${when(i0)}, ${feeling(last).toLowerCase()} in ${when(i1)}.`)
-    : `NASA has no measurements near ${place} ${short ? 'in these years' : 'in the early years'}, so we can't compare then and now. Try another place.`;
-  const pz = placeZ(place), msgZh = first != null && last != null
+      ? `Near ${base}: ${mo ? `${mo} in the 1880s was` : 'the 1880s were'} ${feeling(first).toLowerCase()}. ${mo ? `${mo} in recent years is` : 'Today it is'} ${feeling(last).toLowerCase()}. That is about ${Math.abs(last - first).toFixed(1)} °C ${last >= first ? 'warmer' : 'cooler'} than in the 1880s.`
+      : `Near ${base}: ${feeling(first).toLowerCase()} in ${when(i0)}, ${feeling(last).toLowerCase()} in ${when(i1)}.`)
+    : `NASA has no measurements near ${base} ${short ? 'in these years' : 'in the early years'}, so we can't compare then and now. Try another place.`;
+  const pz = placeZ(base), msgZh = first != null && last != null
     ? (state.track.kind === 'temperature'
       ? `${pz}附近：1880 年代${feelingZ(first)}，现在${feelingZ(last)}。比 1880 年代${last >= first ? '暖' : '冷'}了大约 ${Math.abs(last - first).toFixed(1)} 度。`
       : `${pz}附近：${whenZ(i0)}${feelingZ(first)}，${whenZ(i1)}${feelingZ(last)}。`)
@@ -818,13 +838,13 @@ function toggle(act) {
   if (act === 'voice') { state.voice = !state.voice; setHint(); if (state.voice) tourHit('voice'); if (!state.voice) speechSynthesis?.cancel(); speak(state.voice ? tr('Voice guide on. I will read every step aloud.', '语音导览开了。我会把每一步念出来。') + ' ' + (isRemote() ? remoteMap()
     : tr((coarse() ? 'Tap anything to hear it. Tap it again to press it. ' : '') + 'Slower and Faster, at the top of the page, change how fast I speak.', (coarse() ? '任何东西点一下会念出来，再点一下才是按下去。' : '') + '页面最上面的"慢一点"和"快一点"可以改变我讲话的速度。'))
     : tr('Voice guide off.', '语音导览关了。')); }
-  if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off'); }
+  if (act === 'ref' && scale()) { state.ref = !state.ref; sound.reference(state.ref, isImage() ? 0.5 : tOf(0)); announce(state.ref ? 'Average hum on. It plays the middle note.' : 'Average hum off.'); }
   document.querySelector(`[data-act="${act}"]`)?.setAttribute('aria-pressed', act === 'voice' ? state.voice : state.ref);
 }
 function act(name) {
   if (name === 'legend') hearLegend();
   if (name === 'sweep') sweep();
-  if (name === 'describe') { const t = describe(); $('#desc').textContent = t; speak(t); }
+  if (name === 'describe') { const t = describe(); $('#desc').textContent = t; speak(tr(t, describeZh() || t)); }
   if (name === 'voice' || name === 'ref') toggle(name);
   if (name === 'slower') changeSpeed(-1);
   if (name === 'faster') changeSpeed(1);
@@ -1202,8 +1222,8 @@ function helpText() {
     + 'Play 1880 to 2025 plays the history of this place. Next place jumps to places like the Arctic Ocean. What do the sounds mean? plays the low, middle and high notes.',
     '"我在哪里"会念出地方和有多暖。北、南、东、西每按一次移动大约一千公里，并弹出那里的音：音越高，代表越暖。"播放"会弹出这个地方从 1880 年到现在的历史。"下一个地方"会跳到北冰洋这些地方。"声音代表什么"会弹出低音、中音和高音。');
   if (isRemote()) return here + remoteMap() + ' ' + what;
-  if ($('#controls').hidden) return here + tr('Press Controls, at the top of the page, for big buttons. ', '按页面最上面的"大按钮"（Controls），会打开大按钮。') + what + (coarse() ? '' : ' ' + help());
-  return here + what + (coarse() ? '' : ' ' + help());
+  if ($('#controls').hidden) return here + tr('Press Controls, at the top of the page, for big buttons. ', '按页面最上面的"大按钮"（Controls），会打开大按钮。') + what + (coarse() ? '' : ' ' + tr(help(), helpZh()));
+  return here + what + (coarse() ? '' : ' ' + tr(help(), helpZh()));
 }
 // Each Controls press says what happened, then, the first time, one thing to try next that you haven't tried yet
 const coach = { tried: new Set(), told: new Set() };
@@ -1317,6 +1337,12 @@ function help() { // spoken key help; the year keys only matter when the track h
     + (many ? 'D describes the year. ' : 'D describes the map. ')
     + 'B toggles the average hum. Numbers 1 to 9 travel to places. V turns the voice on or off. Minus and plus make me speak slower or faster.';
 }
+function helpZh() {
+  const y = state.track.years, many = !isImage() && y.length > 1;
+  return '方向键是移动，按住 Shift 是小步。' + (many ? `方括号，或 Page Up 和 Page Down，换年份。空白键播放 ${y[0]} 到 ${y[y.length - 1]} 年。` : '')
+    + 'T 把这里加进旋律，R 再播一次你的旋律。Enter 念出这里。I 跟着太空站飞一圈。S 绕地球一圈。L 声音代表什么。' + (many ? 'D 说说这一年。' : 'D 说说这张地图。')
+    + 'B 开关平均音。数字 1 到 9 去不同的地方。V 开关语音导览。减号和加号让我讲慢一点或快一点。';
+}
 const runKey = key => onKey({ key, shiftKey: false, target: document.body, preventDefault() {} });
 function onKey(e) {
   if (!state.track || startOpen()) return; // the first screen handles its own keys
@@ -1332,7 +1358,7 @@ function onKey(e) {
     ']': () => yr(state.yi + 1), '[': () => yr(state.yi - 1), '}': () => yr(state.yi + 10), '{': () => yr(state.yi - 10),
     Home: () => yr(0), End: () => yr(state.track.years.length - 1),
     Enter: () => updateReadout({ speakIt: true }), ' ': () => playHistory(),
-    i: () => flyISS(), s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '-': () => act('slower'), '=': () => act('faster'), '+': () => act('faster'), '?': () => speak(help()),
+    i: () => flyISS(), s: () => act('sweep'), l: () => act('legend'), d: () => act('describe'), b: () => act('ref'), v: () => act('voice'), '-': () => act('slower'), '=': () => act('faster'), '+': () => act('faster'), '?': () => speak(tr(help(), helpZh())),
     t: () => { if (!img) tapAt(state.lat, state.lon); }, r: () => { if (!img) replayTaps(); },
   };
   let fn = map[k] || map[k.toLowerCase?.()];
@@ -1434,8 +1460,11 @@ function switchTrack(id) {
   state.playing = false; stopSong();
   useTrack(id); preloadAll();
   setMode('track');
-  if (id === 'temperature') { if (!guide.done) resetGuide(); else setGuide({ label: 'Temperature, 1880–2025', title: 'Tap the Earth, or fly with the Space Station', text: KINDS.temperature.hint }); }
-  else setGuide({ label: state.track.title, title: id === 'ocean' ? 'Tap the ocean, or fly with the Space Station' : 'Tap anywhere, or fly with the Space Station', text: kind().hint });
+  const hintZh = { temperature: '点地球，或者跟着太空站飞一圈。越暖的地方音越高。', ocean: '点海洋，或者跟着太空站飞一圈。越暖的海水，音越高越亮。陆地没有声音。',
+    lightning: '点任何地方，或者跟着太空站飞一圈。NASA 从太空看到越多闪电，鼓声就越多。太空站看不到太北或太南的地方，那里没有声音。',
+    combo: '点任何地方，或者跟着太空站飞一圈。每个地方会同时响三种声音：有多暖（木琴）、最近的海有多暖（竖琴）、多常有闪电（鼓）。' }[id];
+  if (id === 'temperature') { if (!guide.done) resetGuide(); else setGuide({ label: 'Temperature, 1880–2025', title: 'Tap the Earth, or fly with the Space Station', text: KINDS.temperature.hint, sayZh: hintZh }); }
+  else setGuide({ label: state.track.title, title: id === 'ocean' ? 'Tap the ocean, or fly with the Space Station' : 'Tap anywhere, or fly with the Space Station', text: kind().hint, sayZh: hintZh });
   $('#desc').textContent = describe();
 }
 

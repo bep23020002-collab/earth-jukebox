@@ -30,10 +30,13 @@ The page starts talking as soon as it opens. If you hear nothing, press any key 
 
 You start on the button **Start with voice guide**, so pressing Enter starts the voice guide right away. The Tab key moves between the buttons and reads each one.
 
-There are two buttons:
+There are three buttons:
 
 - **Start listening**: choose this if you use a screen reader.
-- **Start with voice guide**: choose this if you don't use a screen reader. On a phone, double-tapping the top half of the first screen does the same (the bottom half starts it in Chinese). **中文语音导览** starts the voice guide in Chinese.
+- **Start with voice guide**: choose this if you don't use a screen reader. On a phone, double-tapping the top half of the first screen does the same (the bottom half starts it in Chinese). 
+- **中文语音导览**: the voice guide in Chinese.
+
+After you start, a short tour shows what to do, one step at a time. Screen readers read each step. Press **Skip** or Escape to close it, or follow it.
 
 ## What is on the page, from top to bottom
 

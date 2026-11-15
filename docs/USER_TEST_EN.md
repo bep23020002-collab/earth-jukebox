@@ -42,7 +42,8 @@ If they don't agree to recording or the video, don't record. Just do the test.
 
 ## Step 1. Open the website (2 minutes)
 > "Please open the website link I sent you."
-> "You'll find two buttons: Start listening, and Start with voice guide."
+> "You'll find three buttons: Start listening, Start with voice guide, and a Chinese voice guide."
+(After they start, a short tour begins. They can follow it or press Skip. Either is fine; note which.)
 
 - Screen reader user:
   > "Please press Start listening. Please keep Voice guide off, because your screen reader already reads everything."

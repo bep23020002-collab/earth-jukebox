@@ -44,7 +44,8 @@
 
 ## 第 1 步：打开网站（2 分钟）
 > "请打开我传给你的网址。"
-> "你会找到两个按钮：Start listening 和 Start with voice guide。"
+> "你会找到三个按钮：Start listening、Start with voice guide，还有中文语音导览。"
+（开始之后会有一个简短的新手引导，对方可以照着做，也可以按 Skip。两种都可以，记下对方选哪个。）
 
 - 有用读屏软件的：
   > "请按 Start listening。Voice guide 请保持关闭，因为你的读屏软件已经会念，两个都开会念两次。"
