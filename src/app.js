@@ -243,7 +243,9 @@ let speed = 1; try { const s = +localStorage.getItem('ej-speed'); if (SPEEDS.inc
 const rateOf = zh => (zh ? RATE_ZH : RATE_EN) * speed;
 // The voice guide speaks English or Chinese (chosen on the first screen, or with the 中文 / English button).
 // The words on screen stay English. tr(english, chinese) picks the sentence for the voice.
-let talkLang = (() => { try { const l = localStorage.getItem('ej-talk'); if (l === 'en' || l === 'zh') return l; } catch { /* private window */ } return /^zh/i.test(navigator.language || '') ? 'zh' : 'en'; })();
+// Every visit starts in English, whatever the phone's own language. Chinese is used only once someone chooses it; the one
+// exception is a person coming back who used the Chinese voice guide last time (their "welcome back" stays Chinese).
+let talkLang = (() => { try { return localStorage.getItem('ej-start') === 'voice' && localStorage.getItem('ej-talk') === 'zh' ? 'zh' : 'en'; } catch { return 'en'; } })();
 const ZH = () => talkLang === 'zh';
 const tr = (en, zh) => (ZH() ? zh : en);
 function syncLangKeys() {
@@ -255,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 15:30', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '15 Nov 15:45', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1144,7 +1146,7 @@ const startOpen = () => !$('#start').hidden;
 let welcomed = false;
 function talk(text, opts) { const v = state.voice; state.voice = true; const p = speak(text, opts); state.voice = v; return p; } // speak even before Voice guide is on
 const talking = () => state.voice || (welcomed && startOpen());
-// The first screen speaks both languages, the phone's own language first: English, then Chinese (or the other way round)
+// The first screen speaks both languages: English first, then Chinese (the other way round for someone coming back to the Chinese guide)
 const welcomeEn = byKey => 'Welcome to Earth Jukebox. NASA maps of the Earth, played as sound: warmer places sing higher. Put on headphones. '
   + (byKey === true ? 'You are on the button Start with voice guide. Press Enter to start, and I will read every step. If you use a screen reader, press Shift and Tab, and choose Start listening instead. Press minus or plus to make me speak slower or faster.'
     : byKey === 'touch' ? 'To start in English, double-tap the top half of the screen, and I will guide you step by step. If you use VoiceOver or TalkBack, choose the button Start listening instead.'
@@ -1375,8 +1377,7 @@ function setLang(l) { // English or 中文, for speaking (Speak buttons) and for
   document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === l));
 }
 function setupMic() {
-  let saved = null; try { saved = localStorage.getItem('ej-lang'); } catch { /* private window */ }
-  setLang(saved === 'zh' || saved === 'en' ? saved : /^zh/i.test(navigator.language || '') ? 'zh' : 'en');
+  setLang(talkLang); // Speak and Ask the Earth start in the same language as the voice: English, unless Chinese was chosen
   syncLangKeys();
   document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); announce(b.dataset.lang === 'zh' ? '中文' : 'English'); }));
   attachMic($('#micBtn'), $('#askText'), { onDone: t => askEarth(t) });
@@ -1766,7 +1767,7 @@ const cameBack = () => { try { return localStorage.getItem('ej-start') === 'voic
 let backPending = false; // on the first screen: this person used the voice guide last time
 let helloAgain = ''; // said once, before the first words after a "welcome back" start
 async function start(withVoice = false, lang = null, { back = false } = {}) {
-  if (lang) setTalk(lang);
+  if (lang) setTalk(lang); else if (!withVoice) setTalk('en'); // Start listening is always English
   try { localStorage.setItem('ej-start', withVoice ? 'voice' : 'plain'); } catch { /* private window */ }
   backPending = false; tch.on = false; clearTimeout(tch.hold); // the tap that started it must not also be read as a tap on what appears next
   helloAgain = back ? tr('Welcome back. The voice guide is on, like last time. ', '欢迎回来。语音导览已经打开，和上次一样。') : '';
