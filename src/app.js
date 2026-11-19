@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '19 Nov b, tap to hear', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '19 Nov c, Chinese story', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -879,7 +879,8 @@ function act(name) {
     speak(tr('Back to the remote. Where am I? is in the middle of the top half.', '回到遥控器。"我在哪里"在上半部的中间。'));
   }
   if (name === 'songs') { if (state.playing) state.playing = false; document.documentElement.classList.add('remote-song'); speak(songMap()); }
-  if (name === 'songTell') tellStory();
+  if (name === 'songTell') tellStory('en');
+  if (name === 'songTellZh') tellStory('zh');
   if (name === 'songPlay') remoteSongPlay();
   if (name === 'songList') speak(songListText());
   if (name === 'lang') { setTalk(ZH() ? 'en' : 'zh'); speak(tr('English. I will speak English now.', '中文。我现在讲中文。')); }
@@ -999,9 +1000,9 @@ async function storyToSong() {
 // the story becomes moments (as on the My Earth song page), the guide reads them back, and the song plays.
 const songScreen = () => document.documentElement.classList.contains('remote-song');
 const songMap = () => tr('My Earth song. It turns places and years from your life into music made from NASA temperatures. '
-  + 'The top of the screen is Back. Under it is Tell my story. Then Play my Earth song. At the bottom: What is in my song? '
+  + 'The top of the screen is Back. Under it: Tell my story in English, then Tell my story in Chinese. Then Play my Earth song. At the bottom: What is in my song? '
   + 'Until you tell your story, your song is an example: Sibu and Kuching, from 1900 to today.',
-  '我的地球之歌。把你人生里的地方和年份，变成用 NASA 温度资料做的音乐。屏幕最上面是返回。下面是"讲我的故事"，再下面是"播放我的地球之歌"，最下面是"我的歌里有什么"。'
+  '我的地球之歌。把你人生里的地方和年份，变成用 NASA 温度资料做的音乐。屏幕最上面是返回。下面是"用英文讲我的故事"，再下面是"用华语讲我的故事"，然后是"播放我的地球之歌"，最下面是"我的歌里有什么"。'
   + '还没讲故事以前，你的歌是一个例子：诗巫和古晋，从 1900 年到今天。');
 const isExampleSong = () => state.moments.length === DEFAULT_MOMENTS.length && state.moments.every((m, i) => m.year === DEFAULT_MOMENTS[i].year && m.name === DEFAULT_MOMENTS[i].name);
 const zhPlaceOf = name => { // "Sibu" from the AI is "Sibu, Sarawak" in our list, which has a Chinese name
@@ -1015,7 +1016,7 @@ const momentWords = (m, { why = false } = {}) => {
 };
 function songListText() {
   const ms = state.moments;
-  if (!ms.length) return tr('Your song is empty. Tap Tell my story.', '你的歌还是空的。点"讲我的故事"。');
+  if (!ms.length) return tr('Your song is empty. Tap Tell my story.', '你的歌还是空的。点"用华语讲我的故事"。');
   const list = ms.map(m => momentWords(m, { why: true })).join(ZH() ? '。' : '. ');
   return (isExampleSong() ? tr('This is the example song. ', '这是例子歌。') : '')
     + tr(`Your song has ${ms.length} moment${ms.length > 1 ? 's' : ''}: ${list}.`, `你的歌有 ${ms.length} 个时刻：${list}。`);
@@ -1023,15 +1024,16 @@ function songListText() {
 const listen = { rec: null, quiet: 0, cap: 0 };
 function stopListening() { if (listen.rec) try { listen.rec.stop(); } catch { /* already stopped */ } }
 function setSession(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch { /* not supported */ } }
-function tellStory() {
+function tellStory(lang = talkLang) { // lang: the language to listen in; the guide answers in it too
   const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Rec) { speak(tr('This browser cannot listen. Press Play my Earth song to hear the example, or ask someone to type your story on the My Earth song page.', '这个浏览器不能听你说话。按"播放我的地球之歌"可以听例子，或者请别人在"我的地球之歌"页面帮你打字。')); return; }
   if (listen.rec) { stopListening(); return; }
   if (state.songPlaying) stopSong();
   if ('speechSynthesis' in window) speechSynthesis.cancel();
-  const rec = new Rec(), btn = $('#songTell'); let text = '', failed = '';
+  if (lang !== talkLang) setTalk(lang);
+  const rec = new Rec(), btn = $(lang === 'zh' ? '#songTellZh' : '#songTell'), idle = btn.textContent; let text = '', failed = '';
   listen.rec = rec;
-  rec.lang = ZH() ? 'zh-CN' : 'en-US'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.lang = lang === 'zh' ? 'zh-CN' : 'en-US'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
   const quietFor = ms => { clearTimeout(listen.quiet); listen.quiet = setTimeout(stopListening, ms); };
   rec.onresult = e => { // no spaces after Chinese words
     text = [...e.results].map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').replace(/([\u3000-\u303f\u3400-\u9fff\uff00-\uffef]) /g, '$1').trim();
@@ -1040,17 +1042,17 @@ function tellStory() {
   rec.onerror = e => { failed = e.error; };
   rec.onend = () => {
     clearTimeout(listen.quiet); clearTimeout(listen.cap); listen.rec = null;
-    btn.setAttribute('aria-pressed', 'false'); btn.textContent = 'Tell my story';
+    btn.setAttribute('aria-pressed', 'false'); btn.textContent = idle;
     setSession('playback'); sound.wake(); // the microphone is off: back to playing sound, even with the silent switch on
     if (failed === 'not-allowed' || failed === 'service-not-allowed') {
       speak(tr('The microphone is blocked for this page. Ask someone to allow the microphone, or press Play my Earth song to hear the example.', '这个网页不能用麦克风。请别人帮你允许麦克风，或者按"播放我的地球之歌"听例子。')); return;
     }
-    if (!text) { speak(tr('I did not hear a story. Tap Tell my story and try again, for example: I was born in Sibu in 2006.', '我没有听到故事。再按一次"讲我的故事"，例如说：我 2006 年在诗巫出生。')); return; }
+    if (!text) { speak(tr('I did not hear a story. Tap Tell my story and try again, for example: I was born in Sibu in 2006. To tell it in Chinese, use the button just below it.', '我没有听到故事。再按一次"用华语讲我的故事"，例如说：我 2006 年在诗巫出生。')); return; }
     storyFromVoice(text);
   };
   setSession('auto'); // let the phone switch to recording
   try { rec.start(); } catch { listen.rec = null; setSession('playback'); speak(tr('I could not start listening. Try again.', '没办法开始听。请再试一次。')); return; }
-  btn.setAttribute('aria-pressed', 'true'); btn.textContent = 'Listening… tap anywhere to stop';
+  btn.setAttribute('aria-pressed', 'true'); btn.textContent = lang === 'zh' ? '在听华语…点任何地方停止' : 'Listening… tap anywhere to stop';
   sound.tick({ gain: 0.25 }); // the beep: start talking
   quietFor(10000); listen.cap = setTimeout(stopListening, 45000); // nothing said in 10 seconds, or 45 seconds in all: stop
 }
@@ -1062,7 +1064,7 @@ async function storyFromVoice(text) {
   const found = await readStory(text).finally(() => clearInterval(busy));
   await said;
   if (!found.moments.length) {
-    speak(tr('I could not find a place and a year in your story. Tap Tell my story and try again, for example: I was born in Sibu in 2006.', '我在你的故事里找不到地方和年份。再按一次"讲我的故事"，例如说：我 2006 年在诗巫出生。')); return;
+    speak(tr('I could not find a place and a year in your story. Tap Tell my story and try again, for example: I was born in Sibu in 2006. To tell it in Chinese, use the button just below it.', '我在你的故事里找不到地方和年份。再按一次"用华语讲我的故事"，例如说：我 2006 年在诗巫出生。')); return;
   }
   useStory(found);
   const list = found.moments.map(m => momentWords(m)).join(ZH() ? '。' : '. ');
@@ -1415,9 +1417,9 @@ function zhName(el) { // the Chinese name of a button, with its state, or null
   const pressed = el.getAttribute('aria-pressed'), exp = el.getAttribute('aria-expanded');
   if (el.id === 'issBtn' && pressed === 'true') n = '停止';
   if (el.id === 'songPlayR' && pressed === 'true') n = '停止';
-  if (el.id === 'songTell' && pressed === 'true') n = '在听，点任何地方停止';
+  if ((el.id === 'songTell' || el.id === 'songTellZh') && pressed === 'true') n = '在听，点任何地方停止';
   if (pressed != null && el.dataset.act === 'voice') n += pressed === 'true' ? '，开着' : '，关着';
-  else if (pressed === 'true' && !['issBtn', 'playBtn', 'padPlay', 'songPlayR', 'songTell'].includes(el.id)) n += '，已选';
+  else if (pressed === 'true' && !['issBtn', 'playBtn', 'padPlay', 'songPlayR', 'songTell', 'songTellZh'].includes(el.id)) n += '，已选';
   if (exp != null) n += exp === 'true' ? '，打开了' : '，关着';
   if (el.disabled) n += '，现在还不能用';
   return n;
