@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Earth Jukebox sound test</title>
+<style>
+  body { margin: 0; font: 16px/1.4 -apple-system, system-ui, sans-serif; background: #EFECE6; color: #191919; padding: 12px; }
+  h1 { font-size: 1.1rem; margin: 0 0 6px; }
+  p { margin: 0 0 10px; font-size: .9rem; color: #444; }
+  button { display: block; width: 100%; margin: 0 0 8px; padding: 14px 12px; font-size: 1.05rem; border: 0; border-radius: 12px; background: #D6D2CA; color: #191919; text-align: left; }
+  button:active { background: #E96A26; }
+  #log { font: 12px/1.35 ui-monospace, Menlo, monospace; background: #111; color: #9f9; padding: 8px; border-radius: 8px; white-space: pre-wrap; min-height: 160px; }
+</style>
+</head>
+<body>
+<h1>Sound test (for the team)</h1>
+<p>Start a screen recording. Tap the buttons in order, 1 to 5. Wait until each one is quiet before the next. Then stop the recording.</p>
+<button id="t1">1. Voice only</button>
+<button id="t2">2. Voice, cancelled and restarted quickly</button>
+<button id="t3">3. Beeps only</button>
+<button id="t4">4. Voice, then beeps start</button>
+<button id="t5">5. Same as 4, with "playback" sound mode</button>
+<div id="log"></div>
+<script>
+const t0 = performance.now(), logEl = document.getElementById('log');
+const log = m => { logEl.textContent = `${((performance.now() - t0) / 1000).toFixed(1)}s ${m}\n` + logEl.textContent; };
+const ss = window.speechSynthesis;
+const sess = () => (navigator.audioSession ? navigator.audioSession.type : 'none');
+log(`audioSession: ${sess()} | speech: ${ss ? 'yes' : 'no'} | ${navigator.userAgent.replace(/^Mozilla\/5.0 /, '').slice(0, 90)}`);
+let ctx = null;
+function say(text, tag) {
+  const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US';
+  for (const ev of ['start', 'end', 'error']) u.addEventListener(ev, e => log(`${tag} voice ${ev}${e.error ? ': ' + e.error : ''}`));
+  ss.speak(u); log(`${tag} speak() called; speaking=${ss.speaking} pending=${ss.pending}`);
+}
+function beeps(tag, n = 4) {
+  if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); ctx.onstatechange = () => log(`audio ${ctx.state}`); }
+  ctx.resume().then(() => log(`${tag} audio running, session ${sess()}`)).catch(e => log(`${tag} audio error ${e}`));
+  for (let i = 0; i < n; i++) {
+    const at = ctx.currentTime + 0.1 + i * 0.45, o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 440 * (1 + i / 4); g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.3, at + 0.01); g.gain.exponentialRampToValueAtTime(0.001, at + 0.3);
+    o.connect(g).connect(ctx.destination); o.start(at); o.stop(at + 0.32);
+  }
+}
+const LONG = 'is a long sentence. If you hear all of it, from start to finish, this test passed. One, two, three, four, five.';
+document.getElementById('t1').onclick = () => { ss.cancel(); say('Test one. Voice only. This ' + LONG, 'T1'); };
+document.getElementById('t2').onclick = () => { ss.cancel(); say('Wrong.', 'T2a'); ss.cancel(); say('Test two. After a quick cancel. This ' + LONG, 'T2'); };
+document.getElementById('t3').onclick = () => { ss.cancel(); beeps('T3', 6); };
+document.getElementById('t4').onclick = () => { ss.cancel(); say('Test four. Voice, then beeps. This ' + LONG, 'T4'); setTimeout(() => beeps('T4'), 1200); };
+document.getElementById('t5').onclick = () => {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { log('T5 session error ' + e); }
+  log(`T5 session now ${sess()}`);
+  ss.cancel(); say('Test five. Playback mode. This ' + LONG, 'T5'); setTimeout(() => beeps('T5'), 1200);
+};
+</script>
+</body>
+</html>
