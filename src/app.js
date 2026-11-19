@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '19 Nov, remote Earth song', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '19 Nov b, tap to hear', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1292,14 +1292,14 @@ function setupStartTalk() {
       e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
     }
   }, true);
-  // a click says hello on pointerdown; a finger only on lifting (the browser allows speech only then)
+  // a click says hello on pointerdown; a finger on touchend, below (iPhone lets a page speak only during the touchend of a real tap)
   const firstTap = e => {
     if (!startOpen() || e.target.closest('#start button, #start a')) return;
     if (backPending) { if (e.pointerType === 'mouse') start(true, null, { back: true }); return; } // used the voice guide last time: any click brings it back (a finger: see touchend below)
     if (!welcomed) welcome(e.pointerType === 'mouse' ? 'mouse' : 'touch');
   };
   document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') firstTap(e); }, true);
-  document.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') firstTap(e); }, true);
+  document.addEventListener('pointerup', e => { if (e.pointerType === 'pen') firstTap(e); }, true);
   // On a phone, a quick double tap anywhere starts the voice guide: the top half in English, the bottom half in Chinese.
   // It wins over a button or link under the finger, so a blind person can't open the guide page or skip the voice by accident.
   let last = { t: 0, x: 0, y: 0 };
@@ -1312,6 +1312,7 @@ function setupStartTalk() {
     const t = e.changedTouches[0], now = performance.now();
     if (now - last.t < 500 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 80) { last.t = 0; if (e.cancelable) e.preventDefault(); start(true, t.clientY > innerHeight / 2 ? 'zh' : 'en'); return; }
     last = { t: now, x: t.clientX, y: t.clientY };
+    if (!welcomed && !e.target.closest?.('#start button, #start a')) welcome('touch'); // the first tap says what this is and how to start
   }, { capture: true, passive: false });
   if (startOpen()) setInert(true);
   welcomeOnOpen();
@@ -1939,6 +1940,7 @@ function unlock() {
   if (!speechSynthesis.speaking && !speechSynthesis.pending) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
 }
 function setupUnlock() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* not supported */ } // iPhone: speak and play even with the silent switch on
   const opt = { capture: true, passive: true };
   document.addEventListener('keydown', unlock, opt);
   document.addEventListener('click', unlock, opt); // VoiceOver's double tap arrives as a click
