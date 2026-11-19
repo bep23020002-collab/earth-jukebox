@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '15 Nov 17:55', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '19 Nov, remote Earth song', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -874,7 +874,14 @@ function act(name) {
   if (name === 'nextplace') nextPlace();
   if (name === 'help') talk(helpText());
   if (name === 'more') { document.documentElement.classList.add('remote-more'); speak(moreMap()); }
-  if (name === 'back') { document.documentElement.classList.remove('remote-more'); speak(tr('Back to the remote. Where am I? is in the middle of the top half.', '回到遥控器。"我在哪里"在上半部的中间。')); }
+  if (name === 'back') {
+    document.documentElement.classList.remove('remote-more', 'remote-song'); stopListening(); if (state.songPlaying) stopSong();
+    speak(tr('Back to the remote. Where am I? is in the middle of the top half.', '回到遥控器。"我在哪里"在上半部的中间。'));
+  }
+  if (name === 'songs') { if (state.playing) state.playing = false; document.documentElement.classList.add('remote-song'); speak(songMap()); }
+  if (name === 'songTell') tellStory();
+  if (name === 'songPlay') remoteSongPlay();
+  if (name === 'songList') speak(songListText());
   if (name === 'lang') { setTalk(ZH() ? 'en' : 'zh'); speak(tr('English. I will speak English now.', '中文。我现在讲中文。')); }
   if (name === 'closeControls') { openControls(false); $('#controlsBtn').focus({ preventScroll: true }); speak(coarse() && state.voice ? tr('Remote closed. To open it again, tap anywhere with two fingers.', '遥控器关掉了。要再打开，用两根手指在任何地方点一下。')
       : tr('Big buttons closed. To open them again, press Controls, at the top of the page.', '大按钮关掉了。要再打开，按页面最上面的"大按钮"。')); }
@@ -950,11 +957,8 @@ function makeItSing() {
 }
 
 // ---------- AI: a story becomes an Earth song ----------
-async function storyToSong() {
-  const text = $('#storyText').value.trim();
-  if (!text) { $('#storyNote').textContent = 'Write a sentence or two first, with a place and a year.'; speak(tr('Write a sentence or two first, with a place and a year.', '请先写一两句话，要有地方和年份。')); $('#storyText').focus(); return; }
-  followLang(text);
-  const btn = $('#storyBtn'); btn.disabled = true; $('#storyNote').textContent = 'Reading your story…';
+// Finds the years and places in a story (AI first; without it, English place names only)
+async function readStory(text) {
   let moments = [], note = '', usedAI = false;
   try {
     if (aiReady()) {
@@ -967,13 +971,108 @@ async function storyToSong() {
         .slice(0, 6);
     } else moments = storyWithoutAI(text);
   } catch (e) { moments = storyWithoutAI(text); note = `${e.message} I read your story without AI instead.`; }
-  btn.disabled = false;
-  if (!moments.length) { $('#storyNote').textContent = note || 'I could not find a year and a place. Try: "I was born in Sibu in 2006."'; return; }
-  await prepareMoments(moments);
-  moments.forEach(m => { if (m.year > lastMapYear() && !usesMonth(m)) { m.year = lastMapYear(); m.month = m.day = null; } }); // beyond NASA's data: use the latest year
+  if (moments.length) {
+    await prepareMoments(moments);
+    moments.forEach(m => { if (m.year > lastMapYear() && !usesMonth(m)) { m.year = lastMapYear(); m.month = m.day = null; } }); // beyond NASA's data: use the latest year
+  }
+  return { moments, note, usedAI };
+}
+function useStory({ moments, note, usedAI }) {
   state.moments = moments; state.picking = null; renderMoments();
   $('#storyNote').textContent = `${usedAI ? 'AI found' : 'Found'} ${moments.length} moment${moments.length > 1 ? 's' : ''}. Check them below. ${note}`.trim();
   if (state.songPlaying) stopSong();
+}
+async function storyToSong() {
+  const text = $('#storyText').value.trim();
+  if (!text) { $('#storyNote').textContent = 'Write a sentence or two first, with a place and a year.'; speak(tr('Write a sentence or two first, with a place and a year.', '请先写一两句话，要有地方和年份。')); $('#storyText').focus(); return; }
+  followLang(text);
+  const btn = $('#storyBtn'); btn.disabled = true; $('#storyNote').textContent = 'Reading your story…';
+  const found = await readStory(text);
+  btn.disabled = false;
+  if (!found.moments.length) { $('#storyNote').textContent = found.note || 'I could not find a year and a place. Try: "I was born in Sibu in 2006."'; return; }
+  useStory(found);
+  playSong();
+}
+
+// ---------- the remote's My Earth song: tell your story out loud, then hear it ----------
+// For the voice guide on a phone. Tell my story listens (after a beep) until you stop talking or tap anywhere;
+// the story becomes moments (as on the My Earth song page), the guide reads them back, and the song plays.
+const songScreen = () => document.documentElement.classList.contains('remote-song');
+const songMap = () => tr('My Earth song. It turns places and years from your life into music made from NASA temperatures. '
+  + 'The top of the screen is Back. Under it is Tell my story. Then Play my Earth song. At the bottom: What is in my song? '
+  + 'Until you tell your story, your song is an example: Sibu and Kuching, from 1900 to today.',
+  '我的地球之歌。把你人生里的地方和年份，变成用 NASA 温度资料做的音乐。屏幕最上面是返回。下面是"讲我的故事"，再下面是"播放我的地球之歌"，最下面是"我的歌里有什么"。'
+  + '还没讲故事以前，你的歌是一个例子：诗巫和古晋，从 1900 年到今天。');
+const isExampleSong = () => state.moments.length === DEFAULT_MOMENTS.length && state.moments.every((m, i) => m.year === DEFAULT_MOMENTS[i].year && m.name === DEFAULT_MOMENTS[i].name);
+const zhPlaceOf = name => { // "Sibu" from the AI is "Sibu, Sarawak" in our list, which has a Chinese name
+  for (const n of [name, findPlace(name)?.name, shortPlace(name)]) { if (n && placeZ(n) !== n) return placeZ(n); }
+  return shortPlace(name);
+};
+const momentWords = (m, { why = false } = {}) => {
+  const label = why && m.label && (ZH() ? hasHan(m.label) : !hasHan(m.label)) ? m.label : ''; // a label in the other language would sound wrong
+  return ZH() ? `${m.year} 年${m.month ? ` ${m.month} 月` : ''}${m.month && m.day ? ` ${m.day} 日` : ''}，${zhPlaceOf(m.name)}${label ? `：${label}` : ''}`
+    : `${dateText(m, true)}, ${shortPlace(m.name)}${label ? `: ${label}` : ''}`;
+};
+function songListText() {
+  const ms = state.moments;
+  if (!ms.length) return tr('Your song is empty. Tap Tell my story.', '你的歌还是空的。点"讲我的故事"。');
+  const list = ms.map(m => momentWords(m, { why: true })).join(ZH() ? '。' : '. ');
+  return (isExampleSong() ? tr('This is the example song. ', '这是例子歌。') : '')
+    + tr(`Your song has ${ms.length} moment${ms.length > 1 ? 's' : ''}: ${list}.`, `你的歌有 ${ms.length} 个时刻：${list}。`);
+}
+const listen = { rec: null, quiet: 0, cap: 0 };
+function stopListening() { if (listen.rec) try { listen.rec.stop(); } catch { /* already stopped */ } }
+function setSession(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch { /* not supported */ } }
+function tellStory() {
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Rec) { speak(tr('This browser cannot listen. Press Play my Earth song to hear the example, or ask someone to type your story on the My Earth song page.', '这个浏览器不能听你说话。按"播放我的地球之歌"可以听例子，或者请别人在"我的地球之歌"页面帮你打字。')); return; }
+  if (listen.rec) { stopListening(); return; }
+  if (state.songPlaying) stopSong();
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  const rec = new Rec(), btn = $('#songTell'); let text = '', failed = '';
+  listen.rec = rec;
+  rec.lang = ZH() ? 'zh-CN' : 'en-US'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  const quietFor = ms => { clearTimeout(listen.quiet); listen.quiet = setTimeout(stopListening, ms); };
+  rec.onresult = e => { // no spaces after Chinese words
+    text = [...e.results].map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').replace(/([\u3000-\u303f\u3400-\u9fff\uff00-\uffef]) /g, '$1').trim();
+    quietFor(3000); // 3 seconds of quiet: done
+  }; // 3 seconds of quiet: done
+  rec.onerror = e => { failed = e.error; };
+  rec.onend = () => {
+    clearTimeout(listen.quiet); clearTimeout(listen.cap); listen.rec = null;
+    btn.setAttribute('aria-pressed', 'false'); btn.textContent = 'Tell my story';
+    setSession('playback'); sound.wake(); // the microphone is off: back to playing sound, even with the silent switch on
+    if (failed === 'not-allowed' || failed === 'service-not-allowed') {
+      speak(tr('The microphone is blocked for this page. Ask someone to allow the microphone, or press Play my Earth song to hear the example.', '这个网页不能用麦克风。请别人帮你允许麦克风，或者按"播放我的地球之歌"听例子。')); return;
+    }
+    if (!text) { speak(tr('I did not hear a story. Tap Tell my story and try again, for example: I was born in Sibu in 2006.', '我没有听到故事。再按一次"讲我的故事"，例如说：我 2006 年在诗巫出生。')); return; }
+    storyFromVoice(text);
+  };
+  setSession('auto'); // let the phone switch to recording
+  try { rec.start(); } catch { listen.rec = null; setSession('playback'); speak(tr('I could not start listening. Try again.', '没办法开始听。请再试一次。')); return; }
+  btn.setAttribute('aria-pressed', 'true'); btn.textContent = 'Listening… tap anywhere to stop';
+  sound.tick({ gain: 0.25 }); // the beep: start talking
+  quietFor(10000); listen.cap = setTimeout(stopListening, 45000); // nothing said in 10 seconds, or 45 seconds in all: stop
+}
+async function storyFromVoice(text) {
+  $('#storyText').value = text; followLang(text); // a sighted helper can check it on the My Earth song page
+  const heard = text.replace(/[\s.。!！?？]+$/u, '');
+  const said = speak(tr(`I heard: ${heard}. One moment, I am turning it into a song.`, `我听到：${heard}。请等一下，我把它变成歌。`));
+  const busy = setInterval(() => { if (!speechSynthesis.speaking) sound.tick({ gain: 0.06 }); }, 1500); // a soft tick while the AI reads: still working
+  const found = await readStory(text).finally(() => clearInterval(busy));
+  await said;
+  if (!found.moments.length) {
+    speak(tr('I could not find a place and a year in your story. Tap Tell my story and try again, for example: I was born in Sibu in 2006.', '我在你的故事里找不到地方和年份。再按一次"讲我的故事"，例如说：我 2006 年在诗巫出生。')); return;
+  }
+  useStory(found);
+  const list = found.moments.map(m => momentWords(m)).join(ZH() ? '。' : '. ');
+  await speak(tr(`I found ${found.moments.length} moment${found.moments.length > 1 ? 's' : ''}: ${list}. Here is your Earth song.`, `我找到 ${found.moments.length} 个时刻：${list}。这是你的地球之歌。`));
+  if (songScreen()) remoteSongPlay({ intro: false });
+}
+async function remoteSongPlay({ intro = true } = {}) {
+  if (state.songPlaying) { stopSong(); speak(tr('Stopped.', '停了。')); return; }
+  if (!(await sound.start())) { speak(tr('Your song is ready. Tap Play my Earth song to hear it.', '你的歌准备好了。按"播放我的地球之歌"来听。')); return; }
+  if (intro) await speak(tr(isExampleSong() ? 'The example song.' : 'Your Earth song.', isExampleSong() ? '例子歌。' : '你的地球之歌。'));
   playSong();
 }
 
@@ -1251,14 +1350,16 @@ const CONTROL = 'button, a[href], summary, input, select, textarea, label';
 const isRemote = () => document.documentElement.classList.contains('remote');
 function syncRemote() {
   const on = !$('#controls').hidden && state.voice && coarse(), html = document.documentElement;
-  html.classList.toggle('remote', on); if (!on) html.classList.remove('remote-more');
+  html.classList.toggle('remote', on); if (!on) { html.classList.remove('remote-more', 'remote-song'); stopListening(); }
   if (on && tour.i >= 0) endTour(); // the remote covers the page: the tour steps aside
 }
 const remoteMap = () => tr('Your screen is now a remote control. Tap a button once to hear it, and tap it again to press it. '
   + 'In the top half of the screen, Where am I? is in the middle. North is above it, South is below it, West is on the left, and East is on the right. '
-  + 'At the bottom of the screen are four buttons: Play and Next place, and under them, Help and More. More has the other buttons, like Slower and Faster.',
+  + 'Below the top half are four buttons: Play and Next place, and under those, Help and More. More has the other buttons, like Slower and Faster. '
+  + 'At the very bottom, across the whole screen, is My Earth song: it turns your own story into music.',
   '你的屏幕现在是一个遥控器。按钮点一下会念出来，再点一下才是按下去。屏幕上半部的中间是"我在哪里"。它的上面是北，下面是南，左边是西，右边是东。'
-  + '屏幕最下面有四个按钮：播放和下一个地方，再下面是帮助和更多。"更多"里面有其他按钮，例如慢一点和快一点。');
+  + '上半部下面有四个按钮：播放和下一个地方，再下面是帮助和更多。"更多"里面有其他按钮，例如慢一点和快一点。'
+  + '屏幕最下面、整排的是"我的地球之歌"：把你自己的故事变成音乐。');
 const moreMap = () => tr('More buttons. The top of the screen is Back. Under it: What do the sounds mean?, and Add this place to my tune. Then Year before and Year after. Then Slower and Faster. At the very bottom: Chinese, and Close.',
   '更多按钮。屏幕最上面是返回。下面是：声音代表什么，和把这里加进旋律。接着是前一年和后一年。再来是慢一点和快一点。最下面是英文，和关闭。');
 function openControls(open, { scroll = true, focus = true } = {}) {
@@ -1272,6 +1373,7 @@ function helpText() {
   const what = tr('Where am I? says the place and how warm it was. North, South, East and West each travel about 1,000 kilometres and play the note there: a higher note means warmer. '
     + 'Play 1880 to 2025 plays the history of this place. Next place jumps to places like the Arctic Ocean. What do the sounds mean? plays the low, middle and high notes.',
     '"我在哪里"会念出地方和有多暖。北、南、东、西每按一次移动大约一千公里，并弹出那里的音：音越高，代表越暖。"播放"会弹出这个地方从 1880 年到现在的历史。"下一个地方"会跳到北冰洋这些地方。"声音代表什么"会弹出低音、中音和高音。');
+  if (isRemote() && document.documentElement.classList.contains('remote-song')) return songMap() + tr(' Tap anywhere with two fingers to hear this again.', '用两根手指在任何地方点一下，可以再听一次。');
   if (isRemote()) return here + remoteMap() + ' ' + what + tr(' Tap anywhere with two fingers to hear this again.', '用两根手指在任何地方点一下，可以再听一次。');
   if ($('#controls').hidden) return here + tr('Press Controls, at the top of the page, for big buttons. ', '按页面最上面的"大按钮"（Controls），会打开大按钮。') + what + (coarse() ? '' : ' ' + tr(help(), helpZh()));
   return here + what + (coarse() ? '' : ' ' + tr(help(), helpZh()));
@@ -1311,8 +1413,10 @@ function zhName(el) { // the Chinese name of a button, with its state, or null
   if (el.id === 'playBtn' || el.id === 'padPlay') { const y = state.track?.years || [1880, 2025]; n = el.getAttribute('aria-pressed') === 'true' ? '停止' : `播放 ${y[0]} 到 ${y[y.length - 1]}`; }
   const pressed = el.getAttribute('aria-pressed'), exp = el.getAttribute('aria-expanded');
   if (el.id === 'issBtn' && pressed === 'true') n = '停止';
+  if (el.id === 'songPlayR' && pressed === 'true') n = '停止';
+  if (el.id === 'songTell' && pressed === 'true') n = '在听，点任何地方停止';
   if (pressed != null && el.dataset.act === 'voice') n += pressed === 'true' ? '，开着' : '，关着';
-  else if (pressed === 'true' && !['issBtn', 'playBtn', 'padPlay'].includes(el.id)) n += '，已选';
+  else if (pressed === 'true' && !['issBtn', 'playBtn', 'padPlay', 'songPlayR', 'songTell'].includes(el.id)) n += '，已选';
   if (exp != null) n += exp === 'true' ? '，打开了' : '，关着';
   if (el.disabled) n += '，现在还不能用';
   return n;
@@ -1340,6 +1444,7 @@ function setupTouchReader() {
   let two = null; // a two-finger tap in progress
   document.addEventListener('touchstart', e => {
     stop();
+    if (listen.rec) { two = null; return; } // Tell my story is listening: the tap only stops it (see touchend)
     two = e.touches.length === 2 && state.voice && !startOpen() ? { t: performance.now(), x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
     if (!talking() || e.touches.length !== 1) return;
     const t = e.touches[0];
@@ -1355,6 +1460,7 @@ function setupTouchReader() {
     if (Math.hypot(t.clientX - tch.x, t.clientY - tch.y) > 10) stop(); // a scroll or a slider: leave it alone
   }, { capture: true, passive: false });
   document.addEventListener('touchend', e => {
+    if (listen.rec) { if (e.cancelable) e.preventDefault(); if (e.touches.length === 0) stopListening(); return; }
     if (two && e.touches.length === 0) {
       const quick = performance.now() - two.t < 500; two = null;
       if (quick) { // lost? two fingers anywhere: the remote opens, or says again where everything is
@@ -1608,6 +1714,7 @@ function stopSong() {
   sound.stopSong?.();
   document.querySelectorAll('.moment.playing').forEach(li => li.classList.remove('playing'));
   if ($('#playSong')) $('#playSong').textContent = 'Play my Earth song';
+  const r = $('#songPlayR'); if (r) { r.textContent = 'Play my Earth song'; r.setAttribute('aria-pressed', 'false'); }
   state.songPlaying = false;
 }
 async function playSong() {
@@ -1626,7 +1733,7 @@ async function playSong() {
       : trackValue(yi, lat, lon, T) ?? boxMean(yi, lat, lon, 4, T)),
     extra: songLayers,
   });
-  state.songPlaying = true; $('#playSong').textContent = 'Stop';
+  state.songPlaying = true; $('#playSong').textContent = 'Stop'; $('#songPlayR').textContent = 'Stop'; $('#songPlayR').setAttribute('aria-pressed', 'true');
   score.song(song.sections.map(sec => ({ label: `${usesMonth(sec.moment) ? MON[sec.moment.month - 1] + ' ' : ''}${sec.moment.year} ${shortPlace(sec.moment.name)}`, notes: sec.notes.map(n => n.step) })));
   sound.beginSong();
   const t0 = scheduleSong(song, sound), spb = 60 / BPM, lead = (t0 - sound.now) * 1000;
@@ -1640,7 +1747,9 @@ async function playSong() {
       $('#rPlace').textContent = m.name; $('#rValue').textContent = sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean);
       $('#rDetail').textContent = [usesMonth(m) ? `${MONTHS[m.month - 1]} ${m.year}, NASA monthly data` : '', sec.layers?.text].filter(Boolean).join('. ');
       $('#desc').textContent = `${dateText(m, true)}, ${m.name}${m.label ? `: ${m.label}` : ''}.`;
-      announce(`${dateText(m, true)}, ${m.name}. ${sec.mean == null ? 'No data' : KINDS.temperature.words(sec.mean)}.`);
+      const feel = sec.mean == null ? tr('No data', '没有资料') : tr(KINDS.temperature.words(sec.mean), KINDS.temperature.wordsZh(sec.mean));
+      if (state.voice) speak(tr(`${momentWords(m)}. ${feel}.`, `${momentWords(m)}，${feel}。`)); // the voice guide says each moment as it starts
+      else announce(`${dateText(m, true)}, ${m.name}. ${feel}.`);
     });
     sec.notes.forEach((n, i) => at(sec.startBeat + n.beat, () => { globe.ripple(n.lat, n.lon); score.hit(k, i); }));
   });
@@ -1652,7 +1761,9 @@ async function playSong() {
       : 'That was your Earth song.';
     $('#desc').textContent = msg; $('#songStatus').textContent = 'Change a year or a place and play it again.';
     if (song.sections.length > 1 && first.mean != null && last.mean != null) score.setNote(`${dateText(first.moment)} → ${dateText(last.moment)}: ${last.mean >= first.mean ? '+' : '−'}${Math.abs(last.mean - first.mean).toFixed(1)} °C`);
-    speak(msg);
+    const w = sec => KINDS.temperature.wordsZh(sec.mean), zhWhen = sec => momentWords(sec.moment).split('，')[0];
+    speak(tr(msg, song.sections.length > 1 && first.mean != null && last.mean != null
+      ? `你的地球之歌从 ${zhWhen(first)}（${w(first)}）开始，到 ${zhWhen(last)}（${w(last)}）结束。` : '这就是你的地球之歌。'));
   });
 }
 // Extra instruments for a moment, from the other EIC tracks (when they are loaded).
