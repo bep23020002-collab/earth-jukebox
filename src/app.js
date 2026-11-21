@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '19 Nov c, Chinese story', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '21 Nov, mic hint', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -878,7 +878,7 @@ function act(name) {
     document.documentElement.classList.remove('remote-more', 'remote-song'); stopListening(); if (state.songPlaying) stopSong();
     speak(tr('Back to the remote. Where am I? is in the middle of the top half.', '回到遥控器。"我在哪里"在上半部的中间。'));
   }
-  if (name === 'songs') { if (state.playing) state.playing = false; document.documentElement.classList.add('remote-song'); speak(songMap()); }
+  if (name === 'songs') { if (state.playing) state.playing = false; document.documentElement.classList.add('remote-song'); checkMic(); speak(songMap()); }
   if (name === 'songTell') tellStory('en');
   if (name === 'songTellZh') tellStory('zh');
   if (name === 'songPlay') remoteSongPlay();
@@ -1022,6 +1022,15 @@ function songListText() {
     + tr(`Your song has ${ms.length} moment${ms.length > 1 ? 's' : ''}: ${list}.`, `你的歌有 ${ms.length} 个时刻：${list}。`);
 }
 const listen = { rec: null, quiet: 0, cap: 0 };
+// The first time, the phone asks to use the microphone in a box the voice guide cannot read, so the guide says where Allow is
+const mic = { state: 'unknown', hinted: false };
+function checkMic() { try { navigator.permissions?.query({ name: 'microphone' }).then(p => { mic.state = p.state; p.onchange = () => { mic.state = p.state; }; }).catch(() => {}); } catch { /* not supported */ } }
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const micHint = () => (isIOS()
+  ? tr('Your phone will now ask to use the microphone. A box appears in the middle of the screen, and Allow is on its right side. It may ask twice. After you allow it, wait for the beep, then speak.',
+    '手机现在会问能不能用麦克风。屏幕中间会出现一个框，"允许"在它的右边，可能会问两次。允许以后，等"嘀"一声再讲。')
+  : tr('Your phone will now ask to use the microphone. Choose Allow. If you cannot find it, ask someone to help. After you allow it, wait for the beep, then speak.',
+    '手机现在会问能不能用麦克风，请选"允许"。找不到的话，请别人帮忙。允许以后，等"嘀"一声再讲。'));
 function stopListening() { if (listen.rec) try { listen.rec.stop(); } catch { /* already stopped */ } }
 function setSession(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch { /* not supported */ } }
 function tellStory(lang = talkLang) { // lang: the language to listen in; the guide answers in it too
@@ -1035,7 +1044,16 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
   listen.rec = rec;
   rec.lang = lang === 'zh' ? 'zh-CN' : 'en-US'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
   const quietFor = ms => { clearTimeout(listen.quiet); listen.quiet = setTimeout(stopListening, ms); };
+  let began = false;
+  const begin = () => { // listening has really started (the first time, only after Allow): beep, then talk
+    if (began || listen.rec !== rec) return; began = true;
+    if ('speechSynthesis' in window) speechSynthesis.cancel(); // the microphone hint must not be taken for the story
+    sound.tick({ gain: 0.25 });
+    quietFor(10000); clearTimeout(listen.cap); listen.cap = setTimeout(stopListening, 45000); // nothing said in 10 seconds, or 45 seconds in all: stop
+  };
+  rec.onstart = begin; rec.onaudiostart = begin;
   rec.onresult = e => { // no spaces after Chinese words
+    begin();
     text = [...e.results].map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').replace(/([\u3000-\u303f\u3400-\u9fff\uff00-\uffef]) /g, '$1').trim();
     quietFor(3000); // 3 seconds of quiet: done
   }; // 3 seconds of quiet: done
@@ -1053,8 +1071,8 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
   setSession('auto'); // let the phone switch to recording
   try { rec.start(); } catch { listen.rec = null; setSession('playback'); speak(tr('I could not start listening. Try again.', '没办法开始听。请再试一次。')); return; }
   btn.setAttribute('aria-pressed', 'true'); btn.textContent = lang === 'zh' ? '在听华语…点任何地方停止' : 'Listening… tap anywhere to stop';
-  sound.tick({ gain: 0.25 }); // the beep: start talking
-  quietFor(10000); listen.cap = setTimeout(stopListening, 45000); // nothing said in 10 seconds, or 45 seconds in all: stop
+  listen.cap = setTimeout(stopListening, 60000); // a minute to find Allow; once listening starts, begin() sets the real limits
+  if (mic.state !== 'granted' && !mic.hinted) { mic.hinted = true; speak(micHint()); } // cut short by the beep if the phone does not ask
 }
 async function storyFromVoice(text) {
   $('#storyText').value = text; followLang(text); // a sighted helper can check it on the My Earth song page
