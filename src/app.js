@@ -257,7 +257,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '21 Nov, mic hint', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '22 Nov, longer stories', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -976,11 +976,19 @@ async function readStory(text) {
     await prepareMoments(moments);
     moments.forEach(m => { if (m.year > lastMapYear() && !usesMonth(m)) { m.year = lastMapYear(); m.month = m.day = null; } }); // beyond NASA's data: use the latest year
   }
-  return { moments, note, usedAI };
+  // One moment alone is a five-second song with nothing to compare (Betty, 22 Nov): add today at the same place
+  let addedToday = false;
+  if (moments.length === 1 && moments[0].year < lastMapYear()) {
+    const m = moments[0];
+    moments.push({ year: lastMapYear(), month: null, day: null, name: m.name, lat: m.lat, lon: m.lon, label: hasHan(text) ? '今天' : 'Today' });
+    addedToday = true;
+  }
+  return { moments, note, usedAI, addedToday };
 }
-function useStory({ moments, note, usedAI }) {
+function useStory({ moments, note, usedAI, addedToday }) {
   state.moments = moments; state.picking = null; renderMoments();
-  $('#storyNote').textContent = `${usedAI ? 'AI found' : 'Found'} ${moments.length} moment${moments.length > 1 ? 's' : ''}. Check them below. ${note}`.trim();
+  const n = moments.length - (addedToday ? 1 : 0);
+  $('#storyNote').textContent = `${usedAI ? 'AI found' : 'Found'} ${n} moment${n > 1 ? 's' : ''}.${addedToday ? ' We added today at the same place, so you can compare.' : ''} Check them below. ${note}`.trim();
   if (state.songPlaying) stopSong();
 }
 async function storyToSong() {
@@ -1001,9 +1009,10 @@ async function storyToSong() {
 const songScreen = () => document.documentElement.classList.contains('remote-song');
 const songMap = () => tr('My Earth song. It turns places and years from your life into music made from NASA temperatures. '
   + 'The top of the screen is Back. Under it: Tell my story in English, then Tell my story in Chinese. Then Play my Earth song. At the bottom: What is in my song? '
+  + 'Tell your story in one or more sentences, each with a year and a place, then tap anywhere. '
   + 'Until you tell your story, your song is an example: Sibu and Kuching, from 1900 to today.',
   '我的地球之歌。把你人生里的地方和年份，变成用 NASA 温度资料做的音乐。屏幕最上面是返回。下面是"用英文讲我的故事"，再下面是"用华语讲我的故事"，然后是"播放我的地球之歌"，最下面是"我的歌里有什么"。'
-  + '还没讲故事以前，你的歌是一个例子：诗巫和古晋，从 1900 年到今天。');
+  + '讲故事时可以讲好几句，每句有年份和地方，讲完点一下屏幕。还没讲故事以前，你的歌是一个例子：诗巫和古晋，从 1900 年到今天。');
 const isExampleSong = () => state.moments.length === DEFAULT_MOMENTS.length && state.moments.every((m, i) => m.year === DEFAULT_MOMENTS[i].year && m.name === DEFAULT_MOMENTS[i].name);
 const zhPlaceOf = name => { // "Sibu" from the AI is "Sibu, Sarawak" in our list, which has a Chinese name
   for (const n of [name, findPlace(name)?.name, shortPlace(name)]) { if (n && placeZ(n) !== n) return placeZ(n); }
@@ -1055,7 +1064,7 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
   rec.onresult = e => { // no spaces after Chinese words
     begin();
     text = [...e.results].map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').replace(/([\u3000-\u303f\u3400-\u9fff\uff00-\uffef]) /g, '$1').trim();
-    quietFor(3000); // 3 seconds of quiet: done
+    quietFor(5000); // 5 seconds of quiet: done (people stop to think of the next sentence)
   }; // 3 seconds of quiet: done
   rec.onerror = e => { failed = e.error; };
   rec.onend = () => {
@@ -1085,8 +1094,9 @@ async function storyFromVoice(text) {
     speak(tr('I could not find a place and a year in your story. Tap Tell my story and try again, for example: I was born in Sibu in 2006. To tell it in Chinese, use the button just below it.', '我在你的故事里找不到地方和年份。再按一次"用华语讲我的故事"，例如说：我 2006 年在诗巫出生。')); return;
   }
   useStory(found);
-  const list = found.moments.map(m => momentWords(m)).join(ZH() ? '。' : '. ');
-  await speak(tr(`I found ${found.moments.length} moment${found.moments.length > 1 ? 's' : ''}: ${list}. Here is your Earth song.`, `我找到 ${found.moments.length} 个时刻：${list}。这是你的地球之歌。`));
+  const told = found.addedToday ? found.moments.slice(0, -1) : found.moments, list = told.map(m => momentWords(m)).join(ZH() ? '。' : '. ');
+  await speak(tr(`I found ${told.length} moment${told.length > 1 ? 's' : ''}: ${list}.${found.addedToday ? ' I added today at the same place, so you can hear how it changed since then.' : ''} Here is your Earth song.`,
+    `我找到 ${told.length} 个时刻：${list}。${found.addedToday ? '我加上了同一个地方的今天，让你听听从那时到现在变了多少。' : ''}这是你的地球之歌。`));
   if (songScreen()) remoteSongPlay({ intro: false });
 }
 async function remoteSongPlay({ intro = true } = {}) {
