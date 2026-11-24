@@ -259,7 +259,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '24 Nov b, song after mic', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '24 Nov c, local English', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1053,7 +1053,7 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
   if (lang !== talkLang) setTalk(lang);
   const rec = new Rec(), btn = $(lang === 'zh' ? '#songTellZh' : '#songTell'), idle = btn.textContent; let text = '', failed = '';
   listen.rec = rec;
-  rec.lang = lang === 'zh' ? 'zh-CN' : 'en-US'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.lang = lang === 'zh' ? 'zh-CN' : isIOS() ? 'en-SG' : 'en-US'; // iPhone has no Malaysian English; Singapore English hears our accent and town names better rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
   const quietFor = ms => { clearTimeout(listen.quiet); listen.quiet = setTimeout(stopListening, ms); };
   let began = false;
   const begin = () => { // listening has really started (the first time, only after Allow): beep, then talk
@@ -1088,7 +1088,11 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
   listen.cap = setTimeout(stopListening, 60000); // a minute to find Allow; once listening starts, begin() sets the real limits
   if (mic.state !== 'granted' && !mic.hinted) { mic.hinted = true; speak(micHint()); } // cut short by the beep if the phone does not ask
 }
+// Sarawak towns that speech recognition often mishears in English (Sibu becomes Cebu, a city in the Philippines)
+const fixHeard = t => t.replace(/\bcebu\b/gi, 'Sibu').replace(/\bsee ?boo\b/gi, 'Sibu')
+  .replace(/\b(in|at|from) (mary|merry|miry|mirey)\b/gi, '$1 Miri').replace(/\b(in|at|from) (coaching|cooching|cuching|kitching)\b/gi, '$1 Kuching');
 async function storyFromVoice(text) {
+  text = fixHeard(text);
   $('#storyText').value = text; followLang(text); // a sighted helper can check it on the My Earth song page
   const heard = text.replace(/[\s.。!！?？]+$/u, '');
   const said = speak(tr(`I heard: ${heard}. One moment, I am turning it into a song.`, `我听到：${heard}。请等一下，我把它变成歌。`));
