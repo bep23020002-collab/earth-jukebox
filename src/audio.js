@@ -26,6 +26,12 @@ export class Sound {
     if (this.ctx.state !== 'running') await Promise.race([this.ctx.resume().catch(() => {}), new Promise(r => setTimeout(r, 700))]);
     return this.ctx.state === 'running';
   }
+  // Call during a tap: a brand-new AudioContext. On iPhone, after the microphone, the old one can stay silent for good.
+  restart() {
+    try { this.ctx?.close(); } catch { /* already closed */ }
+    this.ctx = null; this.songBus = null; this.refNodes = null; this.refOn = false;
+    return this.start();
+  }
   // Call from a tap or key press: wakes the sound up again after iPhone paused it (a call, the lock screen, another app).
   wake() {
     if (!this.ctx || this.ctx.state === 'running') return;

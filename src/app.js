@@ -259,7 +259,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '24 Nov c, local English', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '24 Nov e, fresh sound', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1073,6 +1073,7 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
     clearTimeout(listen.quiet); clearTimeout(listen.cap); listen.rec = null;
     btn.setAttribute('aria-pressed', 'false'); btn.textContent = idle;
     setSession('playback'); sound.wake(); // the microphone is off: back to playing sound, even with the silent switch on
+    if (isIOS()) listen.micUsed = true; // iPhone: the next tap rebuilds the sound (see unlock)
     if (failed === 'network') { // Chrome on a computer listens through Google's servers
       speak(tr('Listening needs the internet, and this computer is offline. Ask someone to type your story on the My Earth song page, or press Play my Earth song to hear the example.', '听你说话需要网络，这台电脑现在没有连网。请别人在"我的地球之歌"页面帮你打字，或者按"播放我的地球之歌"听例子。')); return;
     }
@@ -1106,7 +1107,9 @@ async function storyFromVoice(text) {
   const told = found.addedToday ? found.moments.slice(0, -1) : found.moments, list = told.map(m => momentWords(m)).join(ZH() ? '。' : '. ');
   await speak(tr(`I found ${told.length} moment${told.length > 1 ? 's' : ''}: ${list}.${found.addedToday ? ' I added today at the same place, so you can hear how it changed since then.' : ''} Here is your Earth song.`,
     `我找到 ${told.length} 个时刻：${list}。${found.addedToday ? '我加上了同一个地方的今天，让你听听从那时到现在变了多少。' : ''}这是你的地球之歌。`));
-  if (songScreen()) remoteSongPlay({ intro: false });
+  if (!songScreen()) return;
+  if (isIOS()) { listen.songTap = true; speak(tr('Your song is ready. Tap anywhere on the screen to hear it.', '你的歌准备好了。点一下屏幕任何地方，就会播放。')); }
+  else remoteSongPlay({ intro: false });
 }
 async function remoteSongPlay({ intro = true } = {}) {
   if (state.songPlaying) { stopSong(); speak(tr('Stopped.', '停了。')); return; }
@@ -1502,9 +1505,9 @@ function setupTouchReader() {
     if (Math.hypot(t.clientX - tch.x, t.clientY - tch.y) > 10) stop(); // a scroll or a slider: leave it alone
   }, { capture: true, passive: false });
   document.addEventListener('touchend', e => {
-    if (listen.rec) { if (e.cancelable) e.preventDefault(); if (e.touches.length === 0) stopListening(); return; }
+    if (listen.rec) { if (e.cancelable) e.preventDefault(); if (e.touches.length === 0) { armed = null; stopListening(); } return; }
     if (listen.songTap && e.touches.length === 0) { // "tap anywhere to hear it": this tap (a real one) unlocks the sound
-      if (e.cancelable) e.preventDefault(); listen.songTap = false; setSession('playback'); remoteSongPlay({ intro: false }); return;
+      if (e.cancelable) e.preventDefault(); stop(); listen.songTap = false; armed = null; setSession('playback'); remoteSongPlay({ intro: false }); return; // stop(): no button name read over the song
     }
     if (two && e.touches.length === 0) {
       const quick = performance.now() - two.t < 500; two = null;
@@ -1519,7 +1522,7 @@ function setupTouchReader() {
     if (exploring) { if (e.cancelable) e.preventDefault(); armed = tch.item?.matches?.(CONTROL) ? tch.item : null; return; } // what you heard last is ready: tap it to press it
     const t = e.changedTouches[0], it = touchItem(t.clientX, t.clientY);
     if (!it || it.id === 'globeWrap') return;
-    if (it === armed && it.matches(CONTROL) && !it.disabled) return; // second tap: press it
+    if (it === armed && it.matches(CONTROL) && !it.disabled) { armed = null; return; } // second tap: press it (and forget it, so the next tap reads first)
     if (e.cancelable) e.preventDefault(); // first tap: only say what it is
     armed = it.matches(CONTROL) ? it : null;
     tch.item = null; say(it);
@@ -1978,6 +1981,7 @@ function setInert(on) { for (const el of document.querySelectorAll('body > .skip
 // wakes the sound if the phone paused it, and the first one unlocks speech, so later steps can talk.
 let speechUnlocked = false;
 function unlock() {
+  if (listen.micUsed) { listen.micUsed = false; sound.restart(); return; } // iPhone after the microphone: a fresh sound engine, made during this tap
   sound.wake();
   if (speechUnlocked || !('speechSynthesis' in window)) return;
   speechUnlocked = true;
