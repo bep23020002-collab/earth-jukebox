@@ -259,7 +259,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '24 Nov e, fresh sound', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '24 Nov f, tap anywhere', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1479,6 +1479,12 @@ function touchWords(el) {
   const d = spokenDesc(el);
   return tr(`${n}, button.${d ? ' ' + d : ''} Tap again to press it.`, `${n}，按钮。${d || ''}再点一下就会按下去。`);
 }
+// iPhone can still send a click after a cancelled touchend: swallow it, so the button under the finger is not pressed too
+function swallowNextClick() {
+  const eat = ev => { ev.preventDefault(); ev.stopImmediatePropagation(); };
+  document.addEventListener('click', eat, { capture: true, once: true });
+  setTimeout(() => document.removeEventListener('click', eat, { capture: true }), 800);
+}
 function setupTouchReader() {
   const stop = () => { tch.on = false; clearTimeout(tch.hold); };
   const say = item => {
@@ -1505,9 +1511,9 @@ function setupTouchReader() {
     if (Math.hypot(t.clientX - tch.x, t.clientY - tch.y) > 10) stop(); // a scroll or a slider: leave it alone
   }, { capture: true, passive: false });
   document.addEventListener('touchend', e => {
-    if (listen.rec) { if (e.cancelable) e.preventDefault(); if (e.touches.length === 0) { armed = null; stopListening(); } return; }
+    if (listen.rec) { if (e.cancelable) e.preventDefault(); if (e.touches.length === 0) { armed = null; swallowNextClick(); stopListening(); } return; }
     if (listen.songTap && e.touches.length === 0) { // "tap anywhere to hear it": this tap (a real one) unlocks the sound
-      if (e.cancelable) e.preventDefault(); stop(); listen.songTap = false; armed = null; setSession('playback'); remoteSongPlay({ intro: false }); return; // stop(): no button name read over the song
+      if (e.cancelable) e.preventDefault(); stop(); swallowNextClick(); listen.songTap = false; armed = null; setSession('playback'); remoteSongPlay({ intro: false }); return; // stop(): no button name read over the song
     }
     if (two && e.touches.length === 0) {
       const quick = performance.now() - two.t < 500; two = null;
