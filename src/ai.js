@@ -1,7 +1,7 @@
 // AI-assisted (Anthropic Claude).
 // Talks to the Earth Jukebox AI helper (worker/src/index.js). The helper only understands words;
 // every number the website shows or plays still comes from NASA's data.
-import { findPlace, PLACE_NAMES } from './places.js';
+import { findPlace, PLACE_NAMES, findZhPlace } from './places.js';
 
 // Set after the helper is deployed, e.g. "https://earth-jukebox-ai.<account>.workers.dev". Empty = AI features offline.
 export const AI_URL = 'https://earth-jukebox-ai.yapa920.workers.dev';
@@ -43,9 +43,9 @@ export function storyWithoutAI(text) {
   // full names ("Sibu, Sarawak") and their short form ("Sibu"), longest first
   const names = [...new Set(PLACE_NAMES.flatMap(n => [n, n.split(',')[0].trim()]))].sort((a, b) => b.length - a.length);
   const out = [];
-  for (const clause of text.split(/[.;!?\n]|,(?!\s*[0-9])\s*(?:and\s+)?|\band\b|\bthen\b/i)) {
+  for (const clause of text.split(/[.;!?\n。；！？，、]|,(?!\s*[0-9])\s*(?:and\s+)?|\band\b|\bthen\b/i)) {
     const date = findDate(clause);
-    const lower = clause.toLowerCase(), name = names.find(n => lower.includes(n.toLowerCase()));
+    const lower = clause.toLowerCase(), name = names.find(n => lower.includes(n.toLowerCase())) || findZhPlace(clause); // Chinese names work offline too
     if (!date || !name) continue;
     const month = date.month >= 1 && date.month <= 12 ? date.month : null, day = month && date.day >= 1 && date.day <= 31 ? date.day : null;
     const p = findPlace(name);

@@ -192,3 +192,14 @@ export function zhPlace(name) {
   const zh = ZH_NAMES[base] || base;
   return near ? `${zh}附近` : zh;
 }
+
+// Chinese names back to our English names, longest first (诗巫 also finds "Sibu, Sarawak" from 砂拉越诗巫)
+const ZH_TO_EN = (() => {
+  const pairs = [];
+  for (const [en, zh] of Object.entries(ZH_NAMES)) {
+    pairs.push([zh, en]);
+    if (zh.startsWith('砂拉越') && zh.length > 3) pairs.push([zh.slice(3), en]);
+  }
+  return pairs.sort((a, b) => b[0].length - a[0].length);
+})();
+export function findZhPlace(text) { const hit = ZH_TO_EN.find(([zh]) => text.includes(zh)); return hit ? hit[1] : null; }

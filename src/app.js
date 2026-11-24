@@ -226,13 +226,15 @@ function describeZh() {
 
 // ---------- speech ----------
 let voicePick = null;
+// Voices on this device first: a network voice (Chrome's "Google …" on Windows, Edge's "… Online") stays silent without the internet
+const local = v => v.localService !== false;
 function pickVoice() {
-  const vs = speechSynthesis.getVoices();
-  voicePick = vs.find(v => /en-(US|GB|AU)/i.test(v.lang) && /Samantha|Google|Natural|Daniel|Karen/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null;
+  const vs = speechSynthesis.getVoices(), nice = v => /en-(US|GB|AU)/i.test(v.lang) && /Samantha|Google|Natural|Daniel|Karen|Zira|Aria|Jenny/i.test(v.name);
+  voicePick = vs.find(v => local(v) && nice(v)) || vs.find(v => local(v) && /^en/i.test(v.lang)) || vs.find(nice) || vs.find(v => /^en/i.test(v.lang)) || null;
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 const hasHan = t => /[\u3400-\u9fff]/.test(t); // Chinese characters
-const zhVoice = () => { const vs = speechSynthesis.getVoices(); return vs.find(v => /^zh[-_](CN|Hans)/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; };
+const zhVoice = () => { const vs = speechSynthesis.getVoices(), cn = v => /^zh[-_](CN|Hans)/i.test(v.lang), zh = v => /^zh/i.test(v.lang); return vs.find(v => local(v) && cn(v)) || vs.find(v => local(v) && zh(v)) || vs.find(cn) || vs.find(zh) || null; };
 const cap = t => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 function announce(text) { text = cap(text); const el = $('#live'); el.lang = hasHan(text) ? 'zh' : 'en'; el.textContent = ''; requestAnimationFrame(() => { el.textContent = text; }); }
 // Speaking speed: a little slower than the phone's normal, so a first-time listener can follow (testers said it was too fast)
@@ -257,7 +259,7 @@ function syncLangKeys() {
 }
 function setTalk(l) { talkLang = l; try { localStorage.setItem('ej-talk', l); } catch { /* private window */ } setLang(l); syncLangKeys(); } // Speak and Ask the Earth follow too
 // Test aid: add ?debug to the address and a small bar shows what the phone's sound and speech are really doing
-const BUILD = '22 Nov, longer stories', dbg = { n: 0, said: '', ev: '' };
+const BUILD = '24 Nov b, song after mic', dbg = { n: 0, said: '', ev: '' };
 function setupDebug() {
   const bar = document.createElement('div'); bar.setAttribute('aria-hidden', 'true');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;font:11px/1.35 ui-monospace,Menlo,monospace;background:rgba(0,0,0,.82);color:#9f9;padding:4px 6px;pointer-events:none;white-space:pre-wrap';
@@ -1071,6 +1073,9 @@ function tellStory(lang = talkLang) { // lang: the language to listen in; the gu
     clearTimeout(listen.quiet); clearTimeout(listen.cap); listen.rec = null;
     btn.setAttribute('aria-pressed', 'false'); btn.textContent = idle;
     setSession('playback'); sound.wake(); // the microphone is off: back to playing sound, even with the silent switch on
+    if (failed === 'network') { // Chrome on a computer listens through Google's servers
+      speak(tr('Listening needs the internet, and this computer is offline. Ask someone to type your story on the My Earth song page, or press Play my Earth song to hear the example.', '听你说话需要网络，这台电脑现在没有连网。请别人在"我的地球之歌"页面帮你打字，或者按"播放我的地球之歌"听例子。')); return;
+    }
     if (failed === 'not-allowed' || failed === 'service-not-allowed') {
       speak(tr('The microphone is blocked for this page. Ask someone to allow the microphone, or press Play my Earth song to hear the example.', '这个网页不能用麦克风。请别人帮你允许麦克风，或者按"播放我的地球之歌"听例子。')); return;
     }
@@ -1101,7 +1106,9 @@ async function storyFromVoice(text) {
 }
 async function remoteSongPlay({ intro = true } = {}) {
   if (state.songPlaying) { stopSong(); speak(tr('Stopped.', '停了。')); return; }
-  if (!(await sound.start())) { speak(tr('Your song is ready. Tap Play my Earth song to hear it.', '你的歌准备好了。按"播放我的地球之歌"来听。')); return; }
+  if (!(await sound.start())) { // iPhone often keeps sound locked after the microphone: the next tap anywhere unlocks it
+    listen.songTap = true; speak(tr('Your song is ready. Tap anywhere on the screen to hear it.', '你的歌准备好了。点一下屏幕任何地方，就会播放。')); return;
+  }
   if (intro) await speak(tr(isExampleSong() ? 'The example song.' : 'Your Earth song.', isExampleSong() ? '例子歌。' : '你的地球之歌。'));
   playSong();
 }
@@ -1492,6 +1499,9 @@ function setupTouchReader() {
   }, { capture: true, passive: false });
   document.addEventListener('touchend', e => {
     if (listen.rec) { if (e.cancelable) e.preventDefault(); if (e.touches.length === 0) stopListening(); return; }
+    if (listen.songTap && e.touches.length === 0) { // "tap anywhere to hear it": this tap (a real one) unlocks the sound
+      if (e.cancelable) e.preventDefault(); listen.songTap = false; setSession('playback'); remoteSongPlay({ intro: false }); return;
+    }
     if (two && e.touches.length === 0) {
       const quick = performance.now() - two.t < 500; two = null;
       if (quick) { // lost? two fingers anywhere: the remote opens, or says again where everything is
